@@ -8,11 +8,12 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
 $fx = Join-Path $PSScriptRoot "..\tests\fixtures"
 New-Item -ItemType Directory -Force $fx | Out-Null
 
-& $ff -y -v error -f lavfi -i "sine=frequency=1000:sample_rate=44100:duration=3" -af "volume=0.9" -ac 1 -c:a pcm_s16le "$fx\sine-1khz.wav"
-& $ff -y -v error -f lavfi -i "sine=frequency=1000:sample_rate=44100:duration=3" -af "volume=0.9" -ac 1 -sample_fmt s16 -c:a flac "$fx\sine-1khz.flac"
-& $ff -y -v error -f lavfi -i "sine=frequency=1000:sample_rate=44100:duration=3" -af "volume=0.9" -ac 1 -b:a 128k "$fx\sine-1khz.mp3"
+# aevalsrc keeps the amplitude explicit (lavfi's `sine` source is fixed at 1/8)
+& $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 1 -c:a pcm_s16le "$fx\sine-1khz.wav"
+& $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 1 -sample_fmt s16 -c:a flac "$fx\sine-1khz.flac"
+& $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 1 -b:a 128k "$fx\sine-1khz.mp3"
 & $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -ac 1 -c:a pcm_s16le "$fx\chirp.wav"
 & $ff -y -v error -f lavfi -i "anoisesrc=colour=white:sample_rate=44100:duration=3:amplitude=0.5" -ac 1 -c:a pcm_s16le "$fx\noise.wav"
-& $ff -y -v error -f lavfi -i "sine=frequency=1000:sample_rate=44100:duration=3" -af "volume=0.9" -ac 2 -c:a pcm_s16le "$fx\sine-1khz-stereo.wav"
+& $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 2 -c:a pcm_s16le "$fx\sine-1khz-stereo.wav"
 Set-Content "$fx\notaudio.txt" "this is not an audio file"
 Get-ChildItem $fx
