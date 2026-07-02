@@ -1,0 +1,6 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.MainWindow"
+        Title="Spektra" Width="1100" Height="620"
+        Background="#111111">
+</Window>

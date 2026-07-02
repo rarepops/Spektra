@@ -1,0 +1,15 @@
+# build output
+bin/
+obj/
+artifacts/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# local-only working docs (never commit specs/plans)
+docs/superpowers/
+
+# ffmpeg binaries are downloaded, never committed
+tools/ffmpeg/

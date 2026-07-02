@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Spektra.App/Spektra.App.csproj" />
+    <Project Path="src/Spektra.Core/Spektra.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Spektra.Tests/Spektra.Tests.csproj" />
+  </Folder>
+</Solution>
