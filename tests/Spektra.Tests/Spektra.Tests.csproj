@@ -22,4 +22,8 @@
     <ProjectReference Include="..\..\src\Spektra.Core\Spektra.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="fixtures" />
+  </ItemGroup>
+
 </Project>
