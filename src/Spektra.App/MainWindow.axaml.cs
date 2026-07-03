@@ -297,6 +297,16 @@ public partial class MainWindow : Window
         if (_vm.Selected is ComparisonViewModel cmp) await cmp.NullTestAsync();
     }
 
+    private void OnNudgeOffsetLeft(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is ComparisonViewModel cmp) cmp.OffsetMs--;
+    }
+
+    private void OnNudgeOffsetRight(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is ComparisonViewModel cmp) cmp.OffsetMs++;
+    }
+
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
 
     private Control? VisibleSurface() => _vm.Selected switch

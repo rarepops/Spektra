@@ -40,7 +40,7 @@
   </Window.Styles>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="6">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,10,0" Spacing="6">
         <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#888888" FontSize="12" />
         <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}"
                   MinWidth="84" FontSize="12" VerticalAlignment="Center"
@@ -147,13 +147,19 @@
 
     <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
       <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" VerticalAlignment="Center" />
-      <Button DockPanel.Dock="Right" Content="Null" Click="OnNullTestClicked" Margin="8,0,0,0" VerticalAlignment="Center"
+      <Button DockPanel.Dock="Right" Content="Null test" Click="OnNullTestClicked" Margin="8,0,0,0" VerticalAlignment="Center"
               ToolTip.Tip="Time-domain A−B residual over the visible span" />
-      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#888888" Text="ms" Margin="4,0,0,0" />
-      <NumericUpDown DockPanel.Dock="Right" VerticalAlignment="Center" Width="108" FontSize="12"
-                     Minimum="-5500" Maximum="5500" Increment="1" FormatString="+0;-0"
-                     Value="{Binding OffsetMs, Mode=TwoWay}" Margin="8,0,0,0"
-                     ToolTip.Tip="Total offset in ms (type an exact value)" />
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Spacing="4" Margin="8,0,0,0">
+        <Button Content="◀" Click="OnNudgeOffsetLeft" Padding="9,2" VerticalAlignment="Center"
+                ToolTip.Tip="Shift B 1 ms earlier" />
+        <NumericUpDown ShowButtonSpinner="False" Width="72" FontSize="12"
+                       Minimum="-5500" Maximum="5500" Increment="1" FormatString="+0;-0"
+                       Value="{Binding OffsetMs, Mode=TwoWay}"
+                       ToolTip.Tip="Total offset in ms (type an exact value)" />
+        <Button Content="▶" Click="OnNudgeOffsetRight" Padding="9,2" VerticalAlignment="Center"
+                ToolTip.Tip="Shift B 1 ms later" />
+        <TextBlock VerticalAlignment="Center" Foreground="#888888" Text="ms" />
+      </StackPanel>
       <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#999999" Text="Align" Margin="0,0,8,0" />
       <Grid ColumnDefinitions="Auto,2*,Auto,1*" VerticalAlignment="Center">
         <TextBlock Grid.Column="0" Text="coarse" VerticalAlignment="Center" Foreground="#666666" Margin="0,0,8,0" />
