@@ -14,6 +14,10 @@ New-Item -ItemType Directory -Force $fx | Out-Null
 & $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 1 -b:a 128k "$fx\sine-1khz.mp3"
 & $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -ac 1 -c:a pcm_s16le "$fx\chirp.wav"
 & $ff -y -v error -f lavfi -i "anoisesrc=colour=white:sample_rate=44100:duration=3:amplitude=0.5" -ac 1 -c:a pcm_s16le "$fx\noise.wav"
+# full-band chirp encoded at MP3 64k — a real lossy brick-wall cutoff (~16.8 kHz)
+# for the cutoff/lossless verdict test. The chirp hits every frequency at full
+# amplitude, so the encoder's low-pass shows as an unambiguous cliff.
+& $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -ac 1 -b:a 64k "$fx\chirp-mp3-64.mp3"
 & $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 2 -c:a pcm_s16le "$fx\sine-1khz-stereo.wav"
 # distinct tones per channel (L=1 kHz, R=3 kHz) so channel selection is verifiable
 & $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t)|0.9*sin(2*PI*3000*t):s=44100:c=stereo:d=3" -c:a pcm_s16le "$fx\sine-dual-channel.wav"

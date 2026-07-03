@@ -32,6 +32,30 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool HasError => _errorText is not null;
     public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
 
+    private LosslessVerdict? _verdict;
+
+    /// Bandwidth/lossless verdict computed from the finished overview. Null while
+    /// loading or when there is not enough signal to judge.
+    public LosslessVerdict? Verdict
+    {
+        get => _verdict;
+        private set
+        {
+            if (!Set(ref _verdict, value)) return;
+            RaisePropertyChanged(nameof(VerdictText));
+            RaisePropertyChanged(nameof(HasVerdict));
+            RaisePropertyChanged(nameof(VerdictIsLossless));
+            RaisePropertyChanged(nameof(VerdictIsSuspicious));
+            RaisePropertyChanged(nameof(VerdictIsLossy));
+        }
+    }
+
+    public bool HasVerdict => _verdict is { Kind: not VerdictKind.Unknown };
+    public string? VerdictText => _verdict?.Summary;
+    public bool VerdictIsLossless => _verdict?.Kind == VerdictKind.Lossless;
+    public bool VerdictIsSuspicious => _verdict?.Kind == VerdictKind.Suspicious;
+    public bool VerdictIsLossy => _verdict?.Kind == VerdictKind.Lossy;
+
     public List<string> ChannelOptions
     {
         get => _channelOptions;
@@ -87,6 +111,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
 
         ErrorText = null;
         Tile = null;
+        Verdict = null;
         StatusText = "Reading metadata…";
 
         try
@@ -131,6 +156,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
 
             DocumentUpdated?.Invoke();
             StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {doc.Count} columns";
+            Verdict = await Task.Run(() => AnalyzeBandwidth(doc, meta.SampleRate), cts.Token);
         }
         catch (OperationCanceledException) { /* superseded or closed */ }
         catch (AudioDecodeException ex)
@@ -181,5 +207,16 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     {
         _loadCts?.Cancel();
         _tileCts?.Cancel();
+    }
+
+    /// Snapshots the finished overview columns and runs the bandwidth/lossless
+    /// analysis. Peak-hold over the whole file, so the zoomed-out max-merged
+    /// columns are exactly what the detector needs.
+    private static LosslessVerdict AnalyzeBandwidth(SpectrogramDocument doc, int sampleRate)
+    {
+        var count = doc.Count;
+        var columns = new List<float[]>(count);
+        for (var i = 0; i < count; i++) columns.Add(doc.GetColumn(i));
+        return CutoffAnalyzer.Analyze(columns, sampleRate);
     }
 }
