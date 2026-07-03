@@ -75,6 +75,17 @@ public class AudioDecoderTests
     }
 
     [Fact]
+    public void SampleRate_Override_ShiftsDominantBin()
+    {
+        // 1 kHz tone, window 2048. Native 44100 → bin ≈ 1000*2048/44100 ≈ 46.
+        // Forced to 22050 → bin ≈ 1000*2048/22050 ≈ 93.
+        var bin = DominantBin(Decoder().DecodeMonoChunks(
+            Path.Combine(Fixtures, "sine-1khz.wav"), CancellationToken.None,
+            new DecodeOptions(SampleRate: 22050)));
+        Assert.InRange(bin, 92, 94);
+    }
+
+    [Fact]
     public void Channel1_DecodesLeft1kHz()
     {
         var bin = DominantBin(Decoder().DecodeMonoChunks(

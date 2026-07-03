@@ -40,6 +40,11 @@ public sealed class AudioDecoder(string ffmpegPath)
         {
             args.AddRange(["-ac", "1"]);
         }
+        if (o.SampleRate is { } rate)
+        {
+            args.Add("-ar");
+            args.Add(rate.ToString(CultureInfo.InvariantCulture));
+        }
         args.AddRange(["-f", "f32le", "-"]);
         foreach (var a in args) psi.ArgumentList.Add(a);
 
