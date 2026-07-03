@@ -82,14 +82,24 @@ sealed class PaneRenderer : IDisposable
         double paneT0, double paneT1, double f0, double f1, double vpT0, double vpT1)
     {
         if (!HasImage) return;
-        var zoomed = paneT0 > 0 || paneT1 < 1 || f0 > 0 || f1 < 1;
-        var src = !zoomed
-            ? new Rect(0, 0, _written, _doc!.Bins)
-            : new Rect(
-                Math.Clamp(paneT0, 0, 1) * _written, (1 - f1) * _doc!.Bins,
-                Math.Max(1, (Math.Clamp(paneT1, 0, 1) - Math.Clamp(paneT0, 0, 1)) * _written),
+        var span = paneT1 - paneT0;
+        // Clip this pane's own [0,1] data to the requested window. When an offset
+        // pushes the window past the data (paneT0 < 0 or paneT1 > 1), draw the
+        // valid slice into the matching sub-rect so the pane SHIFTS (leaving a
+        // blank margin) instead of stretching the remainder over the whole rect.
+        var vis0 = Math.Clamp(paneT0, 0, 1);
+        var vis1 = Math.Clamp(paneT1, 0, 1);
+        if (vis1 > vis0 && span > 0)
+        {
+            var src = new Rect(
+                vis0 * _written, (1 - f1) * _doc!.Bins,
+                Math.Max(1, (vis1 - vis0) * _written),
                 Math.Max(1, (f1 - f0) * _doc.Bins));
-        ctx.DrawImage(_overview!, src, rect);
+            var dst = new Rect(
+                rect.X + (vis0 - paneT0) / span * rect.Width, rect.Y,
+                (vis1 - vis0) / span * rect.Width, rect.Height);
+            ctx.DrawImage(_overview!, src, dst);
+        }
 
         if (_tile is not null && _tileShown is { } tile &&
             Math.Abs(tile.T0 - vpT0) < 1e-9 && Math.Abs(tile.T1 - vpT1) < 1e-9)
