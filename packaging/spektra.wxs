@@ -10,7 +10,7 @@
   The UpgradeCode must stay constant across versions so upgrades replace in place.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Spektra" Manufacturer="rarepops" Version="0.5.0"
+  <Package Name="Spektra" Manufacturer="rarepops" Version="!(bind.FileVersion.spektraExe)"
            UpgradeCode="3F6E162E-15A4-4C40-A0B7-F0CEA4176DF3"
            Scope="perMachine" Compressed="yes">
 

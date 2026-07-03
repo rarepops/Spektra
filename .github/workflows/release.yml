@@ -1,0 +1,99 @@
+name: release
+
+# Builds and publishes a release when a version tag (vX.Y.Z) is pushed to main.
+# Manual runs (workflow_dispatch) build the artifacts for inspection but do not
+# create a GitHub release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without the leading v (manual test builds only)'
+        required: false
+        default: '0.0.0-dev'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        id: v
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $ver = $env:GITHUB_REF_NAME.TrimStart('v') }
+          else { $ver = '${{ inputs.version }}' }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Building version $ver"
+
+      - name: Publish GUI (win-x64)
+        run: >
+          dotnet publish src/Spektra.App -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:DebugType=none
+          -p:Version=${{ steps.v.outputs.version }} -o dist/gui-win-x64
+
+      - name: Publish CLI (win/linux/osx)
+        shell: pwsh
+        run: |
+          foreach ($rid in 'win-x64','linux-x64','osx-x64','osx-arm64') {
+            dotnet publish src/Spektra.Cli -c Release -r $rid --self-contained true `
+              -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none `
+              -p:Version=${{ steps.v.outputs.version }} -o "dist/cli-$rid"
+            if ($LASTEXITCODE -ne 0) { throw "publish failed for $rid" }
+          }
+
+      - name: Build MSI installer
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          New-Item -ItemType Directory -Force dist/artifacts | Out-Null
+          wix build packaging/spektra.wxs -o "dist/artifacts/Spektra-${{ steps.v.outputs.version }}-Setup.msi"
+          if ($LASTEXITCODE -ne 0) { throw "wix build failed" }
+
+      - name: Package archives
+        shell: pwsh
+        run: |
+          $ver = '${{ steps.v.outputs.version }}'
+          $art = 'dist/artifacts'
+          New-Item -ItemType Directory -Force $art | Out-Null
+
+          $g = 'dist/stage-gui'
+          New-Item -ItemType Directory -Force $g | Out-Null
+          Copy-Item dist/gui-win-x64/spektra.exe $g
+          Copy-Item LICENSE.md, README.md $g
+          Compress-Archive -Path "$g/*" -DestinationPath "$art/Spektra-$ver-win-x64.zip" -Force
+
+          foreach ($rid in 'win-x64','linux-x64','osx-x64','osx-arm64') {
+            $s = "dist/stage-cli-$rid"
+            New-Item -ItemType Directory -Force $s | Out-Null
+            Copy-Item (Get-ChildItem "dist/cli-$rid/spektra*") $s
+            Copy-Item LICENSE.md $s
+            Compress-Archive -Path "$s/*" -DestinationPath "$art/spektra-cli-$ver-$rid.zip" -Force
+          }
+          Get-ChildItem $art
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: spektra-${{ steps.v.outputs.version }}
+          path: dist/artifacts/*
+
+      - name: Create GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Spektra ${{ steps.v.outputs.version }}
+          files: dist/artifacts/*
+          generate_release_notes: true

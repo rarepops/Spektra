@@ -1,0 +1,29 @@
+name: ci
+
+# Build and test on every push/PR to main or dev. Tests decode small audio
+# fixtures, so ffmpeg is installed on the runner.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Build
+        run: dotnet build Spektra.slnx -c Release --nologo
+
+      - name: Test
+        run: dotnet test tests/Spektra.Tests -c Release --nologo
