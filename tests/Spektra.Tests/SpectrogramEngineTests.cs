@@ -88,6 +88,17 @@ public class SpectrogramEngineTests
     }
 
     [Fact]
+    public void HopOverride_ProducesDenserColumns()
+    {
+        // (10240 - 512) / 64 + 1 = 153 windows at hop 64 (vs 39 at default hop 256)
+        var settings = new SpectrogramSettings(WindowSize: 512, MaxColumns: 100_000, HopOverride: 64);
+        var engine = new SpectrogramEngine(settings);
+        const int total = 512 * 20;
+        var count = engine.Columns(Chunks(new float[total]), 0, CancellationToken.None).Count();
+        Assert.InRange(count, 145, 153);
+    }
+
+    [Fact]
     public void Cancellation_StopsEnumeration()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings());
