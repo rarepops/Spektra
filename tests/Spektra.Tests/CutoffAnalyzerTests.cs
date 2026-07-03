@@ -61,6 +61,22 @@ public class CutoffAnalyzerTests
     }
 
     [Fact]
+    public void PureLowTone_IsBandLimited_NotLossy()
+    {
+        // Energy only near 1 kHz, dead above. That is band-limited content, not a
+        // codec cutoff, so it must not be flagged Lossy.
+        const int bins = 1025;
+        const double hzPerBin = 22050.0 / (bins - 1);
+        var col = new float[bins];
+        Array.Fill(col, Db.Floor);
+        var toneBin = (int)Math.Round(1000 / hzPerBin);
+        col[toneBin] = -3f;
+        col[toneBin - 1] = col[toneBin + 1] = -14f;
+        var v = CutoffAnalyzer.Analyze([col], 44100);
+        Assert.NotEqual(VerdictKind.Lossy, v.Kind);
+    }
+
+    [Fact]
     public void Silence_IsUnknown()
     {
         var col = new float[1025];

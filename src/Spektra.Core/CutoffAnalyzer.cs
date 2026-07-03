@@ -27,6 +27,11 @@ public static class CutoffAnalyzer
     // A cutoff within this fraction of Nyquist is treated as effectively full-band.
     private const double FullBandRatio = 0.92;
 
+    // No lossy codec low-passes this far down; a cutoff below this is just
+    // naturally band-limited content (a pure tone, a bass-only signal), which
+    // says nothing about the encoding.
+    private const double MinLossyCutoffHz = 6000.0;
+
     // How far below the active line counts as "dead" air, and how narrow the drop
     // from the last live bin to dead air must be to read as a codec brick wall
     // (rather than a gradual, natural high-frequency rolloff).
@@ -73,6 +78,10 @@ public static class CutoffAnalyzer
         if (ratio >= FullBandRatio)
             return new LosslessVerdict(VerdictKind.Lossless, null, nyquist,
                 $"Full-band to {Khz(nyquist)}. No cutoff detected; consistent with lossless.", null);
+
+        if (cutoffHz < MinLossyCutoffHz)
+            return new LosslessVerdict(VerdictKind.Unknown, cutoffHz, nyquist,
+                $"Band-limited to {Khz(cutoffHz)}; too little high-frequency content to judge encoding.", null);
 
         // How quickly does the top of the band collapse into dead air? A codec
         // brick wall drops within a few hundred Hz; a natural rolloff takes kHz.
