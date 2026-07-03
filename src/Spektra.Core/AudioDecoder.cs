@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace Spektra.Core;
@@ -7,7 +8,8 @@ public sealed class AudioDecoder(string ffmpegPath)
 {
     private const int ChunkBytes = 256 * 1024; // 64k floats
 
-    public IEnumerable<float[]> DecodeMonoChunks(string filePath, CancellationToken ct)
+    public IEnumerable<float[]> DecodeMonoChunks(
+        string filePath, CancellationToken ct, DecodeOptions? options = null)
     {
         var psi = new ProcessStartInfo(ffmpegPath)
         {
@@ -16,11 +18,30 @@ public sealed class AudioDecoder(string ffmpegPath)
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
-        foreach (var a in new[]
+        var o = options ?? new DecodeOptions();
+        var args = new List<string> { "-v", "error" };
+        if (o.Start is { } start)
         {
-            "-v", "error", "-i", filePath, "-map", "0:a:0",
-            "-ac", "1", "-f", "f32le", "-",
-        }) psi.ArgumentList.Add(a);
+            args.Add("-ss");
+            args.Add(start.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture));
+        }
+        if (o.Duration is { } duration)
+        {
+            args.Add("-t");
+            args.Add(duration.TotalSeconds.ToString("0.######", CultureInfo.InvariantCulture));
+        }
+        args.AddRange(["-i", filePath, "-map", "0:a:0"]);
+        if (o.Channel is { } channel)
+        {
+            args.Add("-af");
+            args.Add($"pan=mono|c0=c{channel}");
+        }
+        else
+        {
+            args.AddRange(["-ac", "1"]);
+        }
+        args.AddRange(["-f", "f32le", "-"]);
+        foreach (var a in args) psi.ArgumentList.Add(a);
 
         using var p = Process.Start(psi)
             ?? throw new AudioDecodeException("Failed to start ffmpeg.");

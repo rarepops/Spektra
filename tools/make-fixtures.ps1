@@ -15,5 +15,7 @@ New-Item -ItemType Directory -Force $fx | Out-Null
 & $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -ac 1 -c:a pcm_s16le "$fx\chirp.wav"
 & $ff -y -v error -f lavfi -i "anoisesrc=colour=white:sample_rate=44100:duration=3:amplitude=0.5" -ac 1 -c:a pcm_s16le "$fx\noise.wav"
 & $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t):s=44100:d=3" -ac 2 -c:a pcm_s16le "$fx\sine-1khz-stereo.wav"
+# distinct tones per channel (L=1 kHz, R=3 kHz) so channel selection is verifiable
+& $ff -y -v error -f lavfi -i "aevalsrc=0.9*sin(2*PI*1000*t)|0.9*sin(2*PI*3000*t):s=44100:c=stereo:d=3" -c:a pcm_s16le "$fx\sine-dual-channel.wav"
 Set-Content "$fx\notaudio.txt" "this is not an audio file"
 Get-ChildItem $fx
