@@ -147,6 +147,8 @@
 
     <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
       <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" VerticalAlignment="Center" />
+      <Button DockPanel.Dock="Right" Content="Null" Click="OnNullTestClicked" Margin="8,0,0,0" VerticalAlignment="Center"
+              ToolTip.Tip="Time-domain A−B residual over the visible span" />
       <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#888888" Text="ms" Margin="4,0,0,0" />
       <NumericUpDown DockPanel.Dock="Right" VerticalAlignment="Center" Width="108" FontSize="12"
                      Minimum="-5500" Maximum="5500" Increment="1" FormatString="+0;-0"

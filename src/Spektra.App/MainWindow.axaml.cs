@@ -292,6 +292,11 @@ public partial class MainWindow : Window
         if (_vm.Selected is ComparisonViewModel cmp) await cmp.AlignAsync();
     }
 
+    private async void OnNullTestClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is ComparisonViewModel cmp) await cmp.NullTestAsync();
+    }
+
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
 
     private Control? VisibleSurface() => _vm.Selected switch

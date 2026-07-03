@@ -9,6 +9,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     private readonly FfmpegPaths _ffmpeg;
     private CancellationTokenSource? _diffCts;
     private CancellationTokenSource? _alignCts;
+    private CancellationTokenSource? _nullCts;
 
     private bool _isSelected;
     private CompareMode _mode = CompareMode.Both;
@@ -204,10 +205,40 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             AlignHint = null;
             OffsetSeconds = res.Offset.TotalSeconds;
             StatusText = $"Aligned {OffsetMs:+0;-0} ms (confidence {res.Confidence:0.00})";
+            var drift = await Task.Run(() => Aligner.EstimateDriftSeconds(
+                _ffmpeg, A.FilePath, B.FilePath, A.SelectedChannel, B.SelectedChannel, ct: cts.Token), cts.Token);
+            if (!cts.Token.IsCancellationRequested && drift > 0.02)
+                AlignHint = $"Alignment drifts about {drift * 1000:0} ms across the file; a single offset can't fully align it.";
         }
         catch (OperationCanceledException) { }
         catch (AudioDecodeException ex) { AlignHint = ex.Message; StatusText = ""; }
         finally { if (ReferenceEquals(_alignCts, cts)) BusyText = null; }
+    }
+
+    /// Time-domain phase-cancellation test over the visible span: A minus B
+    /// (B shifted by the offset), reported as a residual level in the status line.
+    public async Task NullTestAsync()
+    {
+        if (A.Metadata is not { } ma || B.Metadata is not { } mb) return;
+        _nullCts?.Cancel();
+        var cts = _nullCts = new CancellationTokenSource();
+        var vp = Viewport;
+        var refDur = ma.Duration.TotalSeconds;
+        var startSec = vp.T0 * refDur;
+        var spanSec = vp.TimeSpanN * refDur;
+        if (spanSec <= 0) return;
+        var rate = Math.Min(ma.SampleRate, mb.SampleRate);
+        BusyText = "Null test…";
+        try
+        {
+            var res = await Task.Run(() => new NullTest(_ffmpeg).Compute(
+                A.FilePath, A.SelectedChannel, B.FilePath, B.SelectedChannel,
+                startSec, spanSec, _offsetSeconds, rate, cts.Token), cts.Token);
+            if (!cts.Token.IsCancellationRequested) StatusText = res.Summary;
+        }
+        catch (OperationCanceledException) { }
+        catch (AudioDecodeException ex) { StatusText = ex.Message; }
+        finally { if (ReferenceEquals(_nullCts, cts)) BusyText = null; }
     }
 
     public async Task ComputeDiffAsync(int targetColumns)
@@ -217,8 +248,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         {
             StatusText = "Diff unavailable — one file failed to decode.";
             return;
-        }
-        _diffCts?.Cancel();
+        }        _diffCts?.Cancel();
         var cts = _diffCts = new CancellationTokenSource();
         var vp = Viewport;
         var refDur = ma.Duration.TotalSeconds;
@@ -234,6 +264,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
                 startSec, spanSec, _offsetSeconds, targetColumns, _windowSize, _window, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested || cols.Count == 0) return;
             Diff = cols; DiffT0 = t0; DiffT1 = t1;
+            StatusText = DiffScore.Compute(cols).Summary;
             DiffChanged?.Invoke();
         }
         catch (OperationCanceledException) { }
@@ -245,6 +276,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     {
         _diffCts?.Cancel();
         _alignCts?.Cancel();
+        _nullCts?.Cancel();
         A.Cancel();
         B.Cancel();
     }

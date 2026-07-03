@@ -56,6 +56,21 @@ public static class Aligner
         return new AlignResult(TimeSpan.FromSeconds((double)lag / rate), conf);
     }
 
+    /// Decodes a longer window of each file and measures how much the alignment
+    /// lag drifts across it (see DriftAligner). Returns the lag spread in seconds:
+    /// near zero means one global offset aligns everything; larger means the two
+    /// drift apart and a single offset cannot fully align them.
+    public static double EstimateDriftSeconds(
+        FfmpegPaths ffmpeg, string pathA, string pathB, int? channelA, int? channelB,
+        double windowSeconds = 30, int rate = 16000, int segments = 6, double maxLagSeconds = 2,
+        CancellationToken ct = default)
+    {
+        var a = DecodePrefix(ffmpeg, pathA, channelA, windowSeconds, rate, ct);
+        var b = DecodePrefix(ffmpeg, pathB, channelB, windowSeconds, rate, ct);
+        var anchors = DriftAligner.EstimateDrift(a, b, segments, (int)(maxLagSeconds * rate));
+        return (double)DriftAligner.LagSpread(anchors) / rate;
+    }
+
     private static float[] DecodePrefix(
         FfmpegPaths ffmpeg, string path, int? channel, double seconds, int rate, CancellationToken ct)
     {
@@ -67,3 +82,5 @@ public static class Aligner
         return [.. list];
     }
 }
+
+    
