@@ -37,14 +37,24 @@ public partial class MainWindow : Window
         if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
         {
             var autoAlign = args.Contains("--auto");
+            var mi = Array.IndexOf(args, "--mode");
+            var startMode = mi >= 0 && mi + 1 < args.Length
+                ? args[mi + 1].ToLowerInvariant() switch
+                {
+                    "a" => (CompareMode?)CompareMode.A,
+                    "b" => CompareMode.B,
+                    "diff" => CompareMode.Diff,
+                    "both" => CompareMode.Both,
+                    _ => null,
+                }
+                : null;
             Opened += async (_, _) =>
             {
                 _vm.OpenComparison(pathA, pathB);
-                if (autoAlign && _vm.Selected is ComparisonViewModel cmp)
-                {
-                    await Task.Delay(1500); // let metadata/overviews load
-                    await cmp.AlignAsync();
-                }
+                if (_vm.Selected is not ComparisonViewModel cmp) return;
+                await Task.Delay(1500); // let metadata/overviews load
+                if (autoAlign) await cmp.AlignAsync();
+                if (startMode is { } m) cmp.Mode = m;
             };
         }
         else
