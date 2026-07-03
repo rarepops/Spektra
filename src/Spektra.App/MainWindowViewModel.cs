@@ -1,4 +1,5 @@
-using Avalonia.Threading;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Spektra.Core;
 
 namespace Spektra.App;
@@ -6,93 +7,99 @@ namespace Spektra.App;
 public sealed class MainWindowViewModel : ObservableObject
 {
     private FfmpegPaths? _ffmpeg;
-    private CancellationTokenSource? _cts;
+    private DocumentViewModel? _selected;
 
-    private string _headerText = "";
     private string _statusText = "";
-    private string? _errorText;
-    private bool _showHint = true;
+    private string? _shellErrorText;
     private bool _ffmpegMissing;
 
-    public string HeaderText { get => _headerText; set => Set(ref _headerText, value); }
+    public ObservableCollection<DocumentViewModel> Documents { get; } = [];
+
     public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
 
-    public string? ErrorText
+    public string? ShellErrorText
     {
-        get => _errorText;
-        set { if (Set(ref _errorText, value)) RaisePropertyChanged(nameof(HasError)); }
+        get => _shellErrorText;
+        set { if (Set(ref _shellErrorText, value)) RaisePropertyChanged(nameof(HasShellError)); }
     }
 
-    public bool HasError => _errorText is not null;
-    public bool ShowHint { get => _showHint; set => Set(ref _showHint, value); }
+    public bool HasShellError => _shellErrorText is not null;
     public bool FfmpegMissing { get => _ffmpegMissing; set => Set(ref _ffmpegMissing, value); }
+    public bool ShowHint => Documents.Count == 0;
 
-    public event Action<SpectrogramDocument?>? DocumentChanged;
-    public event Action? DocumentUpdated;
+    public event Action<DocumentViewModel?>? SelectedChanged;
+
+    public DocumentViewModel? Selected
+    {
+        get => _selected;
+        set
+        {
+            if (_selected == value) return;
+            if (_selected is not null)
+            {
+                _selected.IsSelected = false;
+                _selected.PropertyChanged -= OnSelectedDocPropertyChanged;
+            }
+            _selected = value;
+            if (value is not null)
+            {
+                value.IsSelected = true;
+                value.PropertyChanged += OnSelectedDocPropertyChanged;
+            }
+            StatusText = value?.StatusText ?? "";
+            RaisePropertyChanged(nameof(Selected));
+            SelectedChanged?.Invoke(value);
+        }
+    }
 
     public MainWindowViewModel()
     {
+        Documents.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
         _ffmpeg = FfmpegLocator.LocateDefault(); // probes app dir, %LOCALAPPDATA%, then PATH
         if (_ffmpeg is null)
         {
             FfmpegMissing = true;
-            ErrorText = "ffmpeg was not found. Spektra needs ffmpeg + ffprobe to decode audio.";
+            ShellErrorText = "ffmpeg was not found. Spektra needs ffmpeg + ffprobe to decode audio.";
         }
     }
 
-    public async Task LoadFileAsync(string path)
+    private void OnSelectedDocPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender == _selected && e.PropertyName == nameof(DocumentViewModel.StatusText))
+            StatusText = _selected!.StatusText;
+    }
+
+    public void OpenFiles(IEnumerable<string> paths)
+    {
+        foreach (var path in paths) OpenFile(path);
+    }
+
+    public void OpenFile(string path)
     {
         if (_ffmpeg is null) return;
-        _cts?.Cancel();
-        var cts = _cts = new CancellationTokenSource();
+        var doc = new DocumentViewModel(_ffmpeg, path);
+        Documents.Add(doc);
+        Selected = doc;
+        _ = doc.LoadOverviewAsync();
+    }
 
-        ErrorText = null;
-        ShowHint = false;
-        HeaderText = Path.GetFileName(path);
-        StatusText = "Reading metadata…";
+    public void CloseDocument(DocumentViewModel doc)
+    {
+        var i = Documents.IndexOf(doc);
+        if (i < 0) return;
+        doc.Cancel();
+        Documents.RemoveAt(i);
+        if (Selected == doc)
+            Selected = Documents.Count == 0 ? null : Documents[Math.Min(i, Documents.Count - 1)];
+    }
 
-        try
-        {
-            var session = new AnalysisSession(_ffmpeg);
-            var settings = new SpectrogramSettings();
-            var meta = await Task.Run(() => session.ReadMetadata(path), cts.Token);
-            HeaderText = meta.ToDisplayLine(Path.GetFileName(path));
-
-            var estSamples = (long)(meta.Duration.TotalSeconds * meta.SampleRate);
-            var estWindows = Math.Max(1, (estSamples - settings.WindowSize) / settings.Hop + 1);
-            var estColumns = (int)Math.Min(estWindows, settings.MaxColumns);
-
-            var doc = new SpectrogramDocument(meta, settings, estColumns);
-            DocumentChanged?.Invoke(doc);
-
-            StatusText = "Analyzing…";
-            var started = DateTime.UtcNow;
-            await Task.Run(() =>
-            {
-                var sinceRefresh = 0;
-                foreach (var column in session.AnalyzeColumns(path, meta, settings, cts.Token))
-                {
-                    doc.Append(column);
-                    if (++sinceRefresh >= 32)
-                    {
-                        sinceRefresh = 0;
-                        Dispatcher.UIThread.Post(() => DocumentUpdated?.Invoke());
-                    }
-                }
-            }, cts.Token);
-
-            DocumentUpdated?.Invoke();
-            StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {doc.Count} columns";
-        }
-        catch (OperationCanceledException) { /* superseded by a newer load */ }
-        catch (AudioDecodeException ex)
-        {
-            if (cts.Token.IsCancellationRequested) return;
-            DocumentChanged?.Invoke(null);
-            ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
-            StatusText = "";
-            ShowHint = true;
-        }
+    public void SelectNext(int direction)
+    {
+        if (Documents.Count == 0) return;
+        var i = Selected is null
+            ? 0
+            : (Documents.IndexOf(Selected) + direction + Documents.Count) % Documents.Count;
+        Selected = Documents[i];
     }
 
     public async Task DownloadFfmpegAsync()
@@ -103,11 +110,11 @@ public sealed class MainWindowViewModel : ObservableObject
             await FfmpegDownloader.InstallAsync(progress, CancellationToken.None);
             _ffmpeg = FfmpegLocator.LocateDefault();
             FfmpegMissing = _ffmpeg is null;
-            if (!FfmpegMissing) ErrorText = null;
+            if (!FfmpegMissing) ShellErrorText = null;
         }
         catch (Exception ex)
         {
-            ErrorText = $"ffmpeg download failed: {ex.Message}";
+            ShellErrorText = $"ffmpeg download failed: {ex.Message}";
         }
     }
 }

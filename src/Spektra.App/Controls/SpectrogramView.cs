@@ -15,27 +15,35 @@ public sealed class SpectrogramView : Control
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#9A9A9A"));
     private static readonly Typeface Font = new("Segoe UI, Inter, sans-serif");
 
+    private DocumentViewModel? _vm;
     private SpectrogramDocument? _doc;
     private WriteableBitmap? _bitmap;
     private int _writtenColumns;
 
-    public void SetDocument(SpectrogramDocument? doc)
+    public void Attach(DocumentViewModel? vm)
     {
-        _doc = doc;
-        _bitmap?.Dispose();
-        _bitmap = null;
-        _writtenColumns = 0;
-        if (doc is not null)
+        if (_vm is not null)
         {
-            _bitmap = new WriteableBitmap(
-                new PixelSize(doc.EstimatedColumns, doc.Bins),
-                new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
-            ClearBitmap();
+            _vm.DocumentChanged -= OnDocumentChanged;
+            _vm.DocumentUpdated -= OnDocumentUpdated;
         }
+        _vm = vm;
+        if (vm is not null)
+        {
+            vm.DocumentChanged += OnDocumentChanged;
+            vm.DocumentUpdated += OnDocumentUpdated;
+        }
+        RebuildOverviewBitmap();
         InvalidateVisual();
     }
 
-    public void RefreshFromDocument()
+    private void OnDocumentChanged()
+    {
+        RebuildOverviewBitmap();
+        InvalidateVisual();
+    }
+
+    private void OnDocumentUpdated()
     {
         if (_doc is null || _bitmap is null) return;
         var count = Math.Min(_doc.Count, _bitmap.PixelSize.Width);
@@ -45,6 +53,22 @@ public sealed class SpectrogramView : Control
             _writtenColumns = count;
         }
         InvalidateVisual();
+    }
+
+    private void RebuildOverviewBitmap()
+    {
+        _doc = _vm?.Document;
+        _bitmap?.Dispose();
+        _bitmap = null;
+        _writtenColumns = 0;
+        if (_doc is not null)
+        {
+            _bitmap = new WriteableBitmap(
+                new PixelSize(_doc.EstimatedColumns, _doc.Bins),
+                new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+            ClearBitmap();
+            OnDocumentUpdated(); // tab switch: replay columns analyzed while detached
+        }
     }
 
     private void ClearBitmap()

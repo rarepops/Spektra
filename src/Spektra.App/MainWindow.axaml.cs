@@ -13,31 +13,45 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _vm;
-        _vm.DocumentChanged += doc => Spectro.SetDocument(doc);
-        _vm.DocumentUpdated += () => Spectro.RefreshFromDocument();
+        _vm.SelectedChanged += OnSelectedDocumentChanged;
+        OnSelectedDocumentChanged(null);
 
         AddHandler(DragDrop.DropEvent, OnDrop);
 
-        var file = args.FirstOrDefault(File.Exists);
-        if (file is not null)
-            Opened += (_, _) => _ = _vm.LoadFileAsync(file);
+        var files = args.Where(File.Exists).ToList();
+        if (files.Count > 0)
+            Opened += (_, _) => _vm.OpenFiles(files);
     }
 
     public MainWindow() : this([]) { }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private void OnSelectedDocumentChanged(DocumentViewModel? doc)
     {
-        var path = e.Data.GetFiles()?.OfType<IStorageFile>()
-            .Select(f => f.TryGetLocalPath()).FirstOrDefault(p => p is not null);
-        if (path is not null) _ = _vm.LoadFileAsync(path);
+        DocHost.DataContext = doc;
+        DocHost.IsVisible = doc is not null;
+        Spectro.Attach(doc);
+        Title = doc is null ? "Spektra" : $"{doc.TabTitle} — Spektra";
     }
 
-    private async void OnOpenClicked(object? sender, RoutedEventArgs e)
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        var paths = e.Data.GetFiles()?.OfType<IStorageFile>()
+            .Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null)
+            .Cast<string>()
+            .ToList();
+        if (paths is { Count: > 0 }) _vm.OpenFiles(paths);
+    }
+
+    private async void OnOpenClicked(object? sender, RoutedEventArgs e) =>
+        await OpenViaDialogAsync();
+
+    private async Task OpenViaDialogAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open audio file",
-            AllowMultiple = false,
+            Title = "Open audio files",
+            AllowMultiple = true,
             FileTypeFilter =
             [
                 new FilePickerFileType("Audio")
@@ -51,8 +65,9 @@ public partial class MainWindow : Window
                 new FilePickerFileType("All files") { Patterns = ["*"] },
             ],
         });
-        var path = files.FirstOrDefault()?.TryGetLocalPath();
-        if (path is not null) await _vm.LoadFileAsync(path);
+        var paths = files.Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null).Cast<string>().ToList();
+        if (paths.Count > 0) _vm.OpenFiles(paths);
     }
 
     private async void OnDownloadFfmpegClicked(object? sender, RoutedEventArgs e) =>

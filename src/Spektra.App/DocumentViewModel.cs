@@ -1,0 +1,146 @@
+using Avalonia.Threading;
+using Spektra.Core;
+
+namespace Spektra.App;
+
+public sealed class DocumentViewModel : ObservableObject
+{
+    private readonly FfmpegPaths _ffmpeg;
+    private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _tileCts;
+
+    private string _headerText;
+    private string _statusText = "";
+    private string? _errorText;
+    private bool _isSelected;
+
+    public string FilePath { get; }
+    public string TabTitle => Path.GetFileName(FilePath);
+
+    public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
+    public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
+
+    public string? ErrorText
+    {
+        get => _errorText;
+        private set { if (Set(ref _errorText, value)) RaisePropertyChanged(nameof(HasError)); }
+    }
+
+    public bool HasError => _errorText is not null;
+    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
+
+    public AudioMetadata? Metadata { get; private set; }
+    public SpectrogramDocument? Document { get; private set; }
+    public Viewport Viewport { get; } = new();
+    public SpectrogramTile? Tile { get; private set; }
+
+    public event Action? DocumentChanged;
+    public event Action? DocumentUpdated;
+    public event Action? TileChanged;
+
+    public DocumentViewModel(FfmpegPaths ffmpeg, string filePath)
+    {
+        _ffmpeg = ffmpeg;
+        FilePath = filePath;
+        _headerText = Path.GetFileName(filePath);
+    }
+
+    public async Task LoadOverviewAsync()
+    {
+        _loadCts?.Cancel();
+        _tileCts?.Cancel();
+        var cts = _loadCts = new CancellationTokenSource();
+
+        ErrorText = null;
+        Tile = null;
+        StatusText = "Reading metadata…";
+
+        try
+        {
+            var session = new AnalysisSession(_ffmpeg);
+            var settings = new SpectrogramSettings();
+
+            var meta = await Task.Run(() => session.ReadMetadata(FilePath), cts.Token);
+            Metadata = meta;
+            HeaderText = meta.ToDisplayLine(TabTitle);
+
+            // max-zoom clamp: a nominal 1024-column tile never drops below 64 samples/hop
+            var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
+            Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
+
+            var estSamples = (long)totalSamples;
+            var estWindows = Math.Max(1, (estSamples - settings.WindowSize) / settings.Hop + 1);
+            var estColumns = (int)Math.Min(estWindows, settings.MaxColumns);
+
+            var doc = new SpectrogramDocument(meta, settings, estColumns);
+            Document = doc;
+            DocumentChanged?.Invoke();
+
+            StatusText = "Analyzing…";
+            var started = DateTime.UtcNow;
+            await Task.Run(() =>
+            {
+                var sinceRefresh = 0;
+                foreach (var column in session.AnalyzeColumns(FilePath, meta, settings, cts.Token))
+                {
+                    doc.Append(column);
+                    if (++sinceRefresh >= 32)
+                    {
+                        sinceRefresh = 0;
+                        Dispatcher.UIThread.Post(() => DocumentUpdated?.Invoke());
+                    }
+                }
+            }, cts.Token);
+
+            DocumentUpdated?.Invoke();
+            StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {doc.Count} columns";
+        }
+        catch (OperationCanceledException) { /* superseded or closed */ }
+        catch (AudioDecodeException ex)
+        {
+            if (cts.Token.IsCancellationRequested) return;
+            Document = null;
+            DocumentChanged?.Invoke();
+            ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
+            StatusText = "";
+        }
+    }
+
+    public async Task RenderTileAsync(int targetColumns)
+    {
+        if (Metadata is not { } meta || Document is null || !Viewport.IsTimeZoomed) return;
+        _tileCts?.Cancel();
+        var cts = _tileCts = new CancellationTokenSource();
+        var (t0, t1) = (Viewport.T0, Viewport.T1);
+
+        var durationSec = meta.Duration.TotalSeconds;
+        var spanSec = (t1 - t0) * durationSec;
+        var spanSamples = (long)(spanSec * meta.SampleRate);
+        if (spanSamples <= 0 || targetColumns <= 0) return;
+
+        var hop = (int)Math.Clamp(spanSamples / targetColumns, 64, 1024);
+        var settings = new SpectrogramSettings(MaxColumns: targetColumns, HopOverride: hop);
+        var options = new DecodeOptions(
+            Start: TimeSpan.FromSeconds(t0 * durationSec),
+            Duration: TimeSpan.FromSeconds(spanSec));
+
+        try
+        {
+            var session = new AnalysisSession(_ffmpeg);
+            var columns = await Task.Run(
+                () => session.AnalyzeColumns(FilePath, meta, settings, cts.Token, options).ToList(),
+                cts.Token);
+            if (cts.Token.IsCancellationRequested || columns.Count == 0) return;
+            Tile = new SpectrogramTile(t0, t1, columns[0].Length, columns);
+            TileChanged?.Invoke();
+        }
+        catch (OperationCanceledException) { }
+        catch (AudioDecodeException) { /* tile is best-effort; overview stays */ }
+    }
+
+    public void Cancel()
+    {
+        _loadCts?.Cancel();
+        _tileCts?.Cancel();
+    }
+}

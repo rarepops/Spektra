@@ -13,24 +13,31 @@
       </MenuItem>
     </Menu>
 
-    <TextBlock DockPanel.Dock="Top" Text="{Binding HeaderText}"
-               Margin="12,8,12,4" FontSize="13" Foreground="#DDDDDD" />
-
     <Border DockPanel.Dock="Top" Background="#5C1010" Padding="12,8"
-            IsVisible="{Binding HasError}">
+            IsVisible="{Binding HasShellError}">
       <StackPanel Spacing="6">
-        <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Foreground="#FFBBBB" />
+        <TextBlock Text="{Binding ShellErrorText}" TextWrapping="Wrap" Foreground="#FFBBBB" />
         <Button Content="Download ffmpeg" Click="OnDownloadFfmpegClicked"
                 IsVisible="{Binding FfmpegMissing}" />
       </StackPanel>
     </Border>
+
+    <StackPanel x:Name="DocHost" DockPanel.Dock="Top">
+      <DockPanel Margin="12,8,12,4">
+        <TextBlock Text="{Binding HeaderText}" FontSize="13" Foreground="#DDDDDD"
+                   VerticalAlignment="Center" />
+      </DockPanel>
+      <Border Background="#5C1010" Padding="12,8" IsVisible="{Binding HasError}">
+        <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Foreground="#FFBBBB" />
+      </Border>
+    </StackPanel>
 
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusText}"
                Margin="12,4" FontSize="11" Foreground="#888888" />
 
     <Panel>
       <controls:SpectrogramView x:Name="Spectro" />
-      <TextBlock Text="Drop an audio file here — or File → Open"
+      <TextBlock Text="Drop audio files here — or File → Open"
                  IsVisible="{Binding ShowHint}" FontSize="16" Foreground="#666666"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Panel>
