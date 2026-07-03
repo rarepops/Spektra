@@ -100,11 +100,18 @@
                Margin="12,4" FontSize="11" Foreground="#888888" />
 
     <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
-      <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" />
-      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#BBBBBB"
+      <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" VerticalAlignment="Center" />
+      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#BBBBBB" MinWidth="60"
                  Text="{Binding OffsetMs, StringFormat='{}{0:+0;-0} ms'}" Margin="8,0,0,0" />
       <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#999999" Text="Align B:" Margin="0,0,8,0" />
-      <Slider Minimum="-5000" Maximum="5000" Value="{Binding OffsetMs, Mode=TwoWay}" />
+      <Grid ColumnDefinitions="Auto,2*,Auto,1*" VerticalAlignment="Center">
+        <TextBlock Grid.Column="0" Text="coarse" VerticalAlignment="Center" Foreground="#666666" Margin="0,0,8,0" />
+        <Slider Grid.Column="1" Minimum="-5000" Maximum="5000" SmallChange="10" LargeChange="100"
+                Value="{Binding CoarseMs, Mode=TwoWay}" ToolTip.Tip="Coarse (±5 s)" />
+        <TextBlock Grid.Column="2" Text="fine" VerticalAlignment="Center" Foreground="#666666" Margin="16,0,8,0" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" SmallChange="1" LargeChange="10"
+                Value="{Binding FineMs, Mode=TwoWay}" ToolTip.Tip="Fine (±100 ms)" />
+      </Grid>
     </DockPanel>
 
     <Panel>

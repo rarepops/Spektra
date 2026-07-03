@@ -13,8 +13,12 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     private bool _isSelected;
     private CompareMode _mode = CompareMode.Both;
     private double _offsetSeconds;
+    private int _coarseMs;
+    private int _fineMs;
+    private bool _syncingSliders;
     private string _statusText = "";
     private string? _alignHint;
+    private string? _busyText;
 
     public DocumentViewModel A { get; }
     public DocumentViewModel B { get; }
@@ -35,6 +39,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     public event Action? Changed;        // mode / offset / panes → repaint
     public event Action? DiffChanged;    // new diff columns ready
     public event Action? DiffRequested;  // ask the view to (re)start its debounce timer
+    public event Action? BusyChanged;    // long-running op started/finished → repaint overlay
 
     public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB)
     {
@@ -69,21 +74,43 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     public double OffsetSeconds
     {
         get => _offsetSeconds;
-        set
-        {
-            if (!Set(ref _offsetSeconds, value)) return;
-            B.TimeMap = new TimeMap(A.Metadata?.Duration.TotalSeconds ?? 0, _offsetSeconds);
-            RaisePropertyChanged(nameof(OffsetMs));
-            Changed?.Invoke();
-            _ = B.RenderTileAsync(TargetColumns);
-            if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
-        }
+        set => SetOffset(value, syncSliders: true);
     }
 
-    public int OffsetMs
+    // Coarse (±5 s) and fine (±100 ms) trims sum to the offset, giving the
+    // precision the single wide slider couldn't. Dragging either recomputes the
+    // offset without re-seating the sliders; an external set (Auto-align) re-seats
+    // both (coarse = value, fine = remainder).
+    public int CoarseMs
     {
-        get => (int)Math.Round(_offsetSeconds * 1000);
-        set => OffsetSeconds = value / 1000.0;
+        get => _coarseMs;
+        set { if (Set(ref _coarseMs, value) && !_syncingSliders) SetOffset((_coarseMs + _fineMs) / 1000.0, syncSliders: false); }
+    }
+
+    public int FineMs
+    {
+        get => _fineMs;
+        set { if (Set(ref _fineMs, value) && !_syncingSliders) SetOffset((_coarseMs + _fineMs) / 1000.0, syncSliders: false); }
+    }
+
+    public int OffsetMs => (int)Math.Round(_offsetSeconds * 1000);
+
+    private void SetOffset(double seconds, bool syncSliders)
+    {
+        if (!Set(ref _offsetSeconds, seconds, nameof(OffsetSeconds))) return;
+        B.TimeMap = new TimeMap(A.Metadata?.Duration.TotalSeconds ?? 0, _offsetSeconds);
+        RaisePropertyChanged(nameof(OffsetMs));
+        if (syncSliders)
+        {
+            _syncingSliders = true;
+            var ms = (int)Math.Round(_offsetSeconds * 1000);
+            CoarseMs = Math.Clamp(ms, -5000, 5000);
+            FineMs = Math.Clamp(ms - _coarseMs, -100, 100);
+            _syncingSliders = false;
+        }
+        Changed?.Invoke();
+        _ = B.RenderTileAsync(TargetColumns);
+        if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
     }
 
     public string? AlignHint
@@ -92,6 +119,20 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         private set { if (Set(ref _alignHint, value)) RaisePropertyChanged(nameof(HasAlignHint)); }
     }
     public bool HasAlignHint => _alignHint is not null;
+
+    /// Non-null while a long-running compare op (align / diff) is in flight;
+    /// the surface paints it as a centered "processing" overlay.
+    public string? BusyText
+    {
+        get => _busyText;
+        private set
+        {
+            if (!Set(ref _busyText, value)) return;
+            RaisePropertyChanged(nameof(IsBusy));
+            BusyChanged?.Invoke();
+        }
+    }
+    public bool IsBusy => _busyText is not null;
 
     public void FlipAB() => Mode = _mode == CompareMode.A ? CompareMode.B : CompareMode.A;
 
@@ -114,6 +155,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         _alignCts?.Cancel();
         var cts = _alignCts = new CancellationTokenSource();
         StatusText = "Aligning…";
+        BusyText = "Aligning…";
         try
         {
             var res = await Task.Run(() => Aligner.EstimateOffset(
@@ -131,6 +173,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         }
         catch (OperationCanceledException) { }
         catch (AudioDecodeException ex) { AlignHint = ex.Message; StatusText = ""; }
+        finally { if (ReferenceEquals(_alignCts, cts)) BusyText = null; }
     }
 
     public async Task ComputeDiffAsync(int targetColumns)
@@ -148,6 +191,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         var startSec = vp.T0 * refDur;
         var spanSec = vp.TimeSpanN * refDur;
         if (spanSec <= 0) return;
+        BusyText = "Computing difference…";
         try
         {
             var (t0, t1) = (vp.T0, vp.T1);
@@ -160,6 +204,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         }
         catch (OperationCanceledException) { }
         catch (AudioDecodeException) { /* diff is best-effort */ }
+        finally { if (ReferenceEquals(_diffCts, cts)) BusyText = null; }
     }
 
     public void Cancel()
