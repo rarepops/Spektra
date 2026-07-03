@@ -8,6 +8,15 @@ and (in upcoming versions) compare encodes side-by-side and get an automated
 
 
 
+## Features
+
+- Progressive spectrogram with time/frequency rulers and dB legend
+- Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan,
+  double-click = reset — zoomed spans re-render sharply via ffmpeg segment decode
+- Tabs: open many files at once (dialog, drag-drop, or CLI args)
+- Per-channel or mixdown analysis for multichannel files
+- Recent files + window placement remembered across runs
+
 ## Requirements
 
 - Windows (primary target; Avalonia keeps Linux/macOS possible)
