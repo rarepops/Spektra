@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/spektra-logo.png" alt="Spektra" width="180" />
+</p>
+
 # Spektra
 
 A desktop audio spectrum analyzer: drop in an audio file, see its spectrogram,
