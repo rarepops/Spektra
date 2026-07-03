@@ -25,5 +25,11 @@ New-Item -ItemType Directory -Force $fx | Out-Null
 & $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -af "lowpass=f=16000" -ac 1 -c:a pcm_s16le "$fx\chirp-lp16k.wav"
 # chirp delayed 50 ms — aligner test: recover a known offset
 & $ff -y -v error -f lavfi -i "aevalsrc=0.8*sin(2*PI*3675*t*t):s=44100:d=3" -af "adelay=50" -ac 1 -c:a pcm_s16le "$fx\chirp-delay50ms.wav"
+# deliberately corrupted FLAC — integrity test: keep the header (which still
+# reports the full 3 s) but truncate the audio, as a partial download would
+Copy-Item "$fx\sine-1khz.flac" "$fx\corrupt.flac" -Force
+$cb = [System.IO.File]::ReadAllBytes((Resolve-Path "$fx\corrupt.flac"))
+$keep = [int]($cb.Length * 0.55)
+[System.IO.File]::WriteAllBytes((Join-Path (Resolve-Path $fx) "corrupt.flac"), $cb[0..($keep - 1)])
 Set-Content "$fx\notaudio.txt" "this is not an audio file"
 Get-ChildItem $fx

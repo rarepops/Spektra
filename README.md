@@ -28,6 +28,8 @@ verdict.
   manual + automatic (cross-correlation) time alignment, A/B flip, and a signed
   A−B difference view (diverging colormap) with a numeric diff score
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
+- Integrity check: flags corrupt frames, missing data (interior digital silence),
+  and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI
 
 ## Requirements
 
@@ -52,6 +54,7 @@ analysis engine. It writes to stdout and exits 1 when anything looks lossy:
 
     spektra report <file> [<file> ...]   Print each file's bandwidth verdict.
     spektra scan <folder>                Scan a library and flag suspected transcodes.
+    spektra check <file> [<file> ...]    Check files for corruption / missing data.
 
 (`--report` / `--scan` are accepted too.) Build it with
 `dotnet publish src/Spektra.Cli -c Release`.

@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Integrity check: detects corrupt frames (via ffmpeg error detection), missing
+  data that decodes to interior digital silence (as in a partial download), and
+  truncated files. Available in the app (Analyze, Ctrl+I) and the CLI
+  (`spektra check <file>`).
+
 ## [0.5.0] - 2026-07-03
 
 ### Added

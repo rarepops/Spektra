@@ -57,6 +57,29 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool VerdictIsSuspicious => _verdict?.Kind == VerdictKind.Suspicious;
     public bool VerdictIsLossy => _verdict?.Kind == VerdictKind.Lossy;
 
+    private IntegrityReport? _integrity;
+
+    /// File integrity result, populated on demand by RunIntegrityCheckAsync.
+    public IntegrityReport? Integrity
+    {
+        get => _integrity;
+        private set
+        {
+            if (!Set(ref _integrity, value)) return;
+            RaisePropertyChanged(nameof(IntegrityText));
+            RaisePropertyChanged(nameof(HasIntegrity));
+            RaisePropertyChanged(nameof(IntegrityIsOk));
+            RaisePropertyChanged(nameof(IntegrityIsSuspect));
+            RaisePropertyChanged(nameof(IntegrityIsCorrupt));
+        }
+    }
+
+    public bool HasIntegrity => _integrity is not null;
+    public string? IntegrityText => _integrity is null ? null : $"Integrity: {_integrity.Summary}";
+    public bool IntegrityIsOk => _integrity?.Status == IntegrityStatus.Ok;
+    public bool IntegrityIsSuspect => _integrity?.Status == IntegrityStatus.Suspect;
+    public bool IntegrityIsCorrupt => _integrity?.Status == IntegrityStatus.Corrupt;
+
     public List<string> ChannelOptions
     {
         get => _channelOptions;
@@ -120,6 +143,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         ErrorText = null;
         Tile = null;
         Verdict = null;
+        Integrity = null;
         StatusText = "Reading metadata…";
 
         try
@@ -215,6 +239,33 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     {
         _loadCts?.Cancel();
         _tileCts?.Cancel();
+        _integrityCts?.Cancel();
+    }
+
+    private CancellationTokenSource? _integrityCts;
+
+    /// Runs the integrity check (corrupt frames, missing data, truncation) on a
+    /// background thread and publishes the result to the Integrity banner.
+    public async Task RunIntegrityCheckAsync()
+    {
+        if (Metadata is not { } meta) return;
+        _integrityCts?.Cancel();
+        var cts = _integrityCts = new CancellationTokenSource();
+        StatusText = "Checking integrity…";
+        try
+        {
+            var report = await Task.Run(
+                () => new IntegrityScanner(_ffmpeg).Check(FilePath, meta, cts.Token), cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
+            Integrity = report;
+            StatusText = report.Summary;
+        }
+        catch (OperationCanceledException) { }
+        catch (AudioDecodeException ex)
+        {
+            Integrity = new IntegrityReport(
+                IntegrityStatus.Corrupt, 0, [], 0, meta.Duration.TotalSeconds, true, ex.Message);
+        }
     }
 
     /// Snapshots the finished overview columns and runs the bandwidth/lossless

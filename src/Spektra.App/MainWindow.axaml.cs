@@ -218,6 +218,10 @@ public partial class MainWindow : Window
                 _vm.ShowSpectrum = !_vm.ShowSpectrum;
                 e.Handled = true;
                 break;
+            case Key.I when _vm.Selected is DocumentViewModel doc:
+                _ = doc.RunIntegrityCheckAsync();
+                e.Handled = true;
+                break;
             case Key.W when _vm.Selected is { } tab:
                 _vm.CloseTab(tab);
                 e.Handled = true;
@@ -374,6 +378,11 @@ public partial class MainWindow : Window
 
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
         await new PreferencesWindow(_vm).ShowDialog(this);
+
+    private void OnCheckIntegrityClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is DocumentViewModel doc) _ = doc.RunIntegrityCheckAsync();
+    }
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
         await new AboutWindow().ShowDialog(this);

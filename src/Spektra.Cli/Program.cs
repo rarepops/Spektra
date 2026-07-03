@@ -24,6 +24,7 @@ internal static class Program
         {
             "--report" or "report" => Report(ffmpeg, args[1..]),
             "--scan" or "scan" => Scan(ffmpeg, args[1..]),
+            "--check" or "check" => Check(ffmpeg, args[1..]),
             _ => Usage(1),
         };
     }
@@ -46,6 +47,33 @@ internal static class Program
             if (r.Verdict.Kind == VerdictKind.Lossy) anyLossy = true;
         }
         return anyLossy ? 1 : 0;
+    }
+
+    private static int Check(FfmpegPaths ffmpeg, string[] paths)
+    {
+        if (paths.Length == 0)
+        {
+            Console.Error.WriteLine("spektra check: give one or more audio files.");
+            return Usage(1);
+        }
+        var anyBad = false;
+        foreach (var path in paths)
+        {
+            Console.WriteLine(Path.GetFileName(path));
+            try
+            {
+                var meta = new AnalysisSession(ffmpeg).ReadMetadata(path);
+                var r = new IntegrityScanner(ffmpeg).Check(path, meta);
+                Console.WriteLine($"  [{r.Status.ToString().ToUpperInvariant()}] {r.Summary}");
+                if (r.Status != IntegrityStatus.Ok) anyBad = true;
+            }
+            catch (Exception ex) when (ex is AudioDecodeException or IOException)
+            {
+                Console.WriteLine($"  [ERROR] {ex.Message}");
+                anyBad = true;
+            }
+        }
+        return anyBad ? 1 : 0;
     }
 
     private static int Scan(FfmpegPaths ffmpeg, string[] args)
@@ -99,9 +127,10 @@ internal static class Program
             Usage:
               spektra report <file> [<file> ...]   Print each file's bandwidth verdict.
               spektra scan <folder>                Scan a folder and flag suspected transcodes.
+              spektra check <file> [<file> ...]    Check files for corruption / missing data.
               spektra --help                       Show this help.
 
-            Exit code is 1 when anything is judged likely lossy, 2 on setup errors.
+            Exit code is 1 when anything is judged likely lossy or corrupt, 2 on setup errors.
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;

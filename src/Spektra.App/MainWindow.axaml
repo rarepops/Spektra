@@ -37,6 +37,19 @@
     <Style Selector="Border.verdict.lossy">
       <Setter Property="Background" Value="#3A1717" />
     </Style>
+    <Style Selector="Border.integrity">
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Background" Value="#1E1E1E" />
+    </Style>
+    <Style Selector="Border.integrity.ok">
+      <Setter Property="Background" Value="#16311C" />
+    </Style>
+    <Style Selector="Border.integrity.suspect">
+      <Setter Property="Background" Value="#3A3113" />
+    </Style>
+    <Style Selector="Border.integrity.corrupt">
+      <Setter Property="Background" Value="#3A1717" />
+    </Style>
   </Window.Styles>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top">
@@ -63,6 +76,9 @@
         <MenuItem Header="_View">
           <MenuItem Header="Average _Spectrum" ToggleType="CheckBox"
                     IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" InputGesture="Ctrl+R" />
+        </MenuItem>
+        <MenuItem Header="_Analyze">
+          <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_About Spektra" Click="OnAboutClicked" />
@@ -123,6 +139,14 @@
           <TextBlock Text="{Binding VerdictText}" Foreground="#E6E6E6" FontSize="12"
                      TextWrapping="Wrap" VerticalAlignment="Center" />
         </StackPanel>
+      </Border>
+      <Border Classes="integrity"
+              Classes.ok="{Binding IntegrityIsOk}"
+              Classes.suspect="{Binding IntegrityIsSuspect}"
+              Classes.corrupt="{Binding IntegrityIsCorrupt}"
+              IsVisible="{Binding HasIntegrity}">
+        <TextBlock Text="{Binding IntegrityText}" Foreground="#E6E6E6" FontSize="12"
+                   TextWrapping="Wrap" VerticalAlignment="Center" />
       </Border>
     </StackPanel>
 
