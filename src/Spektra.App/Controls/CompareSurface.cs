@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Spektra.Core;
 
@@ -18,6 +19,8 @@ public sealed class CompareSurface : Control
     private WriteableBitmap? _diff;
     private readonly DispatcherTimer _tileTimer;
     private readonly DispatcherTimer _diffTimer;
+    private readonly DispatcherTimer _spinTimer;
+    private int _spinPhase;
     private bool _panning;
     private Point _lastPointer;
 
@@ -31,6 +34,10 @@ public sealed class CompareSurface : Control
             _diffTimer.Stop();
             if (_vm?.Mode == CompareMode.Diff) _ = _vm.ComputeDiffAsync(Cols());
         };
+        _spinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+        _spinTimer.Tick += (_, _) => { _spinPhase++; InvalidateVisual(); };
+        // Crisp, cell-accurate spectrograms/diff — no bilinear halo ("bloom").
+        RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
     }
 
     private int Cols() => Math.Clamp((int)SpectrogramDraw.PlotRect(Bounds).Width, 64, 4096);
@@ -43,6 +50,7 @@ public sealed class CompareSurface : Control
             _vm.B.DocumentChanged -= OnBChanged; _vm.B.DocumentUpdated -= OnBUpdated; _vm.B.TileChanged -= OnBTile;
             _vm.Viewport.Changed -= OnViewport;
             _vm.Changed -= OnVmChanged; _vm.DiffChanged -= OnDiffReady; _vm.DiffRequested -= OnDiffRequested;
+            _vm.BusyChanged -= OnBusyChanged;
         }
         _vm = vm;
         if (vm is not null)
@@ -51,10 +59,12 @@ public sealed class CompareSurface : Control
             vm.B.DocumentChanged += OnBChanged; vm.B.DocumentUpdated += OnBUpdated; vm.B.TileChanged += OnBTile;
             vm.Viewport.Changed += OnViewport;
             vm.Changed += OnVmChanged; vm.DiffChanged += OnDiffReady; vm.DiffRequested += OnDiffRequested;
+            vm.BusyChanged += OnBusyChanged;
             vm.TargetColumns = Cols();
             _a.SetDocument(vm.A.Document); _a.SetTile(vm.A.Tile);
             _b.SetDocument(vm.B.Document); _b.SetTile(vm.B.Tile);
         }
+        OnBusyChanged();
         InvalidateVisual();
     }
 
@@ -68,6 +78,13 @@ public sealed class CompareSurface : Control
     private void OnVmChanged() => InvalidateVisual();
     private void OnDiffReady() { RebuildDiff(); InvalidateVisual(); }
     private void OnDiffRequested() { _diffTimer.Stop(); _diffTimer.Start(); }
+
+    private void OnBusyChanged()
+    {
+        if (_vm?.IsBusy == true) { if (!_spinTimer.IsEnabled) _spinTimer.Start(); }
+        else _spinTimer.Stop();
+        InvalidateVisual();
+    }
 
     private void ScheduleTiles()
     {
@@ -145,6 +162,51 @@ public sealed class CompareSurface : Control
                 DrawPaneError(ctx, bot, _vm.B);
                 break;
             }
+        }
+
+        if (_vm.BusyText is { } busy) DrawBusyBadge(ctx, plot, busy);
+    }
+
+    private static readonly Typeface BusyFont = new("Segoe UI, Inter, sans-serif");
+
+    // Centered "processing" pill with an animated spinner, painted while a
+    // long-running compare op (align / diff) is in flight.
+    private void DrawBusyBadge(DrawingContext ctx, Rect plot, string text)
+    {
+        var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            BusyFont, 13, Brushes.White);
+        const double padX = 16, padY = 11, spinner = 16, gap = 11;
+        var w = padX + spinner + gap + ft.Width + padX;
+        var h = Math.Max(spinner, ft.Height) + 2 * padY;
+        var cx = plot.X + plot.Width / 2;
+        var cy = plot.Y + plot.Height / 2;
+        var badge = new Rect(cx - w / 2, cy - h / 2, w, h);
+
+        ctx.DrawRectangle(
+            new SolidColorBrush(Color.FromArgb(0xDA, 0x1C, 0x1C, 0x1C)),
+            new Pen(new SolidColorBrush(Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF))),
+            badge, 9, 9);
+
+        DrawSpinner(ctx, badge.X + padX + spinner / 2, cy, spinner / 2);
+        ctx.DrawText(ft, new Point(badge.X + padX + spinner + gap, cy - ft.Height / 2));
+    }
+
+    private void DrawSpinner(DrawingContext ctx, double cx, double cy, double radius)
+    {
+        const int spokes = 8;
+        var head = _spinPhase % spokes;
+        for (var i = 0; i < spokes; i++)
+        {
+            var ang = i * (2 * Math.PI / spokes) - Math.PI / 2;
+            var behind = (head - i + spokes) % spokes;      // 0 = brightest, trailing off
+            var opacity = 0.15 + 0.85 * (1 - behind / (double)spokes);
+            var pen = new Pen(new SolidColorBrush(Colors.White, opacity), 2)
+            {
+                LineCap = PenLineCap.Round,
+            };
+            ctx.DrawLine(pen,
+                new Point(cx + Math.Cos(ang) * radius * 0.5, cy + Math.Sin(ang) * radius * 0.5),
+                new Point(cx + Math.Cos(ang) * radius, cy + Math.Sin(ang) * radius));
         }
     }
 
