@@ -52,10 +52,17 @@
           <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
           <MenuItem Header="_Compare…" Click="OnCompareClicked" />
           <Separator />
+          <MenuItem Header="_Save Image…" Click="OnSaveImageClicked" InputGesture="Ctrl+S" />
+          <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
+          <Separator />
           <MenuItem Header="E_xit" Click="OnExitClicked" />
         </MenuItem>
         <MenuItem Header="_Edit">
           <MenuItem Header="_Preferences…" Click="OnPreferencesClicked" InputGesture="Ctrl+E" />
+        </MenuItem>
+        <MenuItem Header="_View">
+          <MenuItem Header="Average _Spectrum" ToggleType="CheckBox"
+                    IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" InputGesture="Ctrl+R" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_About Spektra" Click="OnAboutClicked" />

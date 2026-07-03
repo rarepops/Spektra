@@ -6,7 +6,8 @@ namespace Spektra.Core;
 public sealed record DisplaySettings(
     PaletteKind Palette = PaletteKind.Magma,
     float DbFloor = -120f,
-    bool LogFrequency = false)
+    bool LogFrequency = false,
+    bool ShowSpectrum = false)
 {
     public float DbCeil => 0f;
 }

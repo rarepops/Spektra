@@ -95,6 +95,12 @@ public sealed class MainWindowViewModel : ObservableObject
         set { if (SetDisplay(v => Settings.LogFrequency = v, Settings.LogFrequency, value)) RaisePropertyChanged(nameof(LogFrequency)); }
     }
 
+    public bool ShowSpectrum
+    {
+        get => Settings.ShowSpectrum;
+        set { if (SetDisplay(v => Settings.ShowSpectrum = v, Settings.ShowSpectrum, value)) RaisePropertyChanged(nameof(ShowSpectrum)); }
+    }
+
     private bool SetDisplay<T>(Action<T> assign, T current, T value)
     {
         if (EqualityComparer<T>.Default.Equals(current, value)) return false;

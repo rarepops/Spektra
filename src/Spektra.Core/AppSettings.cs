@@ -17,8 +17,9 @@ public sealed class AppSettings
     public PaletteKind Palette { get; set; } = PaletteKind.Magma;
     public int DbFloor { get; set; } = -120;
     public bool LogFrequency { get; set; }
+    public bool ShowSpectrum { get; set; }
 
-    public DisplaySettings ToDisplaySettings() => new(Palette, DbFloor, LogFrequency);
+    public DisplaySettings ToDisplaySettings() => new(Palette, DbFloor, LogFrequency, ShowSpectrum);
 
     public void PushRecent(string path)
     {

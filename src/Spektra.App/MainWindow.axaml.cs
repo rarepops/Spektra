@@ -2,7 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Rendering;
 using Spektra.Core;
 
 namespace Spektra.App;
@@ -204,6 +206,18 @@ public partial class MainWindow : Window
                 _ = new PreferencesWindow(_vm).ShowDialog(this);
                 e.Handled = true;
                 break;
+            case Key.S:
+                _ = SaveImageAsync();
+                e.Handled = true;
+                break;
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                _ = CopyImageAsync();
+                e.Handled = true;
+                break;
+            case Key.R:
+                _vm.ShowSpectrum = !_vm.ShowSpectrum;
+                e.Handled = true;
+                break;
             case Key.W when _vm.Selected is { } tab:
                 _vm.CloseTab(tab);
                 e.Handled = true;
@@ -279,6 +293,69 @@ public partial class MainWindow : Window
     }
 
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
+
+    private Control? VisibleSurface() => _vm.Selected switch
+    {
+        DocumentViewModel => Spectro,
+        ComparisonViewModel => CompareSurfaceCtl,
+        _ => null,
+    };
+
+    /// Renders the on-screen spectrogram surface to a bitmap at the current DPI.
+    private RenderTargetBitmap? RenderSurface()
+    {
+        if (VisibleSurface() is not { } surface) return null;
+        var size = surface.Bounds.Size;
+        if (size.Width < 2 || size.Height < 2) return null;
+        var scale = (this as IRenderRoot)?.RenderScaling ?? 1.0;
+        var px = new PixelSize(Math.Max(1, (int)(size.Width * scale)), Math.Max(1, (int)(size.Height * scale)));
+        var rtb = new RenderTargetBitmap(px, new Vector(96 * scale, 96 * scale));
+        rtb.Render(surface);
+        return rtb;
+    }
+
+    private async void OnSaveImageClicked(object? sender, RoutedEventArgs e) => await SaveImageAsync();
+
+    private async Task SaveImageAsync()
+    {
+        using var rtb = RenderSurface();
+        if (rtb is null) { _vm.StatusText = "Open a file first to save its spectrogram."; return; }
+        var suggested = SanitizeFileName(_vm.Selected?.TabTitle ?? "spektra") + ".png";
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save spectrogram image",
+            SuggestedFileName = suggested,
+            DefaultExtension = "png",
+            FileTypeChoices = [new FilePickerFileType("PNG image") { Patterns = ["*.png"] }],
+        });
+        if (file is null) return;
+        await using var stream = await file.OpenWriteAsync();
+        rtb.Save(stream);
+        _vm.StatusText = $"Saved {file.Name}";
+    }
+
+    private async void OnCopyImageClicked(object? sender, RoutedEventArgs e) => await CopyImageAsync();
+
+    private async Task CopyImageAsync()
+    {
+        using var rtb = RenderSurface();
+        if (rtb is null) { _vm.StatusText = "Open a file first to copy its spectrogram."; return; }
+        if (Clipboard is null) return;
+        using var ms = new MemoryStream();
+        rtb.Save(ms);
+        var png = ms.ToArray();
+        var data = new DataObject();
+        data.Set("PNG", png);
+        data.Set("image/png", png);
+        await Clipboard.SetDataObjectAsync(data);
+        _vm.StatusText = "Copied spectrogram to clipboard.";
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+        return name;
+    }
 
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
         await new PreferencesWindow(_vm).ShowDialog(this);
