@@ -19,6 +19,7 @@ public sealed class CompareSurface : Control
     private WriteableBitmap? _diff;
     private readonly DispatcherTimer _tileTimer;
     private readonly DispatcherTimer _diffTimer;
+    private readonly DispatcherTimer _bTileTimer;
     private readonly DispatcherTimer _spinTimer;
     private int _spinPhase;
     private bool _panning;
@@ -33,6 +34,12 @@ public sealed class CompareSurface : Control
         {
             _diffTimer.Stop();
             if (_vm?.Mode == CompareMode.Diff) _ = _vm.ComputeDiffAsync(Cols());
+        };
+        _bTileTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        _bTileTimer.Tick += (_, _) =>
+        {
+            _bTileTimer.Stop();
+            if (_vm?.Viewport.IsTimeZoomed == true) _ = _vm.B.RenderTileAsync(Cols());
         };
         _spinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
         _spinTimer.Tick += (_, _) => { _spinPhase++; InvalidateVisual(); };
@@ -50,7 +57,7 @@ public sealed class CompareSurface : Control
             _vm.B.DocumentChanged -= OnBChanged; _vm.B.DocumentUpdated -= OnBUpdated; _vm.B.TileChanged -= OnBTile;
             _vm.Viewport.Changed -= OnViewport;
             _vm.Changed -= OnVmChanged; _vm.DiffChanged -= OnDiffReady; _vm.DiffRequested -= OnDiffRequested;
-            _vm.BusyChanged -= OnBusyChanged;
+            _vm.BusyChanged -= OnBusyChanged; _vm.OffsetChanged -= OnOffsetChanged;
         }
         _vm = vm;
         if (vm is not null)
@@ -59,7 +66,7 @@ public sealed class CompareSurface : Control
             vm.B.DocumentChanged += OnBChanged; vm.B.DocumentUpdated += OnBUpdated; vm.B.TileChanged += OnBTile;
             vm.Viewport.Changed += OnViewport;
             vm.Changed += OnVmChanged; vm.DiffChanged += OnDiffReady; vm.DiffRequested += OnDiffRequested;
-            vm.BusyChanged += OnBusyChanged;
+            vm.BusyChanged += OnBusyChanged; vm.OffsetChanged += OnOffsetChanged;
             vm.TargetColumns = Cols();
             _a.SetDocument(vm.A.Document); _a.SetTile(vm.A.Tile);
             _b.SetDocument(vm.B.Document); _b.SetTile(vm.B.Tile);
@@ -78,6 +85,16 @@ public sealed class CompareSurface : Control
     private void OnVmChanged() => InvalidateVisual();
     private void OnDiffReady() { RebuildDiff(); InvalidateVisual(); }
     private void OnDiffRequested() { _diffTimer.Stop(); _diffTimer.Start(); }
+
+    private void OnOffsetChanged()
+    {
+        // The shifted overview is the instant preview; the sharp B tile was
+        // decoded for the old offset, so drop it and re-decode B debounced.
+        _b.SetTile(null);
+        _bTileTimer.Stop();
+        _bTileTimer.Start();
+        InvalidateVisual();
+    }
 
     private void OnBusyChanged()
     {

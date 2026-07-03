@@ -3,6 +3,7 @@
         xmlns:controls="using:Spektra.App.Controls"
         x:Class="Spektra.App.MainWindow"
         Title="Spektra" Width="1100" Height="620"
+        Icon="/Assets/spektra-logo.png"
         Background="#111111" DragDrop.AllowDrop="True">
   <Window.Styles>
     <Style Selector="Border.tab">
@@ -25,15 +26,23 @@
     </Style>
   </Window.Styles>
   <DockPanel>
-    <Menu DockPanel.Dock="Top">
-      <MenuItem Header="_File">
-        <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
-        <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
-        <MenuItem Header="_Compare…" Click="OnCompareClicked" />
-        <Separator />
-        <MenuItem Header="E_xit" Click="OnExitClicked" />
-      </MenuItem>
-    </Menu>
+    <DockPanel DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0" Spacing="6">
+        <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#888888" FontSize="12" />
+        <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}"
+                  MinWidth="84" FontSize="12" VerticalAlignment="Center"
+                  ToolTip.Tip="FFT window size — frequency buckets = size / 2 + 1. Re-analyzes on change." />
+      </StackPanel>
+      <Menu>
+        <MenuItem Header="_File">
+          <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
+          <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
+          <MenuItem Header="_Compare…" Click="OnCompareClicked" />
+          <Separator />
+          <MenuItem Header="E_xit" Click="OnExitClicked" />
+        </MenuItem>
+      </Menu>
+    </DockPanel>
 
     <Border DockPanel.Dock="Top" Background="#5C1010" Padding="12,8"
             IsVisible="{Binding HasShellError}">
@@ -101,16 +110,19 @@
 
     <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
       <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" VerticalAlignment="Center" />
-      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#BBBBBB" MinWidth="60"
-                 Text="{Binding OffsetMs, StringFormat='{}{0:+0;-0} ms'}" Margin="8,0,0,0" />
-      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#999999" Text="Align B:" Margin="0,0,8,0" />
+      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#888888" Text="ms" Margin="4,0,0,0" />
+      <NumericUpDown DockPanel.Dock="Right" VerticalAlignment="Center" Width="108" FontSize="12"
+                     Minimum="-5500" Maximum="5500" Increment="1" FormatString="+0;-0"
+                     Value="{Binding OffsetMs, Mode=TwoWay}" Margin="8,0,0,0"
+                     ToolTip.Tip="Total offset in ms (type an exact value)" />
+      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#999999" Text="Align" Margin="0,0,8,0" />
       <Grid ColumnDefinitions="Auto,2*,Auto,1*" VerticalAlignment="Center">
         <TextBlock Grid.Column="0" Text="coarse" VerticalAlignment="Center" Foreground="#666666" Margin="0,0,8,0" />
         <Slider Grid.Column="1" Minimum="-5000" Maximum="5000" SmallChange="10" LargeChange="100"
                 Value="{Binding CoarseMs, Mode=TwoWay}" ToolTip.Tip="Coarse (±5 s)" />
         <TextBlock Grid.Column="2" Text="fine" VerticalAlignment="Center" Foreground="#666666" Margin="16,0,8,0" />
-        <Slider Grid.Column="3" Minimum="-100" Maximum="100" SmallChange="1" LargeChange="10"
-                Value="{Binding FineMs, Mode=TwoWay}" ToolTip.Tip="Fine (±100 ms)" />
+        <Slider Grid.Column="3" Minimum="-500" Maximum="500" SmallChange="1" LargeChange="25"
+                Value="{Binding FineMs, Mode=TwoWay}" ToolTip.Tip="Fine (±500 ms)" />
       </Grid>
     </DockPanel>
 
