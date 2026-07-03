@@ -13,3 +13,6 @@ docs/superpowers/
 
 # ffmpeg binaries are downloaded, never committed
 tools/ffmpeg/
+
+# release artifacts
+dist/
