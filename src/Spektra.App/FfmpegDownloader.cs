@@ -24,7 +24,7 @@ public static class FfmpegDownloader
         await using (var output = File.Create(zipPath))
             await input.CopyToAsync(output, ct);
 
-        if (PinnedSha256 is not "")
+        if (PinnedSha256.Length != 0)
         {
             await using var check = File.OpenRead(zipPath);
             var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(check, ct));
