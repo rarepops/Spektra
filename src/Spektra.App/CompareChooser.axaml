@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.CompareChooser"
+        Title="Compare files" Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" Background="#1A1A1A" CanResize="False">
+  <StackPanel Margin="16" Spacing="10">
+    <TextBlock Text="Choose two open files to compare:" Foreground="#DDDDDD" />
+    <TextBlock Text="A (reference)" Foreground="#999999" FontSize="11" />
+    <ComboBox x:Name="AList" HorizontalAlignment="Stretch" />
+    <TextBlock Text="B (compared against A)" Foreground="#999999" FontSize="11" />
+    <ComboBox x:Name="BList" HorizontalAlignment="Stretch" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,6,0,0">
+      <Button Content="Cancel" Click="OnCancel" />
+      <Button Content="Compare" Click="OnCompare" IsDefault="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

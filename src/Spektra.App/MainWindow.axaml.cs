@@ -34,9 +34,14 @@ public partial class MainWindow : Window
         };
         Closing += (_, _) => SaveWindowPlacement();
 
-        var files = args.Where(File.Exists).ToList();
-        if (files.Count > 0)
-            Opened += (_, _) => _vm.OpenFiles(files);
+        if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
+            Opened += (_, _) => _vm.OpenComparison(pathA, pathB);
+        else
+        {
+            var files = args.Where(File.Exists).ToList();
+            if (files.Count > 0)
+                Opened += (_, _) => _vm.OpenFiles(files);
+        }
     }
 
     public MainWindow() : this([]) { }
@@ -91,12 +96,24 @@ public partial class MainWindow : Window
         RecentMenu.IsEnabled = items.Count > 0;
     }
 
-    private void OnSelectedDocumentChanged(DocumentViewModel? doc)
+    private void OnSelectedDocumentChanged(ITab? tab)
     {
+        var doc = tab as DocumentViewModel;
+        var cmp = tab as ComparisonViewModel;
+
         DocHost.DataContext = doc;
         DocHost.IsVisible = doc is not null;
         Spectro.Attach(doc);
-        Title = doc is null ? "Spektra" : $"{doc.TabTitle} — Spektra";
+        Spectro.IsVisible = doc is not null;
+
+        CompareHost.DataContext = cmp;
+        CompareHost.IsVisible = cmp is not null;
+        CompareStrip.DataContext = cmp;
+        CompareStrip.IsVisible = cmp is not null;
+        CompareSurfaceCtl.Attach(cmp);
+        CompareSurfaceCtl.IsVisible = cmp is not null;
+
+        Title = tab is null ? "Spektra" : $"{tab.TabTitle} — Spektra";
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
@@ -113,29 +130,38 @@ public partial class MainWindow : Window
 
     private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if ((sender as Border)?.DataContext is not DocumentViewModel doc) return;
+        if ((sender as Border)?.DataContext is not ITab tab) return;
         var props = e.GetCurrentPoint(this).Properties;
         if (props.IsMiddleButtonPressed)
         {
-            _vm.CloseDocument(doc);
+            _vm.CloseTab(tab);
             e.Handled = true;
         }
         else if (props.IsLeftButtonPressed)
         {
-            _vm.Selected = doc;
+            _vm.Selected = tab;
             e.Handled = true;
         }
     }
 
     private void OnTabCloseClicked(object? sender, RoutedEventArgs e)
     {
-        if ((sender as Button)?.DataContext is DocumentViewModel doc)
-            _vm.CloseDocument(doc);
+        if ((sender as Button)?.DataContext is ITab tab)
+            _vm.CloseTab(tab);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (_vm.Selected is ComparisonViewModel cmp && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            switch (e.Key)
+            {
+                case Key.T: cmp.FlipAB(); e.Handled = true; return;
+                case Key.D: cmp.Mode = CompareMode.Diff; e.Handled = true; return;
+                case Key.Escape: cmp.Mode = CompareMode.Both; e.Handled = true; return;
+            }
+        }
         if (e.Handled || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
         switch (e.Key)
         {
@@ -143,8 +169,8 @@ public partial class MainWindow : Window
                 _ = OpenViaDialogAsync();
                 e.Handled = true;
                 break;
-            case Key.W when _vm.Selected is { } doc:
-                _vm.CloseDocument(doc);
+            case Key.W when _vm.Selected is { } tab:
+                _vm.CloseTab(tab);
                 e.Handled = true;
                 break;
             case Key.Tab:
@@ -197,6 +223,25 @@ public partial class MainWindow : Window
 
     private async void OnDownloadFfmpegClicked(object? sender, RoutedEventArgs e) =>
         await _vm.DownloadFfmpegAsync();
+
+    private async void OnCompareClicked(object? sender, RoutedEventArgs e)
+    {
+        var docs = _vm.OpenDocuments;
+        if (docs.Count < 2)
+        {
+            _vm.StatusText = "Open at least two files to compare.";
+            return;
+        }
+        var chooser = new CompareChooser(docs);
+        await chooser.ShowDialog(this);
+        if (chooser.Result is { } c && !ReferenceEquals(c.A, c.B))
+            _vm.OpenComparison(c.A.FilePath, c.B.FilePath);
+    }
+
+    private async void OnAutoAlignClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is ComparisonViewModel cmp) await cmp.AlignAsync();
+    }
 
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
 }

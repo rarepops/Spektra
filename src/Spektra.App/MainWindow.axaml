@@ -29,6 +29,7 @@
       <MenuItem Header="_File">
         <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
         <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
+        <MenuItem Header="_Compare…" Click="OnCompareClicked" />
         <Separator />
         <MenuItem Header="E_xit" Click="OnExitClicked" />
       </MenuItem>
@@ -43,7 +44,7 @@
       </StackPanel>
     </Border>
 
-    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Documents}"
+    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Tabs}"
                   Margin="8,6,8,0" IsVisible="{Binding !ShowHint}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -79,11 +80,36 @@
       </Border>
     </StackPanel>
 
+    <Grid x:Name="CompareHost" DockPanel.Dock="Top" IsVisible="False"
+          RowDefinitions="Auto,Auto">
+      <DockPanel Grid.Row="0" Margin="12,8,12,4">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="0">
+          <RadioButton GroupName="mode" Content="Both" IsChecked="{Binding ModeBoth, Mode=TwoWay}" />
+          <RadioButton GroupName="mode" Content="A" IsChecked="{Binding ModeA, Mode=TwoWay}" Margin="6,0,0,0" />
+          <RadioButton GroupName="mode" Content="B" IsChecked="{Binding ModeB, Mode=TwoWay}" Margin="6,0,0,0" />
+          <RadioButton GroupName="mode" Content="Diff" IsChecked="{Binding ModeDiff, Mode=TwoWay}" Margin="6,0,0,0" />
+        </StackPanel>
+        <TextBlock Text="{Binding TabTitle}" FontSize="13" Foreground="#DDDDDD" VerticalAlignment="Center" />
+      </DockPanel>
+      <Border Grid.Row="1" Background="#5C1010" Padding="12,6" IsVisible="{Binding HasAlignHint}">
+        <TextBlock Text="{Binding AlignHint}" TextWrapping="Wrap" Foreground="#FFBBBB" />
+      </Border>
+    </Grid>
+
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusText}"
                Margin="12,4" FontSize="11" Foreground="#888888" />
 
+    <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
+      <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" />
+      <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="#BBBBBB"
+                 Text="{Binding OffsetMs, StringFormat='{}{0:+0;-0} ms'}" Margin="8,0,0,0" />
+      <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#999999" Text="Align B:" Margin="0,0,8,0" />
+      <Slider Minimum="-5000" Maximum="5000" Value="{Binding OffsetMs, Mode=TwoWay}" />
+    </DockPanel>
+
     <Panel>
       <controls:SpectrogramView x:Name="Spectro" />
+      <controls:CompareSurface x:Name="CompareSurfaceCtl" IsVisible="False" />
       <TextBlock Text="Drop audio files here — or File → Open"
                  IsVisible="{Binding ShowHint}" FontSize="16" Foreground="#666666"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />

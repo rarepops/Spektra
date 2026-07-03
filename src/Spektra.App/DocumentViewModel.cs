@@ -3,7 +3,7 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-public sealed class DocumentViewModel : ObservableObject
+public sealed class DocumentViewModel : ObservableObject, ITab
 {
     private readonly FfmpegPaths _ffmpeg;
     private CancellationTokenSource? _loadCts;
@@ -50,22 +50,24 @@ public sealed class DocumentViewModel : ObservableObject
         }
     }
 
-    private int? SelectedChannel => _selectedChannelIndex == 0 ? null : _selectedChannelIndex - 1;
+    public int? SelectedChannel => _selectedChannelIndex == 0 ? null : _selectedChannelIndex - 1;
 
     public AudioMetadata? Metadata { get; private set; }
     public SpectrogramDocument? Document { get; private set; }
-    public Viewport Viewport { get; } = new();
+    public Viewport Viewport { get; }
+    public TimeMap? TimeMap { get; set; }
     public SpectrogramTile? Tile { get; private set; }
 
     public event Action? DocumentChanged;
     public event Action? DocumentUpdated;
     public event Action? TileChanged;
 
-    public DocumentViewModel(FfmpegPaths ffmpeg, string filePath)
+    public DocumentViewModel(FfmpegPaths ffmpeg, string filePath, Viewport? viewport = null)
     {
         _ffmpeg = ffmpeg;
         FilePath = filePath;
         _headerText = Path.GetFileName(filePath);
+        Viewport = viewport ?? new Viewport();
     }
 
     public async Task LoadOverviewAsync()
@@ -139,15 +141,16 @@ public sealed class DocumentViewModel : ObservableObject
         var cts = _tileCts = new CancellationTokenSource();
         var (t0, t1) = (Viewport.T0, Viewport.T1);
 
-        var durationSec = meta.Duration.TotalSeconds;
-        var spanSec = (t1 - t0) * durationSec;
+        var map = TimeMap ?? new TimeMap(meta.Duration.TotalSeconds);
+        var startSec = Math.Max(0, map.StartSeconds(t0));
+        var spanSec = map.DurationSeconds(t1 - t0);
         var spanSamples = (long)(spanSec * meta.SampleRate);
         if (spanSamples <= 0 || targetColumns <= 0) return;
 
         var hop = (int)Math.Clamp(spanSamples / targetColumns, 64, 1024);
         var settings = new SpectrogramSettings(MaxColumns: targetColumns, HopOverride: hop);
         var options = new DecodeOptions(
-            Start: TimeSpan.FromSeconds(t0 * durationSec),
+            Start: TimeSpan.FromSeconds(startSec),
             Duration: TimeSpan.FromSeconds(spanSec),
             Channel: SelectedChannel);
 

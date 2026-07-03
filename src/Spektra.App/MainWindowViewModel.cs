@@ -7,13 +7,13 @@ namespace Spektra.App;
 public sealed class MainWindowViewModel : ObservableObject
 {
     private FfmpegPaths? _ffmpeg;
-    private DocumentViewModel? _selected;
+    private ITab? _selected;
 
     private string _statusText = "";
     private string? _shellErrorText;
     private bool _ffmpegMissing;
 
-    public ObservableCollection<DocumentViewModel> Documents { get; } = [];
+    public ObservableCollection<ITab> Tabs { get; } = [];
 
     public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
 
@@ -25,18 +25,18 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public bool HasShellError => _shellErrorText is not null;
     public bool FfmpegMissing { get => _ffmpegMissing; set => Set(ref _ffmpegMissing, value); }
-    public bool ShowHint => Documents.Count == 0;
+    public bool ShowHint => Tabs.Count == 0;
     public AppSettings Settings { get; }
 
-    public event Action<DocumentViewModel?>? SelectedChanged;
+    public event Action<ITab?>? SelectedChanged;
     public event Action? RecentFilesChanged;
 
-    public DocumentViewModel? Selected
+    public ITab? Selected
     {
         get => _selected;
         set
         {
-            if (_selected == value) return;
+            if (ReferenceEquals(_selected, value)) return;
             if (_selected is not null)
             {
                 _selected.IsSelected = false;
@@ -57,7 +57,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public MainWindowViewModel()
     {
         Settings = SettingsStore.Load(SettingsStore.DefaultPath);
-        Documents.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
+        Tabs.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
         _ffmpeg = FfmpegLocator.LocateDefault(); // probes app dir, %LOCALAPPDATA%, then PATH
         if (_ffmpeg is null)
         {
@@ -68,7 +68,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void OnSelectedDocPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender == _selected && e.PropertyName == nameof(DocumentViewModel.StatusText))
+        if (ReferenceEquals(sender, _selected) && e.PropertyName == nameof(ITab.StatusText))
             StatusText = _selected!.StatusText;
     }
 
@@ -81,13 +81,24 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (_ffmpeg is null) return;
         var doc = new DocumentViewModel(_ffmpeg, path);
-        Documents.Add(doc);
+        Tabs.Add(doc);
         Selected = doc;
         Settings.PushRecent(path);
         SaveSettings();
         RecentFilesChanged?.Invoke();
         _ = doc.LoadOverviewAsync();
     }
+
+    public void OpenComparison(string pathA, string pathB)
+    {
+        if (_ffmpeg is null) return;
+        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB);
+        Tabs.Add(cmp);
+        Selected = cmp;
+        _ = cmp.LoadAsync();
+    }
+
+    public IReadOnlyList<DocumentViewModel> OpenDocuments => Tabs.OfType<DocumentViewModel>().ToList();
 
     public void ClearRecent()
     {
@@ -102,23 +113,23 @@ public sealed class MainWindowViewModel : ObservableObject
         catch (Exception ex) { ShellErrorText = $"Could not save settings: {ex.Message}"; }
     }
 
-    public void CloseDocument(DocumentViewModel doc)
+    public void CloseTab(ITab tab)
     {
-        var i = Documents.IndexOf(doc);
+        var i = Tabs.IndexOf(tab);
         if (i < 0) return;
-        doc.Cancel();
-        Documents.RemoveAt(i);
-        if (Selected == doc)
-            Selected = Documents.Count == 0 ? null : Documents[Math.Min(i, Documents.Count - 1)];
+        tab.Cancel();
+        Tabs.RemoveAt(i);
+        if (ReferenceEquals(Selected, tab))
+            Selected = Tabs.Count == 0 ? null : Tabs[Math.Min(i, Tabs.Count - 1)];
     }
 
     public void SelectNext(int direction)
     {
-        if (Documents.Count == 0) return;
+        if (Tabs.Count == 0) return;
         var i = Selected is null
             ? 0
-            : (Documents.IndexOf(Selected) + direction + Documents.Count) % Documents.Count;
-        Selected = Documents[i];
+            : (Tabs.IndexOf(Selected) + direction + Tabs.Count) % Tabs.Count;
+        Selected = Tabs[i];
     }
 
     public async Task DownloadFfmpegAsync()
