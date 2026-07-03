@@ -47,7 +47,6 @@
     <Border Height="1" Background="#2E2E2E" />
 
     <TextBlock TextWrapping="Wrap" Foreground="#8C8C8C" FontSize="11">
-      
       Audio is decoded with ffmpeg / ffprobe as separate processes; they are not bundled or linked.
       Licensed under PolyForm Strict 1.0.0. © Rares (rarepops).
     </TextBlock>
