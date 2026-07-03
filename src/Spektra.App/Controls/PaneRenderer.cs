@@ -19,6 +19,17 @@ sealed class PaneRenderer : IDisposable
     private int _written;
     private WriteableBitmap? _tile;
     private SpectrogramTile? _tileShown;
+    private DisplaySettings _display = new();
+
+    /// Colormap + dB range used to paint pixels. Changing it repaints the cached
+    /// overview and tile bitmaps from the source columns (no re-analysis).
+    public void SetDisplay(DisplaySettings display)
+    {
+        if (_display == display) return;
+        _display = display;
+        if (_overview is not null) { _written = 0; Clear(_overview); SyncColumns(); }
+        if (_tileShown is { } tile) SetTile(tile);
+    }
 
     public void SetDocument(SpectrogramDocument? doc)
     {
@@ -48,7 +59,7 @@ sealed class PaneRenderer : IDisposable
             {
                 var row = _doc.Bins - 1 - bin;
                 Marshal.WriteInt32(fb.Address + row * fb.RowBytes + col * 4,
-                    unchecked((int)Palette.ToBgra(data[bin])));
+                    unchecked((int)Colormaps.ToBgra(_display.Palette, data[bin], _display.DbFloor, _display.DbCeil)));
             }
         }
         _written = count;
@@ -70,7 +81,7 @@ sealed class PaneRenderer : IDisposable
             {
                 var row = tile.Bins - 1 - bin;
                 Marshal.WriteInt32(fb.Address + row * fb.RowBytes + col * 4,
-                    unchecked((int)Palette.ToBgra(data[bin])));
+                    unchecked((int)Colormaps.ToBgra(_display.Palette, data[bin], _display.DbFloor, _display.DbCeil)));
             }
         }
         _tileShown = tile;
@@ -79,7 +90,8 @@ sealed class PaneRenderer : IDisposable
     public bool HasImage => _doc is not null && _overview is not null && _written > 0;
 
     public void DrawInto(DrawingContext ctx, Rect rect,
-        double paneT0, double paneT1, double f0, double f1, double vpT0, double vpT1)
+        double paneT0, double paneT1, double f0, double f1, double vpT0, double vpT1,
+        bool logFreq = false, double nyquist = 0)
     {
         if (!HasImage) return;
         var span = paneT1 - paneT0;
@@ -91,29 +103,47 @@ sealed class PaneRenderer : IDisposable
         var vis1 = Math.Clamp(paneT1, 0, 1);
         if (vis1 > vis0 && span > 0)
         {
-            var src = new Rect(
-                vis0 * _written, (1 - f1) * _doc!.Bins,
-                Math.Max(1, (vis1 - vis0) * _written),
-                Math.Max(1, (f1 - f0) * _doc.Bins));
             var dst = new Rect(
                 rect.X + (vis0 - paneT0) / span * rect.Width, rect.Y,
                 (vis1 - vis0) / span * rect.Width, rect.Height);
-            ctx.DrawImage(_overview!, src, dst);
+            DrawBands(ctx, _overview!, _doc!.Bins,
+                vis0 * _written, Math.Max(1, (vis1 - vis0) * _written), dst, f0, f1, logFreq, nyquist);
         }
 
         if (_tile is not null && _tileShown is { } tile &&
             Math.Abs(tile.T0 - vpT0) < 1e-9 && Math.Abs(tile.T1 - vpT1) < 1e-9)
         {
-            var tsrc = new Rect(0, (1 - f1) * tile.Bins,
-                _tile.PixelSize.Width, Math.Max(1, (f1 - f0) * tile.Bins));
-            ctx.DrawImage(_tile, tsrc, rect);
+            DrawBands(ctx, _tile, tile.Bins, 0, _tile.PixelSize.Width, rect, f0, f1, logFreq, nyquist);
         }
     }
 
-    private static void Clear(WriteableBitmap bmp)
+    // Draws a bitmap's frequency band [f0,f1] into dst. Linear is one stretch;
+    // log splits dst into horizontal strips, each mapping its own frequency
+    // sub-band (low frequencies get more vertical room).
+    private static void DrawBands(DrawingContext ctx, WriteableBitmap bmp, int bins,
+        double srcX, double srcW, Rect dst, double f0, double f1, bool logFreq, double nyquist)
+    {
+        if (!logFreq)
+        {
+            var src = new Rect(srcX, (1 - f1) * bins, srcW, Math.Max(1, (f1 - f0) * bins));
+            ctx.DrawImage(bmp, src, dst);
+            return;
+        }
+        var strips = Math.Clamp((int)dst.Height, 1, 256);
+        for (var k = 0; k < strips; k++)
+        {
+            var qTop = SpectrogramDraw.PosToFreq(1.0 - (double)k / strips, f0, f1, true, nyquist);
+            var qBot = SpectrogramDraw.PosToFreq(1.0 - (double)(k + 1) / strips, f0, f1, true, nyquist);
+            var src = new Rect(srcX, (1 - qTop) * bins, srcW, Math.Max(0.5, (qTop - qBot) * bins));
+            var stripRect = new Rect(dst.X, dst.Y + (double)k / strips * dst.Height, dst.Width, dst.Height / strips + 1);
+            ctx.DrawImage(bmp, src, stripRect);
+        }
+    }
+
+    private void Clear(WriteableBitmap bmp)
     {
         using var fb = bmp.Lock();
-        var black = unchecked((int)Palette.ToBgra(Db.Floor));
+        var black = unchecked((int)Colormaps.ToBgra(_display.Palette, Db.Floor, _display.DbFloor, _display.DbCeil));
         var px = fb.Size.Width * fb.Size.Height;
         for (var i = 0; i < px; i++) Marshal.WriteInt32(fb.Address + i * 4, black);
     }

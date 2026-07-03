@@ -24,6 +24,17 @@ public sealed class CompareSurface : Control
     private int _spinPhase;
     private bool _panning;
     private Point _lastPointer;
+    private DisplaySettings _display = new();
+
+    /// Colormap + dB range for the A/B panes and their legends (the signed diff
+    /// keeps its own diverging map). Re-colors both panes and repaints.
+    public void SetDisplay(DisplaySettings display)
+    {
+        _display = display;
+        _a.SetDisplay(display);
+        _b.SetDisplay(display);
+        InvalidateVisual();
+    }
 
     public CompareSurface()
     {
@@ -153,7 +164,7 @@ public sealed class CompareSurface : Control
                 _a.DrawInto(ctx, plot, vp.T0, vp.T1, f0For(srA), f1For(srA), vp.T0, vp.T1);
                 SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1);
                 SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
-                SpectrogramDraw.Legend(ctx, plot);
+                SpectrogramDraw.Legend(ctx, plot, _display);
                 DrawPaneError(ctx, plot, _vm.A);
                 break;
             case CompareMode.B:
@@ -162,7 +173,7 @@ public sealed class CompareSurface : Control
                 _b.DrawInto(ctx, plot, b0, b1, f0For(srB), f1For(srB), vp.T0, vp.T1);
                 SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1);
                 SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
-                SpectrogramDraw.Legend(ctx, plot);
+                SpectrogramDraw.Legend(ctx, plot, _display);
                 DrawPaneError(ctx, plot, _vm.B);
                 break;
             }
@@ -181,7 +192,7 @@ public sealed class CompareSurface : Control
                 SpectrogramDraw.FrequencyRuler(ctx, top, commonRate, vp.F0, vp.F1);
                 SpectrogramDraw.FrequencyRuler(ctx, bot, commonRate, vp.F0, vp.F1);
                 SpectrogramDraw.TimeRuler(ctx, bot, durA, vp.T0, vp.T1); // one shared ruler under B
-                SpectrogramDraw.Legend(ctx, plot);
+                SpectrogramDraw.Legend(ctx, plot, _display);
                 SpectrogramDraw.Text(ctx, "A", top.X + 4, top.Y + 2);
                 SpectrogramDraw.Text(ctx, "B", bot.X + 4, bot.Y + 2);
                 DrawPaneError(ctx, top, _vm.A);

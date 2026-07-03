@@ -16,6 +16,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _vm;
         _vm.SelectedChanged += OnSelectedDocumentChanged;
+        _vm.DisplayChanged += ApplyDisplay;
         OnSelectedDocumentChanged(null);
 
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -134,7 +135,16 @@ public partial class MainWindow : Window
         CompareSurfaceCtl.Attach(cmp);
         CompareSurfaceCtl.IsVisible = cmp is not null;
 
+        ApplyDisplay();
+
         Title = tab is null ? "Spektra" : $"{tab.TabTitle} — Spektra";
+    }
+
+    private void ApplyDisplay()
+    {
+        var display = _vm.Settings.ToDisplaySettings();
+        Spectro.SetDisplay(display);
+        CompareSurfaceCtl.SetDisplay(display);
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
@@ -188,6 +198,10 @@ public partial class MainWindow : Window
         {
             case Key.O:
                 _ = OpenViaDialogAsync();
+                e.Handled = true;
+                break;
+            case Key.E:
+                _ = new PreferencesWindow(_vm).ShowDialog(this);
                 e.Handled = true;
                 break;
             case Key.W when _vm.Selected is { } tab:
@@ -265,6 +279,9 @@ public partial class MainWindow : Window
     }
 
     private void OnExitClicked(object? sender, RoutedEventArgs e) => Close();
+
+    private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
+        await new PreferencesWindow(_vm).ShowDialog(this);
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
         await new AboutWindow().ShowDialog(this);

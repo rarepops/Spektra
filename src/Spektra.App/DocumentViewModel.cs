@@ -15,6 +15,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     private bool _isSelected;
     private int _selectedChannelIndex;
     private int _windowSize = 2048;
+    private WindowFunctionKind _window = WindowFunctionKind.Hann;
     private List<string> _channelOptions = ["Mix"];
 
     public string FilePath { get; }
@@ -85,6 +86,13 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         set { if (Set(ref _windowSize, value) && Metadata is not null) _ = LoadOverviewAsync(); }
     }
 
+    /// FFT analysis window shape. Changing it while a file is loaded re-analyzes.
+    public WindowFunctionKind Window
+    {
+        get => _window;
+        set { if (Set(ref _window, value) && Metadata is not null) _ = LoadOverviewAsync(); }
+    }
+
     public AudioMetadata? Metadata { get; private set; }
     public SpectrogramDocument? Document { get; private set; }
     public Viewport Viewport { get; }
@@ -117,7 +125,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         try
         {
             var session = new AnalysisSession(_ffmpeg);
-            var settings = new SpectrogramSettings(WindowSize: _windowSize);
+            var settings = new SpectrogramSettings(WindowSize: _windowSize, Window: _window);
 
             var meta = await Task.Run(() => session.ReadMetadata(FilePath), cts.Token);
             Metadata = meta;
@@ -183,7 +191,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         if (spanSamples <= 0 || targetColumns <= 0) return;
 
         var hop = (int)Math.Clamp(spanSamples / targetColumns, 64, 1024);
-        var settings = new SpectrogramSettings(WindowSize: _windowSize, MaxColumns: targetColumns, HopOverride: hop);
+        var settings = new SpectrogramSettings(WindowSize: _windowSize, MaxColumns: targetColumns, HopOverride: hop, Window: _window);
         var options = new DecodeOptions(
             Start: TimeSpan.FromSeconds(startSec),
             Duration: TimeSpan.FromSeconds(spanSec),

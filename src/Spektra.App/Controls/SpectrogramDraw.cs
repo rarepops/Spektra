@@ -10,6 +10,7 @@ namespace Spektra.App.Controls;
 static class SpectrogramDraw
 {
     public const double RulerLeft = 46, RulerBottom = 22, LegendWidth = 64, Pad = 8;
+    public const double LogMinHz = 20.0;
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#9A9A9A"));
     private static readonly Typeface Font = new("Segoe UI, Inter, sans-serif");
 
@@ -18,10 +19,49 @@ static class SpectrogramDraw
         Math.Max(1, bounds.Width - RulerLeft - LegendWidth - Pad),
         Math.Max(1, bounds.Height - RulerBottom - 2 * Pad));
 
-    public static void FrequencyRuler(DrawingContext ctx, Rect plot, double sampleRate, double f0, double f1)
+    // Lowest normalized frequency shown on a log axis (keeps log() finite).
+    private static double LogFloor(double f1, double nyquist) =>
+        Math.Min(nyquist > 0 ? LogMinHz / nyquist : 0.001, f1 * 0.5);
+
+    /// Normalized vertical position (0 = bottom/low, 1 = top/high) for a Nyquist
+    /// fraction q within the visible [f0,f1] window. Linear or logarithmic.
+    public static double FreqPos(double q, double f0, double f1, bool log, double nyquist)
+    {
+        if (f1 <= f0) return 0;
+        if (!log) return (q - f0) / (f1 - f0);
+        var qmin = LogFloor(f1, nyquist);
+        var a = Math.Log(Math.Max(f0, qmin));
+        var b = Math.Log(Math.Max(f1, qmin * 1.0001));
+        return (Math.Log(Math.Max(q, qmin)) - a) / (b - a);
+    }
+
+    /// Inverse of FreqPos: the Nyquist fraction at vertical position p (0 = bottom).
+    public static double PosToFreq(double p, double f0, double f1, bool log, double nyquist)
+    {
+        if (!log) return f0 + p * (f1 - f0);
+        var qmin = LogFloor(f1, nyquist);
+        var a = Math.Log(Math.Max(f0, qmin));
+        var b = Math.Log(Math.Max(f1, qmin * 1.0001));
+        return Math.Exp(a + p * (b - a));
+    }
+
+    public static void FrequencyRuler(DrawingContext ctx, Rect plot, double sampleRate, double f0, double f1, bool log = false)
     {
         var nyquist = sampleRate / 2.0;
         if (nyquist <= 0) return;
+        if (log)
+        {
+            foreach (var hz in new[] { 20.0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000 })
+            {
+                var q = hz / nyquist;
+                if (q < f0 || q > f1) continue;
+                var y = plot.Bottom - FreqPos(q, f0, f1, true, nyquist) * plot.Height;
+                ctx.DrawLine(new Pen(TextBrush, 1), new Point(plot.Left - 4, y), new Point(plot.Left, y));
+                var label = hz >= 1000 ? $"{hz / 1000:0.#}k" : $"{hz:0}";
+                Text(ctx, label, plot.Left - 8, y - 7, alignRight: true);
+            }
+            return;
+        }
         var lo = f0 * nyquist;
         var hi = f1 * nyquist;
         var step = new[] { 50.0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000 }
@@ -60,21 +100,22 @@ static class SpectrogramDraw
         return $"{basic}.{tenths}";
     }
 
-    public static void Legend(DrawingContext ctx, Rect plot)
+    public static void Legend(DrawingContext ctx, Rect plot, DisplaySettings display)
     {
         var x = plot.Right + 10;
         const double w = 14;
         const int steps = 64;
+        float floor = display.DbFloor, ceil = display.DbCeil;
         for (var i = 0; i < steps; i++)
         {
-            var db = Db.Floor + (0f - Db.Floor) * (steps - 1 - i) / (steps - 1);
-            var brush = new SolidColorBrush(Color.FromUInt32(Palette.ToBgra(db)));
+            var db = floor + (ceil - floor) * (steps - 1 - i) / (steps - 1);
+            var brush = new SolidColorBrush(Color.FromUInt32(Colormaps.ToBgra(display.Palette, db, floor, ceil)));
             var h = plot.Height / steps;
             ctx.FillRectangle(brush, new Rect(x, plot.Top + i * h, w, h + 1));
         }
-        for (var db = 0; db >= Db.Floor; db -= 30)
+        for (var db = (int)ceil; db >= floor; db -= 30)
         {
-            var y = plot.Top + (0 - db) / (0 - (double)Db.Floor) * plot.Height;
+            var y = plot.Top + (ceil - db) / (ceil - floor) * plot.Height;
             Text(ctx, $"{db}", x + w + 4, y - 7);
         }
     }

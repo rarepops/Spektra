@@ -10,12 +10,12 @@ public sealed class SpectralDiff(FfmpegPaths ffmpeg)
         string pathA, AudioMetadata metaA, int? channelA,
         string pathB, AudioMetadata metaB, int? channelB,
         double startSeconds, double durationSeconds, double offsetSeconds,
-        int targetColumns, int windowSize, CancellationToken ct)
+        int targetColumns, int windowSize, WindowFunctionKind window, CancellationToken ct)
     {
         var rate = Math.Min(metaA.SampleRate, metaB.SampleRate);
         var spanSamples = (long)(durationSeconds * rate);
         var hop = (int)Math.Clamp(spanSamples / Math.Max(1, targetColumns), 64, 1024);
-        var settings = new SpectrogramSettings(WindowSize: windowSize, MaxColumns: targetColumns, HopOverride: hop);
+        var settings = new SpectrogramSettings(WindowSize: windowSize, MaxColumns: targetColumns, HopOverride: hop, Window: window);
 
         var colsA = AnalyzeSide(pathA, metaA, channelA, startSeconds, durationSeconds, rate, settings, ct);
         var startB = Math.Max(0, startSeconds + offsetSeconds); // A_time + Offset, clamped ≥ 0

@@ -20,6 +20,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     private string? _alignHint;
     private string? _busyText;
     private int _windowSize = 2048;
+    private WindowFunctionKind _window = WindowFunctionKind.Hann;
 
     public DocumentViewModel A { get; }
     public DocumentViewModel B { get; }
@@ -47,6 +48,19 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             if (!Set(ref _windowSize, value)) return;
             A.WindowSize = value;
             B.WindowSize = value;
+            if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
+        }
+    }
+
+    /// FFT window shape shared by both panes and the diff.
+    public WindowFunctionKind Window
+    {
+        get => _window;
+        set
+        {
+            if (!Set(ref _window, value)) return;
+            A.Window = value;
+            B.Window = value;
             if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
         }
     }
@@ -217,7 +231,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             var (t0, t1) = (vp.T0, vp.T1);
             var cols = await Task.Run(() => new SpectralDiff(_ffmpeg).Compute(
                 A.FilePath, ma, A.SelectedChannel, B.FilePath, mb, B.SelectedChannel,
-                startSec, spanSec, _offsetSeconds, targetColumns, _windowSize, cts.Token), cts.Token);
+                startSec, spanSec, _offsetSeconds, targetColumns, _windowSize, _window, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested || cols.Count == 0) return;
             Diff = cols; DiffT0 = t0; DiffT1 = t1;
             DiffChanged?.Invoke();

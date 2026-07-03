@@ -16,6 +16,35 @@ public class WindowAndDbTests
         Assert.All(w, v => Assert.InRange(v, 0f, 1f));
     }
 
+    [Theory]
+    [InlineData(WindowFunctionKind.Hamming)]
+    [InlineData(WindowFunctionKind.Blackman)]
+    [InlineData(WindowFunctionKind.BlackmanHarris)]
+    public void Windows_AreSymmetric_AndPeakNearCenter(WindowFunctionKind kind)
+    {
+        var w = WindowFunction.Create(kind, 1024);
+        Assert.Equal(1024, w.Length);
+        Assert.Equal(w[64], w[1023 - 64], 4);            // symmetric
+        Assert.True(w[512] > w[64], "peak should be near the center");
+        Assert.All(w, v => Assert.InRange(v, -0.01f, 1.01f));
+    }
+
+    [Fact]
+    public void Create_Hann_MatchesDirectHann()
+    {
+        var a = WindowFunction.Create(WindowFunctionKind.Hann, 256);
+        var b = WindowFunction.Hann(256);
+        Assert.Equal(b, a);
+    }
+
+    [Fact]
+    public void Hamming_HasNonZeroEndpoints_UnlikeHann()
+    {
+        var hamming = WindowFunction.Hamming(1024);
+        Assert.True(hamming[0] > 0.05f, "Hamming does not reach zero at the edges");
+        Assert.Equal(0.08f, hamming[0], 2);
+    }
+
     [Fact]
     public void Db_ConvertsAndClamps()
     {

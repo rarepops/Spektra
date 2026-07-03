@@ -47,6 +47,63 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    public IReadOnlyList<WindowFunctionKind> WindowFunctions { get; } = Enum.GetValues<WindowFunctionKind>();
+    public IReadOnlyList<PaletteKind> Palettes { get; } = Enum.GetValues<PaletteKind>();
+
+    /// FFT window shape. Like FftSize this is an analysis setting, so changing it
+    /// re-analyzes every open tab.
+    public WindowFunctionKind WindowFunction
+    {
+        get => Settings.WindowFunction;
+        set
+        {
+            if (Settings.WindowFunction == value) return;
+            Settings.WindowFunction = value;
+            RaisePropertyChanged(nameof(WindowFunction));
+            SaveSettings();
+            foreach (var tab in Tabs)
+            {
+                if (tab is DocumentViewModel d) d.Window = value;
+                else if (tab is ComparisonViewModel c) c.Window = value;
+            }
+        }
+    }
+
+    // Display-only settings: raise DisplayChanged so the view re-colors without
+    // re-analyzing.
+    public event Action? DisplayChanged;
+
+    public PaletteKind Palette
+    {
+        get => Settings.Palette;
+        set { if (SetDisplay(v => Settings.Palette = v, Settings.Palette, value)) RaisePropertyChanged(nameof(Palette)); }
+    }
+
+    public int DbFloor
+    {
+        get => Settings.DbFloor;
+        set
+        {
+            value = Math.Clamp(value, -140, -40);
+            if (SetDisplay(v => Settings.DbFloor = v, Settings.DbFloor, value)) RaisePropertyChanged(nameof(DbFloor));
+        }
+    }
+
+    public bool LogFrequency
+    {
+        get => Settings.LogFrequency;
+        set { if (SetDisplay(v => Settings.LogFrequency = v, Settings.LogFrequency, value)) RaisePropertyChanged(nameof(LogFrequency)); }
+    }
+
+    private bool SetDisplay<T>(Action<T> assign, T current, T value)
+    {
+        if (EqualityComparer<T>.Default.Equals(current, value)) return false;
+        assign(value);
+        SaveSettings();
+        DisplayChanged?.Invoke();
+        return true;
+    }
+
     public event Action<ITab?>? SelectedChanged;
     public event Action? RecentFilesChanged;
 
@@ -99,7 +156,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public void OpenFile(string path)
     {
         if (_ffmpeg is null) return;
-        var doc = new DocumentViewModel(_ffmpeg, path) { WindowSize = Settings.FftSize };
+        var doc = new DocumentViewModel(_ffmpeg, path) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
         Tabs.Add(doc);
         Selected = doc;
         Settings.PushRecent(path);
@@ -111,7 +168,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public void OpenComparison(string pathA, string pathB)
     {
         if (_ffmpeg is null) return;
-        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB) { WindowSize = Settings.FftSize };
+        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
         Tabs.Add(cmp);
         Selected = cmp;
         _ = cmp.LoadAsync();

@@ -11,7 +11,7 @@ public sealed class SpectrogramEngine(SpectrogramSettings settings)
     public IEnumerable<float[]> Columns(
         IEnumerable<float[]> monoChunks, long estimatedTotalSamples, CancellationToken ct)
     {
-        var window = WindowFunction.Hann(settings.WindowSize);
+        var window = WindowFunction.Create(settings.Window, settings.WindowSize);
         var windowSum = 0f;
         foreach (var v in window) windowSum += v;
         var fft = new FftTransform(settings.WindowSize);

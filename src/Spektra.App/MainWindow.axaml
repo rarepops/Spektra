@@ -54,6 +54,9 @@
           <Separator />
           <MenuItem Header="E_xit" Click="OnExitClicked" />
         </MenuItem>
+        <MenuItem Header="_Edit">
+          <MenuItem Header="_Preferences…" Click="OnPreferencesClicked" InputGesture="Ctrl+E" />
+        </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_About Spektra" Click="OnAboutClicked" />
         </MenuItem>

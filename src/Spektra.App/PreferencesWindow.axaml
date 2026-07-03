@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.PreferencesWindow"
+        Title="Preferences" Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" Background="#1A1A1A" CanResize="False">
+  <StackPanel Margin="20" Spacing="16">
+
+    <TextBlock Text="Analysis" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
+    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="FFT window size" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}" />
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Window function" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding WindowFunctions}" SelectedItem="{Binding WindowFunction, Mode=TwoWay}" />
+    </Grid>
+
+    <Border Height="1" Background="#2E2E2E" />
+
+    <TextBlock Text="Display" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
+    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Color palette" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding Palettes}" SelectedItem="{Binding Palette, Mode=TwoWay}" />
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Dynamic range floor" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <DockPanel Grid.Row="1" Grid.Column="1">
+        <TextBlock DockPanel.Dock="Right" Width="52" TextAlignment="Right" Foreground="#9A9A9A" FontSize="12"
+                   VerticalAlignment="Center" Text="{Binding DbFloor, StringFormat='{}{0} dB'}" />
+        <Slider Minimum="-140" Maximum="-40" TickFrequency="10" IsSnapToTickEnabled="True"
+                Value="{Binding DbFloor, Mode=TwoWay}"
+                ToolTip.Tip="Lower = reveal more quiet detail; higher = show only louder content" />
+      </DockPanel>
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="Frequency axis" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <CheckBox Grid.Row="2" Grid.Column="1" Content="Logarithmic" Foreground="#C9C9C9"
+                IsChecked="{Binding LogFrequency, Mode=TwoWay}" />
+    </Grid>
+
+    <Border Height="1" Background="#2E2E2E" />
+
+    <TextBlock TextWrapping="Wrap" Foreground="#8C8C8C" FontSize="11">
+      FFT size and window function change the analysis and re-scan open files.
+      Palette, dynamic range, and axis are display-only and apply instantly.
+    </TextBlock>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

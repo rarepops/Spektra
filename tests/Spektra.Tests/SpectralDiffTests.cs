@@ -17,7 +17,7 @@ public class SpectralDiffTests
         var meta = Meta("chirp.wav");
         var cols = new SpectralDiff(Ff).Compute(
             P("chirp.wav"), meta, null, P("chirp.wav"), meta, null,
-            0, 3, 0, 256, 2048, CancellationToken.None);
+            0, 3, 0, 256, 2048, WindowFunctionKind.Hann, CancellationToken.None);
         var maxAbs = cols.SelectMany(c => c).Max(MathF.Abs);
         Assert.True(maxAbs < 0.5f, $"identical diff should be ~0, was {maxAbs}");
     }
@@ -28,7 +28,7 @@ public class SpectralDiffTests
         var cols = new SpectralDiff(Ff).Compute(
             P("chirp.wav"), Meta("chirp.wav"), null,
             P("chirp-lp16k.wav"), Meta("chirp-lp16k.wav"), null,
-            0, 3, 0, 256, 2048, CancellationToken.None);
+            0, 3, 0, 256, 2048, WindowFunctionKind.Hann, CancellationToken.None);
         // 44100 Hz, window 2048 → 21.5 Hz/bin. bin 820 ≈ 17.6 kHz (deep in B's
         // stopband); bin 350 ≈ 7.5 kHz (both share the chirp).
         var above = cols.SelectMany(c => c.Skip(820)).ToList();

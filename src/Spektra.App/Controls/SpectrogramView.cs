@@ -14,6 +14,15 @@ public sealed class SpectrogramView : Control
     private bool _panning;
     private Point _lastPointer;
     private readonly DispatcherTimer _tileTimer;
+    private DisplaySettings _display = new();
+
+    /// Colormap + dB range used to paint and to draw the legend.
+    public void SetDisplay(DisplaySettings display)
+    {
+        _display = display;
+        _pane.SetDisplay(display);
+        InvalidateVisual();
+    }
 
     public SpectrogramView()
     {
@@ -69,11 +78,12 @@ public sealed class SpectrogramView : Control
         var vp = _vm?.Viewport;
         if (_vm?.Document is { } doc && vp is not null)
         {
-            _pane.DrawInto(ctx, plot, vp.T0, vp.T1, vp.F0, vp.F1, vp.T0, vp.T1);
-            SpectrogramDraw.FrequencyRuler(ctx, plot, doc.Metadata.SampleRate, vp.F0, vp.F1);
+            var nyquist = doc.Metadata.SampleRate / 2.0;
+            _pane.DrawInto(ctx, plot, vp.T0, vp.T1, vp.F0, vp.F1, vp.T0, vp.T1, _display.LogFrequency, nyquist);
+            SpectrogramDraw.FrequencyRuler(ctx, plot, doc.Metadata.SampleRate, vp.F0, vp.F1, _display.LogFrequency);
             SpectrogramDraw.TimeRuler(ctx, plot, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1);
         }
-        SpectrogramDraw.Legend(ctx, plot);
+        SpectrogramDraw.Legend(ctx, plot, _display);
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)

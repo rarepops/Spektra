@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Spektra.Core;
 
@@ -8,6 +9,7 @@ public static class SettingsStore
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() },
     };
 
     public static string DefaultPath => Path.Combine(
