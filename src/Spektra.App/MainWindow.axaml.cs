@@ -43,10 +43,69 @@ public partial class MainWindow : Window
         if (paths is { Count: > 0 }) _vm.OpenFiles(paths);
     }
 
+    private bool _dialogOpen;
+
+    private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if ((sender as Border)?.DataContext is not DocumentViewModel doc) return;
+        var props = e.GetCurrentPoint(this).Properties;
+        if (props.IsMiddleButtonPressed)
+        {
+            _vm.CloseDocument(doc);
+            e.Handled = true;
+        }
+        else if (props.IsLeftButtonPressed)
+        {
+            _vm.Selected = doc;
+            e.Handled = true;
+        }
+    }
+
+    private void OnTabCloseClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.DataContext is DocumentViewModel doc)
+            _vm.CloseDocument(doc);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+        switch (e.Key)
+        {
+            case Key.O:
+                _ = OpenViaDialogAsync();
+                e.Handled = true;
+                break;
+            case Key.W when _vm.Selected is { } doc:
+                _vm.CloseDocument(doc);
+                e.Handled = true;
+                break;
+            case Key.Tab:
+                _vm.SelectNext(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
+                e.Handled = true;
+                break;
+        }
+    }
+
     private async void OnOpenClicked(object? sender, RoutedEventArgs e) =>
         await OpenViaDialogAsync();
 
     private async Task OpenViaDialogAsync()
+    {
+        if (_dialogOpen) return;
+        _dialogOpen = true;
+        try
+        {
+            await ShowOpenDialogAsync();
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
+
+    private async Task ShowOpenDialogAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
