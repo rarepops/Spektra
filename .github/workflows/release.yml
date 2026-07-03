@@ -95,5 +95,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Spektra ${{ steps.v.outputs.version }}
-          files: dist/artifacts/*
+          files: |
+            dist/artifacts/*.zip
+            dist/artifacts/*.msi
           generate_release_notes: true
