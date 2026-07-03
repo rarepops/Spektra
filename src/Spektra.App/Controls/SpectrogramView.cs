@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Spektra.Core;
@@ -22,6 +23,21 @@ public sealed class SpectrogramView : Control
     private int _writtenColumns;
     private bool _panning;
     private Point _lastPointer;
+    private readonly DispatcherTimer _tileTimer;
+    private WriteableBitmap? _tileBitmap;
+    private SpectrogramTile? _tileShown;
+
+    public SpectrogramView()
+    {
+        _tileTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _tileTimer.Tick += (_, _) =>
+        {
+            _tileTimer.Stop();
+            if (_vm is null) return;
+            var columns = Math.Clamp((int)PlotRect(Bounds).Width, 64, 4096);
+            _ = _vm.RenderTileAsync(columns);
+        };
+    }
 
     public void Attach(DocumentViewModel? vm)
     {
@@ -29,6 +45,7 @@ public sealed class SpectrogramView : Control
         {
             _vm.DocumentChanged -= OnDocumentChanged;
             _vm.DocumentUpdated -= OnDocumentUpdated;
+            _vm.TileChanged -= OnTileChanged;
             _vm.Viewport.Changed -= OnViewportChanged;
         }
         _vm = vm;
@@ -36,17 +53,38 @@ public sealed class SpectrogramView : Control
         {
             vm.DocumentChanged += OnDocumentChanged;
             vm.DocumentUpdated += OnDocumentUpdated;
+            vm.TileChanged += OnTileChanged;
             vm.Viewport.Changed += OnViewportChanged;
         }
         RebuildOverviewBitmap();
+        RebuildTileBitmap();
+        ScheduleTile();
         InvalidateVisual();
     }
 
-    private void OnViewportChanged() => InvalidateVisual();
+    private void OnViewportChanged()
+    {
+        InvalidateVisual();
+        ScheduleTile();
+    }
+
+    private void ScheduleTile()
+    {
+        _tileTimer.Stop();
+        if (_vm?.Viewport.IsTimeZoomed == true) _tileTimer.Start();
+    }
+
+    private void OnTileChanged()
+    {
+        RebuildTileBitmap();
+        InvalidateVisual();
+    }
 
     private void OnDocumentChanged()
     {
         RebuildOverviewBitmap();
+        RebuildTileBitmap();
+        ScheduleTile();
         InvalidateVisual();
     }
 
@@ -76,6 +114,30 @@ public sealed class SpectrogramView : Control
             ClearBitmap();
             OnDocumentUpdated(); // tab switch: replay columns analyzed while detached
         }
+    }
+
+    private void RebuildTileBitmap()
+    {
+        _tileBitmap?.Dispose();
+        _tileBitmap = null;
+        _tileShown = null;
+        var tile = _vm?.Tile;
+        if (tile is null || tile.Columns.Count == 0) return;
+        _tileBitmap = new WriteableBitmap(
+            new PixelSize(tile.Columns.Count, tile.Bins),
+            new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        using var fb = _tileBitmap.Lock();
+        for (var col = 0; col < tile.Columns.Count; col++)
+        {
+            var data = tile.Columns[col];
+            for (var bin = 0; bin < tile.Bins; bin++)
+            {
+                var row = tile.Bins - 1 - bin;
+                Marshal.WriteInt32(fb.Address + row * fb.RowBytes + col * 4,
+                    unchecked((int)Palette.ToBgra(data[bin])));
+            }
+        }
+        _tileShown = tile;
     }
 
     private void ClearBitmap()
@@ -128,6 +190,15 @@ public sealed class SpectrogramView : Control
                     Math.Max(1, vp.TimeSpanN * _writtenColumns),
                     Math.Max(1, vp.FreqSpanN * _doc.Bins));
             ctx.DrawImage(_bitmap, src, plot);
+
+            if (_tileBitmap is not null && _tileShown is { } tile &&
+                Math.Abs(tile.T0 - vp.T0) < 1e-9 && Math.Abs(tile.T1 - vp.T1) < 1e-9)
+            {
+                var tsrc = new Rect(
+                    0, (1 - vp.F1) * tile.Bins,
+                    _tileBitmap.PixelSize.Width, Math.Max(1, vp.FreqSpanN * tile.Bins));
+                ctx.DrawImage(_tileBitmap, tsrc, plot);
+            }
         }
 
         if (_doc is not null && vp is not null)
