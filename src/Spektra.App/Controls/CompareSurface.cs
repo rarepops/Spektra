@@ -110,6 +110,7 @@ public sealed class CompareSurface : Control
                 SpectrogramDraw.FrequencyRuler(ctx, plot, srA, vp.F0, vp.F1);
                 SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
                 SpectrogramDraw.Legend(ctx, plot);
+                DrawPaneError(ctx, plot, _vm.A);
                 break;
             case CompareMode.B:
             {
@@ -119,6 +120,7 @@ public sealed class CompareSurface : Control
                 SpectrogramDraw.FrequencyRuler(ctx, plot, srB, vp.F0, vp.F1);
                 SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
                 SpectrogramDraw.Legend(ctx, plot);
+                DrawPaneError(ctx, plot, _vm.B);
                 break;
             }
             case CompareMode.Diff:
@@ -139,6 +141,8 @@ public sealed class CompareSurface : Control
                 SpectrogramDraw.Legend(ctx, plot);
                 SpectrogramDraw.Text(ctx, "A", top.X + 4, top.Y + 2);
                 SpectrogramDraw.Text(ctx, "B", bot.X + 4, bot.Y + 2);
+                DrawPaneError(ctx, top, _vm.A);
+                DrawPaneError(ctx, bot, _vm.B);
                 break;
             }
         }
@@ -163,6 +167,14 @@ public sealed class CompareSurface : Control
                     unchecked((int)DivergingPalette.ToBgra(data[bin], ComparisonViewModel.DiffClamp)));
             }
         }
+    }
+
+    private static void DrawPaneError(DrawingContext ctx, Rect rect, DocumentViewModel dvm)
+    {
+        if (dvm.Document is not null || dvm.ErrorText is not { } err) return;
+        var msg = err.Split('\n')[0];
+        if (msg.Length > 90) msg = msg[..90] + "…";
+        SpectrogramDraw.Text(ctx, "⚠ " + msg, rect.X + 12, rect.Y + rect.Height / 2 - 6);
     }
 
     private void RenderDiff(DrawingContext ctx, Rect plot, Viewport vp)
