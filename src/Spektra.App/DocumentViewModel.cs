@@ -13,6 +13,8 @@ public sealed class DocumentViewModel : ObservableObject
     private string _statusText = "";
     private string? _errorText;
     private bool _isSelected;
+    private int _selectedChannelIndex;
+    private List<string> _channelOptions = ["Mix"];
 
     public string FilePath { get; }
     public string TabTitle => Path.GetFileName(FilePath);
@@ -28,6 +30,27 @@ public sealed class DocumentViewModel : ObservableObject
 
     public bool HasError => _errorText is not null;
     public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
+
+    public List<string> ChannelOptions
+    {
+        get => _channelOptions;
+        private set { if (Set(ref _channelOptions, value)) RaisePropertyChanged(nameof(HasMultipleChannels)); }
+    }
+
+    public bool HasMultipleChannels => _channelOptions.Count > 1;
+
+    public int SelectedChannelIndex
+    {
+        get => _selectedChannelIndex;
+        set
+        {
+            if (value < 0) return; // ComboBox emits -1 transiently on ItemsSource swap
+            if (!Set(ref _selectedChannelIndex, value)) return;
+            if (Metadata is not null) _ = LoadOverviewAsync();
+        }
+    }
+
+    private int? SelectedChannel => _selectedChannelIndex == 0 ? null : _selectedChannelIndex - 1;
 
     public AudioMetadata? Metadata { get; private set; }
     public SpectrogramDocument? Document { get; private set; }
@@ -62,6 +85,8 @@ public sealed class DocumentViewModel : ObservableObject
 
             var meta = await Task.Run(() => session.ReadMetadata(FilePath), cts.Token);
             Metadata = meta;
+            if (ChannelOptions.Count == 1 && meta.Channels > 1)
+                ChannelOptions = ["Mix", .. Enumerable.Range(1, meta.Channels).Select(i => $"Ch {i}")];
             HeaderText = meta.ToDisplayLine(TabTitle);
 
             // max-zoom clamp: a nominal 1024-column tile never drops below 64 samples/hop
@@ -81,7 +106,8 @@ public sealed class DocumentViewModel : ObservableObject
             await Task.Run(() =>
             {
                 var sinceRefresh = 0;
-                foreach (var column in session.AnalyzeColumns(FilePath, meta, settings, cts.Token))
+                foreach (var column in session.AnalyzeColumns(FilePath, meta, settings, cts.Token,
+                    new DecodeOptions(Channel: SelectedChannel)))
                 {
                     doc.Append(column);
                     if (++sinceRefresh >= 32)
@@ -122,7 +148,8 @@ public sealed class DocumentViewModel : ObservableObject
         var settings = new SpectrogramSettings(MaxColumns: targetColumns, HopOverride: hop);
         var options = new DecodeOptions(
             Start: TimeSpan.FromSeconds(t0 * durationSec),
-            Duration: TimeSpan.FromSeconds(spanSec));
+            Duration: TimeSpan.FromSeconds(spanSec),
+            Channel: SelectedChannel);
 
         try
         {

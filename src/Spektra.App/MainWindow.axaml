@@ -66,6 +66,10 @@
 
     <StackPanel x:Name="DocHost" DockPanel.Dock="Top">
       <DockPanel Margin="12,8,12,4">
+        <ComboBox DockPanel.Dock="Right" MinWidth="86" FontSize="12"
+                  ItemsSource="{Binding ChannelOptions}"
+                  SelectedIndex="{Binding SelectedChannelIndex, Mode=TwoWay}"
+                  IsVisible="{Binding HasMultipleChannels}" />
         <TextBlock Text="{Binding HeaderText}" FontSize="13" Foreground="#DDDDDD"
                    VerticalAlignment="Center" />
       </DockPanel>
