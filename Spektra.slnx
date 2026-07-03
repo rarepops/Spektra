@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Spektra.App/Spektra.App.csproj" />
+    <Project Path="src/Spektra.Cli/Spektra.Cli.csproj" />
     <Project Path="src/Spektra.Core/Spektra.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -47,10 +47,14 @@ Compare two files directly (also available in-app via File → Compare…):
 
 ## Command line
 
-Headless modes print to the console and exit 1 when anything looks lossy:
+Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the
+analysis engine. It writes to stdout and exits 1 when anything looks lossy:
 
-    spektra --report <file> [<file> ...]   Print each file's bandwidth verdict.
-    spektra --scan <folder>                Scan a library and flag suspected transcodes.
+    spektra report <file> [<file> ...]   Print each file's bandwidth verdict.
+    spektra scan <folder>                Scan a library and flag suspected transcodes.
+
+(`--report` / `--scan` are accepted too.) Build it with
+`dotnet publish src/Spektra.Cli -c Release`.
 
 ## Test
 

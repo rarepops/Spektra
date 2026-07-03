@@ -1,35 +1,40 @@
-using System.Runtime.InteropServices;
 using Spektra.Core;
 
-namespace Spektra.App;
+namespace Spektra.Cli;
 
-/// Headless command-line modes (no GUI): print a bandwidth verdict for files or
-/// scan a folder for suspected transcodes. Exit code 1 when anything looks lossy
-/// so it can gate scripts.
-internal static class Cli
+/// Cross-platform command-line front end for Spektra's analysis engine. Writes
+/// to stdout like a normal console program, so output pipes and redirects
+/// cleanly. Exit code 1 when anything is judged likely lossy, 2 on setup errors.
+internal static class Program
 {
-    public static bool IsCliMode(string[] args) => args.Length > 0 && args[0] is "--report" or "--scan";
-
-    public static int Run(string[] args)
+    public static int Main(string[] args)
     {
-        EnsureConsole();
+        if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
+            return Usage(args.Length == 0 ? 1 : 0);
+
         var ffmpeg = FfmpegLocator.LocateDefault();
         if (ffmpeg is null)
         {
-            Console.Error.WriteLine(@"Spektra: ffmpeg/ffprobe not found (PATH or %LOCALAPPDATA%\Spektra\ffmpeg).");
+            Console.Error.WriteLine(
+                "spektra: ffmpeg/ffprobe not found. Install ffmpeg and ensure it is on PATH.");
             return 2;
         }
+
         return args[0] switch
         {
-            "--report" => Report(ffmpeg, args.Skip(1).ToArray()),
-            "--scan" => Scan(ffmpeg, args.Skip(1).ToArray()),
-            _ => Usage(),
+            "--report" or "report" => Report(ffmpeg, args[1..]),
+            "--scan" or "scan" => Scan(ffmpeg, args[1..]),
+            _ => Usage(1),
         };
     }
 
     private static int Report(FfmpegPaths ffmpeg, string[] paths)
     {
-        if (paths.Length == 0) return Usage();
+        if (paths.Length == 0)
+        {
+            Console.Error.WriteLine("spektra report: give one or more audio files.");
+            return Usage(1);
+        }
         var anyLossy = false;
         foreach (var path in paths)
         {
@@ -47,8 +52,8 @@ internal static class Cli
     {
         if (args.Length == 0 || !Directory.Exists(args[0]))
         {
-            Console.Error.WriteLine("Spektra --scan: provide an existing folder to scan.");
-            return Usage();
+            Console.Error.WriteLine("spektra scan: give an existing folder to scan.");
+            return Usage(1);
         }
         var root = args[0];
         var files = BandwidthReport.FindAudioFiles(root).ToList();
@@ -86,21 +91,19 @@ internal static class Cli
         return kind + cut;
     }
 
-    private static int Usage()
+    private static int Usage(int exitCode)
     {
-        Console.WriteLine("Spektra command-line usage:");
-        Console.WriteLine("  spektra --report <file> [<file> ...]   Print the bandwidth verdict for each file.");
-        Console.WriteLine("  spektra --scan <folder>                Scan a folder and flag suspected transcodes.");
-        Console.WriteLine("Exit code is 1 when anything is judged likely lossy.");
-        return 1;
-    }
+        Console.WriteLine("""
+            Spektra - audio bandwidth / transcode analyzer
 
-    [DllImport("kernel32.dll")]
-    private static extern bool AttachConsole(int dwProcessId);
-    private const int AttachParentProcess = -1;
+            Usage:
+              spektra report <file> [<file> ...]   Print each file's bandwidth verdict.
+              spektra scan <folder>                Scan a folder and flag suspected transcodes.
+              spektra --help                       Show this help.
 
-    private static void EnsureConsole()
-    {
-        if (OperatingSystem.IsWindows()) AttachConsole(AttachParentProcess);
+            Exit code is 1 when anything is judged likely lossy, 2 on setup errors.
+            Requires ffmpeg + ffprobe on PATH.
+            """);
+        return exitCode;
     }
 }
