@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-04
+
 ### Added
 - Integrity check: detects corrupt frames (via ffmpeg error detection), missing
   data that decodes to interior digital silence (as in a partial download), and
@@ -73,5 +75,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/rarepops/Spektra/releases/tag/v0.6.0
 [0.5.0]: https://github.com/rarepops/Spektra/releases/tag/v0.5.0
