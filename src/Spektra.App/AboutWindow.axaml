@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.AboutWindow"
+        Title="About Spektra" Width="470" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" Background="#1A1A1A" CanResize="False">
+  <StackPanel Margin="20" Spacing="14">
+    <StackPanel Orientation="Horizontal" Spacing="16">
+      <Image Source="/Assets/spektra-logo.png" Width="76" Height="76" VerticalAlignment="Top" />
+      <StackPanel VerticalAlignment="Center" Spacing="3">
+        <TextBlock Text="Spektra" FontSize="24" FontWeight="SemiBold" Foreground="#EDEDED" />
+        <TextBlock x:Name="VersionText" Foreground="#9AA0A6" FontSize="13" />
+        <TextBlock Text="Audio spectrum analyzer and encode comparator"
+                   Foreground="#BBBBBB" FontSize="12" TextWrapping="Wrap" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border Height="1" Background="#2E2E2E" />
+
+    <TextBlock Text="Keyboard &amp; mouse" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
+    <StackPanel Spacing="6" Margin="4,0,0,0">
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+O" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Open audio files" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+W  ·  Ctrl+Tab" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Close tab  ·  switch tabs (Shift to reverse)" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Wheel  ·  Shift+Wheel" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Zoom time  ·  zoom frequency" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Drag  ·  Double-click" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Pan  ·  reset the view" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="T  ·  D  ·  Esc" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Compare: flip A/B  ·  difference  ·  back to both" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="File → Compare…" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Stack two open files with synced zoom and alignment" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+    </StackPanel>
+
+    <Border Height="1" Background="#2E2E2E" />
+
+    <TextBlock TextWrapping="Wrap" Foreground="#8C8C8C" FontSize="11">
+      
+      Audio is decoded with ffmpeg / ffprobe as separate processes; they are not bundled or linked.
+      Licensed under PolyForm Strict 1.0.0. © Rares (rarepops).
+    </TextBlock>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>
