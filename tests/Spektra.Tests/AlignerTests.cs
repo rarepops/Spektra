@@ -39,4 +39,18 @@ public class AlignerTests
         var (_, conf) = Aligner.EstimateLag(Noise(2000, 3), Noise(2000, 4), 200);
         Assert.True(conf < 0.3, $"confidence {conf}");
     }
+
+    private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "fixtures");
+
+    [Fact]
+    public void EstimateOffset_RecoversFixtureDelay()
+    {
+        var ff = FfmpegLocator.Locate([])!;
+        var r = Aligner.EstimateOffset(ff,
+            Path.Combine(Fixtures, "chirp.wav"),
+            Path.Combine(Fixtures, "chirp-delay50ms.wav"),
+            null, null);
+        Assert.InRange(r.Offset.TotalMilliseconds, 45, 55); // B is A delayed by 50 ms
+        Assert.True(r.Confidence > 0.4, $"confidence {r.Confidence}");
+    }
 }
