@@ -16,6 +16,9 @@ and (in upcoming versions) compare encodes side-by-side and get an automated
 - Tabs: open many files at once (dialog, drag-drop, or CLI args)
 - Per-channel or mixdown analysis for multichannel files
 - Recent files + window placement remembered across runs
+- Compare two files: stacked spectrograms on a shared time axis, synced zoom/pan,
+  manual + automatic (cross-correlation) time alignment, A/B flip, and a signed
+  A−B difference view (diverging colormap)
 
 ## Requirements
 
@@ -28,6 +31,10 @@ and (in upcoming versions) compare encodes side-by-side and get an automated
 ## Build & run
 
     dotnet run --project src/Spektra.App -- <optional-audio-file>
+
+Compare two files directly (also available in-app via File → Compare…):
+
+    dotnet run --project src/Spektra.App -- --compare <fileA> <fileB> [--auto] [--mode diff]
 
 ## Test
 
