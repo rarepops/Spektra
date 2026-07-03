@@ -28,6 +28,25 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool ShowHint => Tabs.Count == 0;
     public AppSettings Settings { get; }
 
+    public IReadOnlyList<int> FftSizes { get; } = [512, 1024, 2048, 4096, 8192];
+
+    public int FftSize
+    {
+        get => Settings.FftSize;
+        set
+        {
+            if (Settings.FftSize == value) return;
+            Settings.FftSize = value;
+            RaisePropertyChanged(nameof(FftSize));
+            SaveSettings();
+            foreach (var tab in Tabs)
+            {
+                if (tab is DocumentViewModel d) d.WindowSize = value;
+                else if (tab is ComparisonViewModel c) c.WindowSize = value;
+            }
+        }
+    }
+
     public event Action<ITab?>? SelectedChanged;
     public event Action? RecentFilesChanged;
 
@@ -80,7 +99,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public void OpenFile(string path)
     {
         if (_ffmpeg is null) return;
-        var doc = new DocumentViewModel(_ffmpeg, path);
+        var doc = new DocumentViewModel(_ffmpeg, path) { WindowSize = Settings.FftSize };
         Tabs.Add(doc);
         Selected = doc;
         Settings.PushRecent(path);
@@ -92,7 +111,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public void OpenComparison(string pathA, string pathB)
     {
         if (_ffmpeg is null) return;
-        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB);
+        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB) { WindowSize = Settings.FftSize };
         Tabs.Add(cmp);
         Selected = cmp;
         _ = cmp.LoadAsync();

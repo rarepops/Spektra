@@ -8,6 +8,7 @@ public sealed class AppSettings
 
     public WindowPlacement? Window { get; set; }
     public List<string> RecentFiles { get; set; } = [];
+    public int FftSize { get; set; } = 2048;
 
     public void PushRecent(string path)
     {

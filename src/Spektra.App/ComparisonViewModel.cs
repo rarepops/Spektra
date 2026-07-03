@@ -19,6 +19,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     private string _statusText = "";
     private string? _alignHint;
     private string? _busyText;
+    private int _windowSize = 2048;
 
     public DocumentViewModel A { get; }
     public DocumentViewModel B { get; }
@@ -36,10 +37,25 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     /// Set by the view from its plot width; used for diff/tile resolution.
     public int TargetColumns { get; set; } = 1024;
 
+    /// FFT window size shared by both panes and the diff; re-analyzes A and B and
+    /// refreshes the difference when changed.
+    public int WindowSize
+    {
+        get => _windowSize;
+        set
+        {
+            if (!Set(ref _windowSize, value)) return;
+            A.WindowSize = value;
+            B.WindowSize = value;
+            if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
+        }
+    }
+
     public event Action? Changed;        // mode / offset / panes → repaint
     public event Action? DiffChanged;    // new diff columns ready
     public event Action? DiffRequested;  // ask the view to (re)start its debounce timer
     public event Action? BusyChanged;    // long-running op started/finished → repaint overlay
+    public event Action? OffsetChanged;  // B shifted → repaint now, re-decode B's sharp tile debounced
 
     public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB)
     {
@@ -93,7 +109,11 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         set { if (Set(ref _fineMs, value) && !_syncingSliders) SetOffset((_coarseMs + _fineMs) / 1000.0, syncSliders: false); }
     }
 
-    public int OffsetMs => (int)Math.Round(_offsetSeconds * 1000);
+    public int OffsetMs
+    {
+        get => (int)Math.Round(_offsetSeconds * 1000);
+        set => SetOffset(value / 1000.0, syncSliders: true);
+    }
 
     private void SetOffset(double seconds, bool syncSliders)
     {
@@ -105,11 +125,11 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             _syncingSliders = true;
             var ms = (int)Math.Round(_offsetSeconds * 1000);
             CoarseMs = Math.Clamp(ms, -5000, 5000);
-            FineMs = Math.Clamp(ms - _coarseMs, -100, 100);
+            FineMs = Math.Clamp(ms - _coarseMs, -500, 500);
             _syncingSliders = false;
         }
         Changed?.Invoke();
-        _ = B.RenderTileAsync(TargetColumns);
+        OffsetChanged?.Invoke();
         if (_mode == CompareMode.Diff) DiffRequested?.Invoke();
     }
 
@@ -197,7 +217,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             var (t0, t1) = (vp.T0, vp.T1);
             var cols = await Task.Run(() => new SpectralDiff(_ffmpeg).Compute(
                 A.FilePath, ma, A.SelectedChannel, B.FilePath, mb, B.SelectedChannel,
-                startSec, spanSec, _offsetSeconds, targetColumns, cts.Token), cts.Token);
+                startSec, spanSec, _offsetSeconds, targetColumns, _windowSize, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested || cols.Count == 0) return;
             Diff = cols; DiffT0 = t0; DiffT1 = t1;
             DiffChanged?.Invoke();
