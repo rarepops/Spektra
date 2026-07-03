@@ -35,7 +35,18 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveWindowPlacement();
 
         if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
-            Opened += (_, _) => _vm.OpenComparison(pathA, pathB);
+        {
+            var autoAlign = args.Contains("--auto");
+            Opened += async (_, _) =>
+            {
+                _vm.OpenComparison(pathA, pathB);
+                if (autoAlign && _vm.Selected is ComparisonViewModel cmp)
+                {
+                    await Task.Delay(1500); // let metadata/overviews load
+                    await cmp.AlignAsync();
+                }
+            };
+        }
         else
         {
             var files = args.Where(File.Exists).ToList();
