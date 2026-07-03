@@ -9,12 +9,12 @@ public class DivergingPaletteTests
         ((int)((bgra >> 16) & 0xFF), (int)((bgra >> 8) & 0xFF), (int)(bgra & 0xFF));
 
     [Fact]
-    public void Zero_IsNeutralCenter()
+    public void Zero_IsBlack()
     {
         var (r, g, b) = Unpack(DivergingPalette.ToBgra(0f));
-        Assert.InRange(r, 200, 240);
-        Assert.InRange(g, 200, 240);
-        Assert.InRange(b, 200, 240);
+        Assert.InRange(r, 0, 16);
+        Assert.InRange(g, 0, 16);
+        Assert.InRange(b, 0, 16);
     }
 
     [Fact]
