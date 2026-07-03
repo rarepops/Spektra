@@ -26,8 +26,10 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool HasShellError => _shellErrorText is not null;
     public bool FfmpegMissing { get => _ffmpegMissing; set => Set(ref _ffmpegMissing, value); }
     public bool ShowHint => Documents.Count == 0;
+    public AppSettings Settings { get; }
 
     public event Action<DocumentViewModel?>? SelectedChanged;
+    public event Action? RecentFilesChanged;
 
     public DocumentViewModel? Selected
     {
@@ -54,6 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel()
     {
+        Settings = SettingsStore.Load(SettingsStore.DefaultPath);
         Documents.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
         _ffmpeg = FfmpegLocator.LocateDefault(); // probes app dir, %LOCALAPPDATA%, then PATH
         if (_ffmpeg is null)
@@ -80,7 +83,23 @@ public sealed class MainWindowViewModel : ObservableObject
         var doc = new DocumentViewModel(_ffmpeg, path);
         Documents.Add(doc);
         Selected = doc;
+        Settings.PushRecent(path);
+        SaveSettings();
+        RecentFilesChanged?.Invoke();
         _ = doc.LoadOverviewAsync();
+    }
+
+    public void ClearRecent()
+    {
+        Settings.RecentFiles.Clear();
+        SaveSettings();
+        RecentFilesChanged?.Invoke();
+    }
+
+    public void SaveSettings()
+    {
+        try { SettingsStore.Save(SettingsStore.DefaultPath, Settings); }
+        catch (Exception ex) { ShellErrorText = $"Could not save settings: {ex.Message}"; }
     }
 
     public void CloseDocument(DocumentViewModel doc)

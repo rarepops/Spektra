@@ -28,6 +28,7 @@
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="_File">
         <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
+        <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
         <Separator />
         <MenuItem Header="E_xit" Click="OnExitClicked" />
       </MenuItem>
