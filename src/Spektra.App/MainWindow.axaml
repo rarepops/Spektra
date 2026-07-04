@@ -79,6 +79,7 @@
         </MenuItem>
         <MenuItem Header="_Analyze">
           <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
+          <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="Check for _Updates…" Click="OnCheckUpdatesClicked" />
@@ -160,6 +161,10 @@
               Classes.corrupt="{Binding IntegrityIsCorrupt}"
               IsVisible="{Binding HasIntegrity}">
         <TextBlock Text="{Binding IntegrityText}" Foreground="#E6E6E6" FontSize="12"
+                   TextWrapping="Wrap" VerticalAlignment="Center" />
+      </Border>
+      <Border Background="#1E2A33" Padding="12,6" IsVisible="{Binding HasLoudness}">
+        <TextBlock Text="{Binding LoudnessText}" Foreground="#CFE3EC" FontSize="12"
                    TextWrapping="Wrap" VerticalAlignment="Center" />
       </Border>
     </StackPanel>

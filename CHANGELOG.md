@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Loudness & dynamics: integrated LUFS, loudness range, and true peak (EBU R128
+  via ffmpeg) plus crest factor and a clipping hint. In the app (Analyze,
+  Ctrl+L) and the CLI (`spektra loudness <file|folder>`).
 - Check for updates (Help menu): compares the installed version against the
   latest GitHub release and links to it when a newer one exists. Optional
   once-a-day check on startup (off by default, toggle in Preferences).

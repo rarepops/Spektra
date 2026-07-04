@@ -20,6 +20,10 @@ public sealed record AuditRow(
     string Bandwidth, double? CutoffHz, string Integrity, int DecodeErrors, int Dropouts,
     bool Truncated, string? Error);
 
+public sealed record LoudnessRow(
+    string File, double? IntegratedLufs, double? LoudnessRangeLu, double? TruePeakDbtp,
+    double PeakDbfs, double RmsDbfs, double CrestFactorDb, long ClippedSamples, string? Error);
+
 /// Builds report rows from analysis results and serializes them to JSON or CSV.
 /// Column order follows the record's declaration order.
 public static class Reporting
@@ -41,6 +45,10 @@ public static class Reporting
         r.Verdict?.Kind.ToString() ?? "Error", r.Verdict?.CutoffHz,
         ir?.Status.ToString() ?? "Error", ir?.DecodeErrors ?? 0, ir?.Dropouts.Count ?? 0,
         ir?.Truncated ?? false, r.Error ?? integrityError);
+
+    public static LoudnessRow ToLoudnessRow(string path, LoudnessReport? r, string? error) => new(
+        Path.GetFileName(path), r?.IntegratedLufs, r?.LoudnessRangeLu, r?.TruePeakDbtp,
+        r?.PeakDbfs ?? 0, r?.RmsDbfs ?? 0, r?.CrestFactorDb ?? 0, r?.ClippedSamples ?? 0, error);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

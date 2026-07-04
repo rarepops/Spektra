@@ -80,6 +80,23 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool IntegrityIsSuspect => _integrity?.Status == IntegrityStatus.Suspect;
     public bool IntegrityIsCorrupt => _integrity?.Status == IntegrityStatus.Corrupt;
 
+    private LoudnessReport? _loudness;
+
+    /// Loudness/dynamics result, populated on demand by RunLoudnessCheckAsync.
+    public LoudnessReport? Loudness
+    {
+        get => _loudness;
+        private set
+        {
+            if (!Set(ref _loudness, value)) return;
+            RaisePropertyChanged(nameof(LoudnessText));
+            RaisePropertyChanged(nameof(HasLoudness));
+        }
+    }
+
+    public bool HasLoudness => _loudness is not null;
+    public string? LoudnessText => _loudness is null ? null : $"Loudness: {_loudness.Summary}";
+
     public List<string> ChannelOptions
     {
         get => _channelOptions;
@@ -144,6 +161,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         Tile = null;
         Verdict = null;
         Integrity = null;
+        Loudness = null;
         StatusText = "Reading metadata…";
 
         try
@@ -240,6 +258,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         _loadCts?.Cancel();
         _tileCts?.Cancel();
         _integrityCts?.Cancel();
+        _loudnessCts?.Cancel();
     }
 
     private CancellationTokenSource? _integrityCts;
@@ -266,6 +285,28 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             Integrity = new IntegrityReport(
                 IntegrityStatus.Corrupt, 0, [], 0, meta.Duration.TotalSeconds, true, ex.Message);
         }
+    }
+
+    private CancellationTokenSource? _loudnessCts;
+
+    /// Measures loudness (LUFS), true peak, and dynamics on a background thread
+    /// and publishes the result to the Loudness banner.
+    public async Task RunLoudnessCheckAsync()
+    {
+        if (Metadata is null) return;
+        _loudnessCts?.Cancel();
+        var cts = _loudnessCts = new CancellationTokenSource();
+        StatusText = "Measuring loudness…";
+        try
+        {
+            var report = await Task.Run(
+                () => new LoudnessMeasurer(_ffmpeg).Measure(FilePath, SelectedChannel, cts.Token), cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
+            Loudness = report;
+            StatusText = report.Summary;
+        }
+        catch (OperationCanceledException) { }
+        catch (AudioDecodeException ex) { StatusText = ex.Message; }
     }
 
     /// Snapshots the finished overview columns and runs the bandwidth/lossless

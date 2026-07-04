@@ -39,6 +39,8 @@ verdict.
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
 - Integrity check: flags corrupt frames, missing data (interior digital silence),
   and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI
+- Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor,
+  and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
 ## Requirements
 
@@ -65,6 +67,7 @@ analysis engine. It writes to stdout and exits 1 when anything looks lossy or co
     spektra scan <folder>              Compact bandwidth scan of a library.
     spektra check <file|folder> ...    Integrity check (corruption / missing data).
     spektra audit <file|folder> ...    Bandwidth + integrity together.
+    spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
 
 Add `--json` or `--csv` to any command for a machine-readable report:
 

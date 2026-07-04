@@ -29,6 +29,7 @@ internal static class Program
             "--scan" or "scan" => Scan(ffmpeg, rest, fmt),
             "--check" or "check" => Check(ffmpeg, rest, fmt),
             "--audit" or "audit" => Audit(ffmpeg, rest, fmt),
+            "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt),
             _ => Usage(1),
         };
     }
@@ -202,6 +203,32 @@ internal static class Program
         return problems > 0 ? 1 : 0;
     }
 
+    private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt)
+    {
+        var files = ResolveInputs(paths);
+        if (files.Count == 0)
+        {
+            Console.Error.WriteLine("spektra loudness: give one or more audio files or a folder.");
+            return Usage(1);
+        }
+        var rows = new List<LoudnessRow>();
+        foreach (var path in files)
+        {
+            LoudnessReport? r = null;
+            string? err = null;
+            try { r = new LoudnessMeasurer(ffmpeg).Measure(path); }
+            catch (Exception ex) when (ex is AudioDecodeException or IOException) { err = ex.Message; }
+            rows.Add(Reporting.ToLoudnessRow(path, r, err));
+            if (fmt == OutFormat.Text)
+            {
+                Console.WriteLine(Path.GetFileName(path));
+                Console.WriteLine("  " + (err ?? r!.Summary));
+            }
+        }
+        if (fmt != OutFormat.Text) Emit(rows, fmt);
+        return 0;
+    }
+
     private static string Tag(FileReport r)
     {
         if (r.Error is not null) return "[ERROR   ]      ";
@@ -226,6 +253,7 @@ internal static class Program
               spektra scan <folder>              Compact bandwidth scan of a library.
               spektra check <file|folder> ...    Integrity check (corruption / missing data).
               spektra audit <file|folder> ...    Bandwidth + integrity together.
+              spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
               spektra --help                     Show this help.
 
             Add --json or --csv to any command for a machine-readable report,

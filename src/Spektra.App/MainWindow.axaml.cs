@@ -227,6 +227,10 @@ public partial class MainWindow : Window
                 _ = doc.RunIntegrityCheckAsync();
                 e.Handled = true;
                 break;
+            case Key.L when _vm.Selected is DocumentViewModel ldoc:
+                _ = ldoc.RunLoudnessCheckAsync();
+                e.Handled = true;
+                break;
             case Key.W when _vm.Selected is { } tab:
                 _vm.CloseTab(tab);
                 e.Handled = true;
@@ -387,6 +391,11 @@ public partial class MainWindow : Window
     private void OnCheckIntegrityClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm.Selected is DocumentViewModel doc) _ = doc.RunIntegrityCheckAsync();
+    }
+
+    private void OnMeasureLoudnessClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is DocumentViewModel doc) _ = doc.RunLoudnessCheckAsync();
     }
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
