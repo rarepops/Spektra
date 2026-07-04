@@ -27,6 +27,18 @@
         <TextBlock Grid.Column="1" Text="Close tab  ·  switch tabs (Shift to reverse)" Foreground="#9A9A9A" FontSize="12" />
       </Grid>
       <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+S  ·  Ctrl+Shift+C" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Save spectrogram image  ·  copy it to the clipboard" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+E  ·  Ctrl+R" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Preferences  ·  toggle the average-spectrum overlay" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+I  ·  Ctrl+L" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Check integrity  ·  measure loudness (LUFS)" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
         <TextBlock Grid.Column="0" Text="Wheel  ·  Shift+Wheel" Foreground="#C9C9C9" FontSize="12" />
         <TextBlock Grid.Column="1" Text="Zoom time  ·  zoom frequency" Foreground="#9A9A9A" FontSize="12" />
       </Grid>

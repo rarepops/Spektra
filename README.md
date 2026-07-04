@@ -42,6 +42,23 @@ verdict.
 - Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor,
   and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+O` | Open audio files |
+| `Ctrl+W` · `Ctrl+Tab` | Close tab · switch tabs (Shift to reverse) |
+| `Ctrl+S` · `Ctrl+Shift+C` | Save the spectrogram to PNG · copy it to the clipboard |
+| `Ctrl+E` · `Ctrl+R` | Preferences · toggle the average-spectrum overlay |
+| `Ctrl+I` · `Ctrl+L` | Check integrity · measure loudness (LUFS) |
+| Wheel · `Shift`+Wheel | Zoom time · zoom frequency |
+| Drag · Double-click | Pan · reset the view |
+| `T` · `D` · `Esc` | Compare view: flip A/B · show difference · back to both |
+
+Check for a newer release any time from **Help → Check for Updates**. Spektra
+never updates itself; it only tells you when a newer release exists and links to
+it. You can also enable a quiet once-a-day check on startup in Preferences.
+
 ## Requirements
 
 - Windows (primary target; Avalonia keeps Linux/macOS possible)

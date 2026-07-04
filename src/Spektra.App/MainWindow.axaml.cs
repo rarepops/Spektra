@@ -39,7 +39,7 @@ public partial class MainWindow : Window
 
         Opened += async (_, _) =>
         {
-            if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesAsync(manual: false);
+            if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesOnStartupAsync();
         };
 
         if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
@@ -401,8 +401,11 @@ public partial class MainWindow : Window
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
         await new AboutWindow().ShowDialog(this);
 
-    private async void OnCheckUpdatesClicked(object? sender, RoutedEventArgs e) =>
-        await _vm.CheckForUpdatesAsync(manual: true);
+    private async void OnCheckUpdatesClicked(object? sender, RoutedEventArgs e)
+    {
+        var result = await _vm.CheckForUpdatesAsync();
+        await new UpdateDialog(result, _vm.CurrentVersionText).ShowDialog(this);
+    }
 
     private async void OnViewReleaseClicked(object? sender, RoutedEventArgs e)
     {

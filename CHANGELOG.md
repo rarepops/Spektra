@@ -4,6 +4,16 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-07-04
+
+### Changed
+- Check for Updates (Help menu) now shows a popup with the outcome (up to date,
+  update available with a link to the release, or a connection error) instead of
+  a quiet status-bar line. The green banner is now reserved for the optional
+  once-a-day check on startup.
+- Documented the keyboard shortcuts: expanded the in-app About dialog reference
+  and added a shortcuts table to the README.
+
 ## [0.7.1] - 2026-07-04
 
 ### Fixed
@@ -94,7 +104,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/rarepops/Spektra/releases/tag/v0.7.2
 [0.7.1]: https://github.com/rarepops/Spektra/releases/tag/v0.7.1
 [0.7.0]: https://github.com/rarepops/Spektra/releases/tag/v0.7.0
 [0.6.0]: https://github.com/rarepops/Spektra/releases/tag/v0.6.0

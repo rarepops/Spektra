@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.UpdateDialog"
+        Title="Check for Updates" Width="410" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" Background="#1A1A1A"
+        CanResize="False" ShowInTaskbar="False">
+  <StackPanel Margin="24" Spacing="14">
+    <TextBlock x:Name="TitleText" FontSize="17" FontWeight="SemiBold" Foreground="#EDEDED" />
+    <TextBlock x:Name="MessageText" FontSize="13" Foreground="#BFBFBF" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="ViewReleaseButton" Content="View release"
+              Click="OnViewRelease" IsVisible="False" />
+      <Button Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

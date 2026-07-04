@@ -116,6 +116,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static Version CurrentVersion =>
         typeof(MainWindowViewModel).Assembly.GetName().Version ?? new Version(0, 0, 0);
     private static string Fmt(Version v) => $"{v.Major}.{v.Minor}.{Math.Max(0, v.Build)}";
+    public string CurrentVersionText => Fmt(CurrentVersion);
 
     public UpdateInfo? Update
     {
@@ -147,33 +148,33 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// Checks GitHub for a newer release. Manual checks report the outcome in the
-    /// status line; silent startup checks stay quiet unless an update is found and
-    /// run at most once a day.
-    public async Task CheckForUpdatesAsync(bool manual)
+    /// Silent, once-a-day check run at startup. Shows the banner only when an
+    /// update is available; stays quiet when up to date or offline.
+    public async Task CheckForUpdatesOnStartupAsync()
     {
-        if (!manual && Settings.LastUpdateCheck is { } last &&
+        if (Settings.LastUpdateCheck is { } last &&
             DateTime.UtcNow - last < TimeSpan.FromDays(1))
             return;
 
-        if (manual) StatusText = "Checking for updates\u2026";
         var result = await UpdateChecker.CheckAsync(CurrentVersion);
         Settings.LastUpdateCheck = DateTime.UtcNow;
         SaveSettings();
+        if (result.Outcome == UpdateOutcome.UpdateAvailable)
+            Update = result.Info;
+    }
 
-        switch (result.Outcome)
-        {
-            case UpdateOutcome.UpdateAvailable:
-                Update = result.Info;
-                if (manual) StatusText = UpdateText;
-                break;
-            case UpdateOutcome.UpToDate when manual:
-                StatusText = $"You are on the latest version ({Fmt(CurrentVersion)}).";
-                break;
-            case UpdateOutcome.CheckFailed when manual:
-                StatusText = "Could not check for updates (offline?).";
-                break;
-        }
+    /// Manual check (Help menu). Always contacts GitHub and returns the outcome so
+    /// the caller can show a popup, and refreshes the banner when an update exists.
+    public async Task<UpdateCheckResult> CheckForUpdatesAsync()
+    {
+        StatusText = "Checking for updates\u2026";
+        var result = await UpdateChecker.CheckAsync(CurrentVersion);
+        Settings.LastUpdateCheck = DateTime.UtcNow;
+        SaveSettings();
+        StatusText = "";
+        if (result.Outcome == UpdateOutcome.UpdateAvailable)
+            Update = result.Info;
+        return result;
     }
 
     public event Action<ITab?>? SelectedChanged;
