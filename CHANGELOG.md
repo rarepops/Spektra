@@ -10,6 +10,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Check for updates (Help menu): compares the installed version against the
   latest GitHub release and links to it when a newer one exists. Optional
   once-a-day check on startup (off by default, toggle in Preferences).
+- CLI `audit` command (bandwidth + integrity in one pass) and `--json` / `--csv`
+  output for `report`, `scan`, `check`, and `audit`, so results can be saved as
+  a report. `check` now also accepts a folder and recurses it.
 
 ## [0.6.0] - 2026-07-04
 

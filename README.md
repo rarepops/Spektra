@@ -59,11 +59,16 @@ Compare two files directly (also available in-app via File → Compare…):
 ## Command line
 
 Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the
-analysis engine. It writes to stdout and exits 1 when anything looks lossy:
+analysis engine. It writes to stdout and exits 1 when anything looks lossy or corrupt:
 
-    spektra report <file> [<file> ...]   Print each file's bandwidth verdict.
-    spektra scan <folder>                Scan a library and flag suspected transcodes.
-    spektra check <file> [<file> ...]    Check files for corruption / missing data.
+    spektra report <file|folder> ...   Bandwidth verdict per file.
+    spektra scan <folder>              Compact bandwidth scan of a library.
+    spektra check <file|folder> ...    Integrity check (corruption / missing data).
+    spektra audit <file|folder> ...    Bandwidth + integrity together.
+
+Add `--json` or `--csv` to any command for a machine-readable report:
+
+    spektra scan Music --csv > library.csv
 
 (`--report` / `--scan` are accepted too.) Build it with
 `dotnet publish src/Spektra.Cli -c Release`.
