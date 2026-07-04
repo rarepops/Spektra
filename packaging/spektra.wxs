@@ -5,11 +5,16 @@
   registers an Add/Remove Programs entry. Build from the repo root after
   publishing the GUI to dist\gui-win-x64:
 
-    wix build packaging\spektra.wxs -o dist\artifacts\Spektra-<version>-Setup.msi
+    wix extension add -g WixToolset.UI.wixext
+    wix extension add -g WixToolset.Util.wixext
+    wix build packaging\spektra.wxs -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o dist\artifacts\Spektra-<version>-Setup.msi
 
+  Building with -arch x64 makes ProgramFiles6432Folder resolve to the real
+  Program Files (not the x86 folder) for the 64-bit app.
   The UpgradeCode must stay constant across versions so upgrades replace in place.
 -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Spektra" Manufacturer="rarepops" Version="!(bind.FileVersion.spektraExe)"
            UpgradeCode="3F6E162E-15A4-4C40-A0B7-F0CEA4176DF3"
            Scope="perMachine" Compressed="yes">
@@ -38,5 +43,21 @@
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </Feature>
+
+    <!-- Wizard UI: welcome, license, progress, and a finish page. Without this a
+         double-clicked MSI shows no dialogs and looks like it did nothing. -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="packaging\license.rtf" />
+
+    <!-- Offer to start Spektra straight from the finish page. -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Spektra now" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#spektraExe]" />
+    <CustomAction Id="LaunchApplication" DllEntry="WixShellExec" BinaryRef="Wix4UtilCA_X64"
+                  Impersonate="yes" Return="ignore" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
   </Package>
 </Wix>
