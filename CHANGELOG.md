@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-07-04
 
 ### Added
 - Loudness & dynamics: integrated LUFS, loudness range, and true peak (EBU R128
@@ -86,6 +86,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/rarepops/Spektra/releases/tag/v0.7.0
 [0.6.0]: https://github.com/rarepops/Spektra/releases/tag/v0.6.0
 [0.5.0]: https://github.com/rarepops/Spektra/releases/tag/v0.5.0
