@@ -37,6 +37,11 @@ public partial class MainWindow : Window
         };
         Closing += (_, _) => SaveWindowPlacement();
 
+        Opened += async (_, _) =>
+        {
+            if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesAsync(manual: false);
+        };
+
         if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
         {
             var autoAlign = args.Contains("--auto");
@@ -386,4 +391,15 @@ public partial class MainWindow : Window
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
         await new AboutWindow().ShowDialog(this);
+
+    private async void OnCheckUpdatesClicked(object? sender, RoutedEventArgs e) =>
+        await _vm.CheckForUpdatesAsync(manual: true);
+
+    private async void OnViewReleaseClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Update is { Url: { Length: > 0 } url } && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            await Launcher.LaunchUriAsync(uri);
+    }
+
+    private void OnDismissUpdateClicked(object? sender, RoutedEventArgs e) => _vm.DismissUpdate();
 }

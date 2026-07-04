@@ -110,6 +110,72 @@ public sealed class MainWindowViewModel : ObservableObject
         return true;
     }
 
+    // --- Updates (notify-only) ---
+
+    private UpdateInfo? _update;
+    private static Version CurrentVersion =>
+        typeof(MainWindowViewModel).Assembly.GetName().Version ?? new Version(0, 0, 0);
+    private static string Fmt(Version v) => $"{v.Major}.{v.Minor}.{Math.Max(0, v.Build)}";
+
+    public UpdateInfo? Update
+    {
+        get => _update;
+        private set
+        {
+            if (!Set(ref _update, value)) return;
+            RaisePropertyChanged(nameof(HasUpdate));
+            RaisePropertyChanged(nameof(UpdateText));
+        }
+    }
+
+    public bool HasUpdate => _update is not null;
+    public string UpdateText => _update is null
+        ? ""
+        : $"Spektra {Fmt(_update.Latest)} is available (you have {Fmt(CurrentVersion)}).";
+
+    public void DismissUpdate() => Update = null;
+
+    public bool CheckForUpdatesOnStartup
+    {
+        get => Settings.CheckForUpdatesOnStartup;
+        set
+        {
+            if (Settings.CheckForUpdatesOnStartup == value) return;
+            Settings.CheckForUpdatesOnStartup = value;
+            RaisePropertyChanged(nameof(CheckForUpdatesOnStartup));
+            SaveSettings();
+        }
+    }
+
+    /// Checks GitHub for a newer release. Manual checks report the outcome in the
+    /// status line; silent startup checks stay quiet unless an update is found and
+    /// run at most once a day.
+    public async Task CheckForUpdatesAsync(bool manual)
+    {
+        if (!manual && Settings.LastUpdateCheck is { } last &&
+            DateTime.UtcNow - last < TimeSpan.FromDays(1))
+            return;
+
+        if (manual) StatusText = "Checking for updates\u2026";
+        var result = await UpdateChecker.CheckAsync(CurrentVersion);
+        Settings.LastUpdateCheck = DateTime.UtcNow;
+        SaveSettings();
+
+        switch (result.Outcome)
+        {
+            case UpdateOutcome.UpdateAvailable:
+                Update = result.Info;
+                if (manual) StatusText = UpdateText;
+                break;
+            case UpdateOutcome.UpToDate when manual:
+                StatusText = $"You are on the latest version ({Fmt(CurrentVersion)}).";
+                break;
+            case UpdateOutcome.CheckFailed when manual:
+                StatusText = "Could not check for updates (offline?).";
+                break;
+        }
+    }
+
     public event Action<ITab?>? SelectedChanged;
     public event Action? RecentFilesChanged;
 

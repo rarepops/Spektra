@@ -81,6 +81,8 @@
           <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
         </MenuItem>
         <MenuItem Header="_Help">
+          <MenuItem Header="Check for _Updates…" Click="OnCheckUpdatesClicked" />
+          <Separator />
           <MenuItem Header="_About Spektra" Click="OnAboutClicked" />
         </MenuItem>
       </Menu>
@@ -93,6 +95,18 @@
         <Button Content="Download ffmpeg" Click="OnDownloadFfmpegClicked"
                 IsVisible="{Binding FfmpegMissing}" />
       </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Background="#123020" Padding="12,8"
+            IsVisible="{Binding HasUpdate}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="View release" Click="OnViewReleaseClicked" />
+          <Button Content="Dismiss" Click="OnDismissUpdateClicked" />
+        </StackPanel>
+        <TextBlock Text="{Binding UpdateText}" TextWrapping="Wrap"
+                   Foreground="#BFE8CC" VerticalAlignment="Center" />
+      </DockPanel>
     </Border>
 
     <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Tabs}"

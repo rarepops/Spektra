@@ -19,6 +19,10 @@ public sealed class AppSettings
     public bool LogFrequency { get; set; }
     public bool ShowSpectrum { get; set; }
 
+    // Updates
+    public bool CheckForUpdatesOnStartup { get; set; }
+    public DateTime? LastUpdateCheck { get; set; }
+
     public DisplaySettings ToDisplaySettings() => new(Palette, DbFloor, LogFrequency, ShowSpectrum);
 
     public void PushRecent(string path)

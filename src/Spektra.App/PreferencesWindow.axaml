@@ -44,6 +44,13 @@
 
     <Border Height="1" Background="#2E2E2E" />
 
+    <TextBlock Text="Updates" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
+    <CheckBox Content="Check for updates on startup" Foreground="#C9C9C9"
+              IsChecked="{Binding CheckForUpdatesOnStartup, Mode=TwoWay}"
+              ToolTip.Tip="Contacts GitHub at most once a day to see if a newer release exists" />
+
+    <Border Height="1" Background="#2E2E2E" />
+
     <TextBlock TextWrapping="Wrap" Foreground="#8C8C8C" FontSize="11">
       FFT size and window function change the analysis and re-scan open files.
       Palette, dynamic range, and axis are display-only and apply instantly.
