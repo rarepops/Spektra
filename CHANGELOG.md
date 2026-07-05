@@ -4,6 +4,18 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-05
+
+### Added
+- CLI folder operations (`report`, `scan`, `check`, `audit`, `loudness`) now
+  analyze files in parallel through a bounded worker pool, using about 80% of
+  the CPU cores by default. Cap the worker count with `--jobs N` (or `-j N`).
+  Output stays in input order.
+
+### Fixed
+- The bottom-left status text no longer leaves a few stale glyph pixels behind
+  after a "Check for Updates" run clears it.
+
 ## [0.7.2] - 2026-07-04
 
 ### Changed
@@ -104,7 +116,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/rarepops/Spektra/releases/tag/v0.8.0
 [0.7.2]: https://github.com/rarepops/Spektra/releases/tag/v0.7.2
 [0.7.1]: https://github.com/rarepops/Spektra/releases/tag/v0.7.1
 [0.7.0]: https://github.com/rarepops/Spektra/releases/tag/v0.7.0
