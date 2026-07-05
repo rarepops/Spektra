@@ -28,12 +28,13 @@ updates:
     commit-message:
       prefix: build
     groups:
-      # Avalonia ships several packages that must move in lockstep.
+      # Avalonia ships several packages that must move in lockstep, and its
+      # bumps are reviewed on their own, so keep it in a dedicated group.
       avalonia:
         patterns:
           - "Avalonia*"
-      # Fold the remaining routine bumps into a single PR to cut noise.
-      nuget-minor-and-patch:
-        update-types:
-          - minor
-          - patch
+      # Bundle every other NuGet update, including majors, into a single PR so
+      # we don't get a separate PR per package (as happened with coverlet).
+      nuget:
+        patterns:
+          - "*"
