@@ -1,0 +1,39 @@
+version: 2
+
+# Dependabot opens its PRs against dev (not the default main branch) so updates
+# flow through the normal dev -> main release path and keep main fast-forwardable.
+updates:
+  # GitHub Actions used by the ci and release workflows. This is what surfaced
+  # the Node 20 deprecation warnings; all bumps are grouped into one PR.
+  - package-ecosystem: github-actions
+    directory: "/"
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # NuGet packages across every project (src + tests). Dependabot searches the
+  # whole tree from the repo root for the csproj files.
+  - package-ecosystem: nuget
+    directory: "/"
+    target-branch: dev
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build
+    groups:
+      # Avalonia ships several packages that must move in lockstep.
+      avalonia:
+        patterns:
+          - "Avalonia*"
+      # Fold the remaining routine bumps into a single PR to cut noise.
+      nuget-minor-and-patch:
+        update-types:
+          - minor
+          - patch
