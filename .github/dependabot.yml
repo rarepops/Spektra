@@ -35,6 +35,10 @@ updates:
           - "Avalonia*"
       # Bundle every other NuGet update, including majors, into a single PR so
       # we don't get a separate PR per package (as happened with coverlet).
+      # Avalonia is excluded here so its major stays in the deferrable group
+      # above instead of being swept into the routine bundle.
       nuget:
         patterns:
           - "*"
+        exclude-patterns:
+          - "Avalonia*"
