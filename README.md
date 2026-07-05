@@ -59,6 +59,26 @@ Check for a newer release any time from **Help → Check for Updates**. Spektra
 never updates itself; it only tells you when a newer release exists and links to
 it. You can also enable a quiet once-a-day check on startup in Preferences.
 
+## Download
+
+Grab the latest build from the **[releases page](https://github.com/rarepops/Spektra/releases/latest)**:
+
+- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app (can add `spektra` to your PATH).
+- `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
+- `spektra-cli-<version>-<os>.zip`: the command-line tool (Windows, Linux, macOS).
+
+Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows
+protected your PC"** or an **Unknown Publisher** prompt. That's expected for an
+unsigned open-source build, not a sign of a problem: choose **More info → Run
+anyway** to continue. To verify a download first, check it against the
+`SHA256SUMS.txt` published with each release:
+
+    # Windows (PowerShell)
+    (Get-FileHash .\Spektra-<version>-Setup.msi -Algorithm SHA256).Hash
+
+    # Linux / macOS
+    sha256sum -c SHA256SUMS.txt
+
 ## Requirements
 
 - Windows (primary target; Avalonia keeps Linux/macOS possible)
