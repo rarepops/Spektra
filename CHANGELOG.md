@@ -4,6 +4,13 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-07-05
+
+### Changed
+- Upgraded the desktop UI framework to Avalonia 12. The drag-drop, clipboard
+  image copy, and high-DPI render-scaling code moved to Avalonia 12's new
+  DataTransfer API.
+
 ## [0.8.0] - 2026-07-05
 
 ### Added
@@ -116,7 +123,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/rarepops/Spektra/releases/tag/v0.8.1
 [0.8.0]: https://github.com/rarepops/Spektra/releases/tag/v0.8.0
 [0.7.2]: https://github.com/rarepops/Spektra/releases/tag/v0.7.2
 [0.7.1]: https://github.com/rarepops/Spektra/releases/tag/v0.7.1
