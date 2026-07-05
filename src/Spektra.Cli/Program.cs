@@ -22,29 +22,55 @@ internal static class Program
             return 2;
         }
 
-        var (fmt, rest) = TakeFormat(args[1..]);
+        var (fmt, jobs, rest) = TakeOptions(args[1..]);
         return args[0] switch
         {
-            "--report" or "report" => Report(ffmpeg, rest, fmt),
-            "--scan" or "scan" => Scan(ffmpeg, rest, fmt),
-            "--check" or "check" => Check(ffmpeg, rest, fmt),
-            "--audit" or "audit" => Audit(ffmpeg, rest, fmt),
-            "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt),
+            "--report" or "report" => Report(ffmpeg, rest, fmt, jobs),
+            "--scan" or "scan" => Scan(ffmpeg, rest, fmt, jobs),
+            "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
+            "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
+            "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
             _ => Usage(1),
         };
     }
 
-    private static (OutFormat fmt, string[] rest) TakeFormat(string[] args)
+    // Default worker count: about 80% of the logical cores, leaving headroom for
+    // the OS and for ffmpeg's own decode threads. Override with --jobs / -j.
+    private static readonly int DefaultJobs = Math.Max(1, (int)(Environment.ProcessorCount * 0.8));
+
+    private static (OutFormat fmt, int jobs, string[] rest) TakeOptions(string[] args)
     {
         var fmt = OutFormat.Text;
+        var jobs = DefaultJobs;
         var rest = new List<string>();
-        foreach (var a in args)
+        for (var i = 0; i < args.Length; i++)
         {
+            var a = args[i];
             if (a is "--json") fmt = OutFormat.Json;
             else if (a is "--csv") fmt = OutFormat.Csv;
+            else if ((a is "--jobs" or "-j") && i + 1 < args.Length
+                     && int.TryParse(args[i + 1], out var j) && j > 0)
+            {
+                jobs = j;
+                i++;
+            }
             else rest.Add(a);
         }
-        return (fmt, rest.ToArray());
+        return (fmt, jobs, rest.ToArray());
+    }
+
+    // Analyzes files concurrently, capped at `jobs` workers, and returns results
+    // in input order. Each file spawns its own ffmpeg/ffprobe and runs its own
+    // FFT, so the work is CPU-bound and safe to run in parallel; ffmpeg streams
+    // each file from disk itself, which is why we parallelize whole files rather
+    // than prefetching bytes into a shared queue.
+    private static T[] MapParallel<T>(IReadOnlyList<string> files, int jobs, Func<string, T> analyze)
+    {
+        var results = new T[files.Count];
+        Parallel.For(0, files.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, jobs) },
+            i => results[i] = analyze(files[i]));
+        return results;
     }
 
     // A single folder argument recurses into its audio files; otherwise the
@@ -60,7 +86,7 @@ internal static class Program
         else Console.Write(Reporting.ToCsv(rows));
     }
 
-    private static int Report(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt)
+    private static int Report(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
         if (files.Count == 0)
@@ -68,7 +94,7 @@ internal static class Program
             Console.Error.WriteLine("spektra report: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var reports = files.Select(f => BandwidthReport.Analyze(ffmpeg, f)).ToList();
+        var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
 
         if (fmt != OutFormat.Text)
             Emit(reports.Select(Reporting.ToBandwidthRow).ToList(), fmt);
@@ -83,7 +109,7 @@ internal static class Program
         return reports.Any(r => r.Verdict?.Kind == VerdictKind.Lossy) ? 1 : 0;
     }
 
-    private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt)
+    private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
     {
         if (args.Length == 0 || !Directory.Exists(args[0]))
         {
@@ -92,7 +118,7 @@ internal static class Program
         }
         var root = args[0];
         var files = BandwidthReport.FindAudioFiles(root).ToList();
-        var reports = files.Select(f => BandwidthReport.Analyze(ffmpeg, f)).ToList();
+        var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
 
         if (fmt != OutFormat.Text)
         {
@@ -119,7 +145,7 @@ internal static class Program
         return lossy > 0 ? 1 : 0;
     }
 
-    private static int Check(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt)
+    private static int Check(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
         if (files.Count == 0)
@@ -127,21 +153,25 @@ internal static class Program
             Console.Error.WriteLine("spektra check: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var rows = new List<IntegrityRow>();
-        int ok = 0, suspect = 0, corrupt = 0;
-        foreach (var path in files)
+        var computed = MapParallel(files, jobs, path =>
         {
-            IntegrityReport? ir = null;
-            string? err = null;
             try
             {
                 var meta = new AnalysisSession(ffmpeg).ReadMetadata(path);
-                ir = new IntegrityScanner(ffmpeg).Check(path, meta);
+                return (ir: (IntegrityReport?)new IntegrityScanner(ffmpeg).Check(path, meta), err: (string?)null);
             }
             catch (Exception ex) when (ex is AudioDecodeException or IOException)
             {
-                err = ex.Message;
+                return (ir: (IntegrityReport?)null, err: (string?)ex.Message);
             }
+        });
+
+        var rows = new List<IntegrityRow>();
+        int ok = 0, suspect = 0, corrupt = 0;
+        for (var i = 0; i < files.Count; i++)
+        {
+            var path = files[i];
+            var (ir, err) = computed[i];
             rows.Add(Reporting.ToIntegrityRow(path, ir, err));
 
             if (err is not null || ir?.Status == IntegrityStatus.Corrupt) corrupt++;
@@ -165,7 +195,7 @@ internal static class Program
         return corrupt > 0 ? 1 : 0;
     }
 
-    private static int Audit(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt)
+    private static int Audit(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
         if (files.Count == 0)
@@ -173,9 +203,7 @@ internal static class Program
             Console.Error.WriteLine("spektra audit: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var rows = new List<AuditRow>();
-        var problems = 0;
-        foreach (var path in files)
+        var computed = MapParallel(files, jobs, path =>
         {
             var report = BandwidthReport.Analyze(ffmpeg, path);
             IntegrityReport? ir = null;
@@ -185,6 +213,13 @@ internal static class Program
                 try { ir = new IntegrityScanner(ffmpeg).Check(path, meta); }
                 catch (Exception ex) when (ex is AudioDecodeException or IOException) { ierr = ex.Message; }
             }
+            return (report, ir, ierr);
+        });
+
+        var rows = new List<AuditRow>();
+        var problems = 0;
+        foreach (var (report, ir, ierr) in computed)
+        {
             rows.Add(Reporting.ToAuditRow(report, ir, ierr));
 
             if (report.Error is not null || report.Verdict?.Kind == VerdictKind.Lossy
@@ -195,7 +230,7 @@ internal static class Program
                 var bw = report.Error is not null ? "error"
                     : $"{report.Verdict!.Kind}{(report.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
                 var integ = ierr is not null ? "ERROR" : ir?.Status.ToString() ?? "-";
-                Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {Path.GetFileName(path)}");
+                Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {Path.GetFileName(report.Path)}");
             }
         }
         if (fmt != OutFormat.Text) Emit(rows, fmt);
@@ -203,7 +238,7 @@ internal static class Program
         return problems > 0 ? 1 : 0;
     }
 
-    private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt)
+    private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
         if (files.Count == 0)
@@ -211,13 +246,17 @@ internal static class Program
             Console.Error.WriteLine("spektra loudness: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var rows = new List<LoudnessRow>();
-        foreach (var path in files)
+        var computed = MapParallel(files, jobs, path =>
         {
-            LoudnessReport? r = null;
-            string? err = null;
-            try { r = new LoudnessMeasurer(ffmpeg).Measure(path); }
-            catch (Exception ex) when (ex is AudioDecodeException or IOException) { err = ex.Message; }
+            try { return (r: (LoudnessReport?)new LoudnessMeasurer(ffmpeg).Measure(path), err: (string?)null); }
+            catch (Exception ex) when (ex is AudioDecodeException or IOException) { return (r: (LoudnessReport?)null, err: (string?)ex.Message); }
+        });
+
+        var rows = new List<LoudnessRow>();
+        for (var i = 0; i < files.Count; i++)
+        {
+            var path = files[i];
+            var (r, err) = computed[i];
             rows.Add(Reporting.ToLoudnessRow(path, r, err));
             if (fmt == OutFormat.Text)
             {
@@ -258,6 +297,9 @@ internal static class Program
 
             Add --json or --csv to any command for a machine-readable report,
             e.g. spektra scan Music --csv > report.csv
+
+            Folders are analyzed in parallel. By default Spektra uses about 80% of
+            the CPU cores; cap it with --jobs N (or -j N), e.g. spektra scan Music -j 4
 
             Exit code is 1 when anything is likely lossy or corrupt, 2 on setup errors.
             Requires ffmpeg + ffprobe on PATH.
