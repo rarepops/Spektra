@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Rendering;
+using Avalonia.VisualTree;
 using Spektra.Core;
 
 namespace Spektra.App;
@@ -404,7 +405,21 @@ public partial class MainWindow : Window
     private async void OnCheckUpdatesClicked(object? sender, RoutedEventArgs e)
     {
         var result = await _vm.CheckForUpdatesAsync();
+        ForceRedraw(); // status text just cleared, repaint so no glyph pixels linger in the bottom strip
         await new UpdateDialog(result, _vm.CurrentVersionText).ShowDialog(this);
+    }
+
+    // Clearing a docked status message collapses its row, and the newly exposed
+    // strip can keep a few stale glyph pixels until something paints over it.
+    private void ForceRedraw()
+    {
+        static void Invalidate(Visual visual)
+        {
+            visual.InvalidateVisual();
+            foreach (var child in visual.GetVisualChildren())
+                Invalidate(child);
+        }
+        Invalidate(this);
     }
 
     private async void OnViewReleaseClicked(object? sender, RoutedEventArgs e)
