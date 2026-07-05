@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
-using Avalonia.Rendering;
 using Avalonia.VisualTree;
 using Spektra.Core;
 
@@ -157,7 +156,7 @@ public partial class MainWindow : Window
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        var paths = e.Data.GetFiles()?.OfType<IStorageFile>()
+        var paths = e.DataTransfer.TryGetFiles()?.OfType<IStorageFile>()
             .Select(f => f.TryGetLocalPath())
             .Where(p => p is not null)
             .Cast<string>()
@@ -336,7 +335,7 @@ public partial class MainWindow : Window
         if (VisibleSurface() is not { } surface) return null;
         var size = surface.Bounds.Size;
         if (size.Width < 2 || size.Height < 2) return null;
-        var scale = (this as IRenderRoot)?.RenderScaling ?? 1.0;
+        var scale = RenderScaling;
         var px = new PixelSize(Math.Max(1, (int)(size.Width * scale)), Math.Max(1, (int)(size.Height * scale)));
         var rtb = new RenderTargetBitmap(px, new Vector(96 * scale, 96 * scale));
         rtb.Render(surface);
@@ -370,13 +369,9 @@ public partial class MainWindow : Window
         using var rtb = RenderSurface();
         if (rtb is null) { _vm.StatusText = "Open a file first to copy its spectrogram."; return; }
         if (Clipboard is null) return;
-        using var ms = new MemoryStream();
-        rtb.Save(ms);
-        var png = ms.ToArray();
-        var data = new DataObject();
-        data.Set("PNG", png);
-        data.Set("image/png", png);
-        await Clipboard.SetDataObjectAsync(data);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(DataFormat.Bitmap, (Bitmap)rtb));
+        await Clipboard.SetDataAsync(data);
         _vm.StatusText = "Copied spectrogram to clipboard.";
     }
 
