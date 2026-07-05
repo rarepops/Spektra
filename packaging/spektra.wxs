@@ -31,7 +31,8 @@
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder" />
 
-    <Feature Id="Main" Title="Spektra" Level="1">
+    <Feature Id="Main" Title="Spektra" Level="1" AllowAbsent="no"
+             Description="The Spektra application and its Start Menu shortcut.">
       <Component Id="MainExe" Directory="INSTALLFOLDER">
         <File Id="spektraExe" Source="dist\gui-win-x64\spektra.exe" KeyPath="yes" />
       </Component>
@@ -44,9 +45,23 @@
       </Component>
     </Feature>
 
-    <!-- Wizard UI: welcome, license, progress, and a finish page. Without this a
-         double-clicked MSI shows no dialogs and looks like it did nothing. -->
-    <ui:WixUI Id="WixUI_Minimal" />
+    <!-- Optional: add the install folder to the system PATH so "spektra" can be
+         launched from a terminal. Shown as a toggle on the Custom Setup page and
+         removed again on uninstall. -->
+    <Feature Id="PathFeature" Title="Add to PATH" Level="1"
+             Description="Add Spektra to the system PATH so you can launch it by typing &quot;spektra&quot; in a terminal.">
+      <Component Id="PathEntry" Directory="INSTALLFOLDER">
+        <Environment Id="SpektraPath" Name="PATH" Value="[INSTALLFOLDER]"
+                     Permanent="no" Part="last" Action="set" System="yes" />
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="PathAdded"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </Feature>
+
+    <!-- Wizard UI: welcome, license, a Custom Setup page (to toggle "Add to
+         PATH"), progress, and a finish page. Without this a double-clicked MSI
+         shows no dialogs and looks like it did nothing. -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
     <WixVariable Id="WixUILicenseRtf" Value="packaging\license.rtf" />
 
     <!-- Offer to start Spektra straight from the finish page. -->
