@@ -88,6 +88,15 @@ jobs:
           }
           Get-ChildItem $art
 
+      - name: Compute checksums
+        shell: pwsh
+        run: |
+          $art = 'dist/artifacts'
+          $lines = Get-ChildItem $art -File | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { '{0}  {1}' -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) }
+          $lines | Set-Content "$art/SHA256SUMS.txt" -Encoding ascii
+          Write-Host ($lines -join "`n")
+
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -102,4 +111,5 @@ jobs:
           files: |
             dist/artifacts/*.zip
             dist/artifacts/*.msi
+            dist/artifacts/SHA256SUMS.txt
           generate_release_notes: true
