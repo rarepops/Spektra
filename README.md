@@ -6,7 +6,7 @@
   <a href="https://github.com/rarepops/Spektra/actions/workflows/ci.yml"><img src="https://github.com/rarepops/Spektra/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/rarepops/Spektra/releases/latest"><img src="https://img.shields.io/github/v/release/rarepops/Spektra?label=release&color=brightgreen" alt="Latest release" /></a>
   <a href="https://github.com/rarepops/Spektra/releases"><img src="https://img.shields.io/github/downloads/rarepops/Spektra/total?label=downloads" alt="Downloads" /></a>
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Strict%201.0.0-blue" alt="License" /></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Perimeter%201.0.1-blue" alt="License" /></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-lightgrey" alt="Platforms" />
 </p>
@@ -119,4 +119,4 @@ Add `--json` or `--csv` to any command for a machine-readable report:
 
 ## License
 
-[PolyForm Strict 1.0.0](LICENSE.md). © Rares (rarepops).
+[PolyForm Perimeter 1.0.1](LICENSE.md). © Rares (rarepops).

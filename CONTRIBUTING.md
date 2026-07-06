@@ -66,6 +66,6 @@ Run the app or the CLI:
 
 ## License
 
-Spektra is source-available under [PolyForm Strict 1.0.0](LICENSE.md). By
+Spektra is source-available under [PolyForm Perimeter 1.0.1](LICENSE.md). By
 submitting a contribution you agree that it is provided under that same license
 and may be included in the project.
