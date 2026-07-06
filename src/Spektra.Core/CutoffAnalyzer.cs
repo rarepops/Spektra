@@ -1,6 +1,6 @@
 namespace Spektra.Core;
 
-public enum VerdictKind { Unknown, Lossless, Suspicious, Lossy }
+public enum VerdictKind { Unknown, Lossless, Suspicious, Lossy, Upsampled }
 
 /// The outcome of a bandwidth/cutoff analysis. `CutoffHz` is the highest
 /// frequency carrying real energy (null when the signal reaches Nyquist).
@@ -37,6 +37,20 @@ public static class CutoffAnalyzer
     // (rather than a gradual, natural high-frequency rolloff).
     private const float DeadDropDb = 18f;
     private const double SharpTransitionHz = 900.0;
+
+    // Upsampled-source detection: a sharp wall sitting at another standard
+    // rate's Nyquist, inside a container declared at least MinStepUpFactor
+    // faster, reads as an upsample (44.1→96 is 2.18×; 44.1→48 at 1.09× must
+    // NOT trigger). 16 kHz doubles as the MP3-128 cutoff, so the 32 kHz base
+    // is trusted only for unambiguously hi-res containers.
+    private const double NyquistMatchTolerance = 0.03;
+    private const double MinStepUpFactor = 1.5;
+    private const int SecondaryMinDeclaredHz = 88200;
+
+    private static readonly (int BaseRateHz, bool Primary)[] StandardBaseRates =
+    [
+        (48000, true), (44100, true), (32000, false),
+    ];
 
     /// Per-bin maximum across every column (peak-hold). Captures the brightest
     /// each frequency ever gets, which is what a hard cutoff flattens to silence.
@@ -94,8 +108,15 @@ public static class CutoffAnalyzer
         var transitionHz = firstDeadBin < 0 ? double.PositiveInfinity : (firstDeadBin - cutoffBin) * hzPerBin;
 
         if (transitionHz <= SharpTransitionHz)
+        {
+            if (TryMatchUpsampleBase(cutoffHz, sampleRate, out var baseRateHz))
+                return new LosslessVerdict(VerdictKind.Upsampled, cutoffHz, nyquist,
+                    $"Sharp cutoff at {Khz(cutoffHz)} matches a {RateKhz(baseRateHz)} source; " +
+                    $"likely upsampled to {RateKhz(sampleRate)}.", null);
+
             return new LosslessVerdict(VerdictKind.Lossy, cutoffHz, nyquist,
                 $"Sharp cutoff at {Khz(cutoffHz)}. Consistent with lossy encoding ({guess}).", guess);
+        }
 
         return new LosslessVerdict(VerdictKind.Suspicious, cutoffHz, nyquist,
             $"Energy rolls off above {Khz(cutoffHz)}. Could be lossy ({guess}) or natural high-frequency rolloff.",
@@ -122,5 +143,24 @@ public static class CutoffAnalyzer
         };
     }
 
+    /// True when `cutoffHz` sits on another standard rate's Nyquist and the
+    /// declared rate is a real step up from that base rate.
+    private static bool TryMatchUpsampleBase(double cutoffHz, int sampleRate, out int baseRateHz)
+    {
+        foreach (var (baseRate, primary) in StandardBaseRates)
+        {
+            var nyquist = baseRate / 2.0;
+            if (Math.Abs(cutoffHz - nyquist) > NyquistMatchTolerance * nyquist) continue;
+            if (sampleRate < MinStepUpFactor * baseRate) continue;
+            if (!primary && sampleRate < SecondaryMinDeclaredHz) continue;
+            baseRateHz = baseRate;
+            return true;
+        }
+        baseRateHz = 0;
+        return false;
+    }
+
     private static string Khz(double hz) => $"{hz / 1000.0:0.0} kHz";
+
+    private static string RateKhz(double hz) => $"{hz / 1000.0:0.#} kHz";
 }
