@@ -4,6 +4,37 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-07
+
+### Added
+- Upsampling detection: a hi-res file whose real bandwidth stops at a lower
+  standard rate's limit (a 96 kHz container holding only 22.05 kHz of content)
+  is flagged Upsampled, naming the likely true source rate. Shows a violet
+  banner in the app and an `[UPSAMPLE]` tag, counter, and non-zero exit code in
+  the CLI.
+- Export the bandwidth and integrity audit for the current file or a whole
+  folder as CSV or JSON (File menu). The folder export runs in parallel with a
+  progress dialog and Cancel.
+- A cursor line in the compare view runs through both panes with a time tick on
+  the shared ruler, so a feature in A can be matched to the same instant in B.
+- More keyboard shortcuts: Ctrl+0 resets the view, Ctrl+1 to Ctrl+9 jump to a
+  tab, Ctrl+Up / Ctrl+Down switch channel, Ctrl+D compares, Ctrl+Shift+S
+  exports a report, F5 reloads the file, and A auto-aligns in the compare view.
+- View, Crosshair (Ctrl+H) toggles the cursor crosshair and its readout in both
+  the single and compare views, and the choice is remembered across runs.
+- Command-line and desktop guides under `docs/`, linked from the README.
+
+### Changed
+- Switching channels (Mix / Ch 1 / Ch 2) is now instant: each channel's
+  overview is computed once and cached, and for stereo files the remaining
+  channels are precomputed in the background right after load. The integrity
+  result now stays with the file across channel switches, and loudness is
+  remembered per channel.
+- Error and guard messages in the status bar are now shown in red.
+- Relicensed under PolyForm Perimeter 1.0.1 (previously PolyForm Strict 1.0.0),
+  which permits commercial use, modification, and redistribution except for
+  building a competing product.
+
 ## [0.8.2] - 2026-07-05
 
 ### Added
