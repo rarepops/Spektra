@@ -204,39 +204,24 @@ internal static class Program
             Console.Error.WriteLine("spektra audit: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var computed = MapParallel(files, jobs, path =>
+        var results = FolderAudit.Run(ffmpeg, files, jobs);
+
+        if (fmt != OutFormat.Text)
         {
-            var report = BandwidthReport.Analyze(ffmpeg, path);
-            IntegrityReport? ir = null;
-            string? ierr = null;
-            if (report.Metadata is { } meta)
-            {
-                try { ir = new IntegrityScanner(ffmpeg).Check(path, meta); }
-                catch (Exception ex) when (ex is AudioDecodeException or IOException) { ierr = ex.Message; }
-            }
-            return (report, ir, ierr);
-        });
-
-        var rows = new List<AuditRow>();
-        var problems = 0;
-        foreach (var (report, ir, ierr) in computed)
-        {
-            rows.Add(Reporting.ToAuditRow(report, ir, ierr));
-
-            if (report.Error is not null || report.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled
-                || ierr is not null || ir?.Status == IntegrityStatus.Corrupt) problems++;
-
-            if (fmt == OutFormat.Text)
-            {
-                var bw = report.Error is not null ? "error"
-                    : $"{report.Verdict!.Kind}{(report.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
-                var integ = ierr is not null ? "ERROR" : ir?.Status.ToString() ?? "-";
-                Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {Path.GetFileName(report.Path)}");
-            }
+            Emit(results.Select(r => r.ToRow()).ToList(), fmt);
+            return results.Any(r => r.HasProblem) ? 1 : 0;
         }
-        if (fmt != OutFormat.Text) Emit(rows, fmt);
-        else Console.WriteLine($"{Environment.NewLine}{files.Count} files, {problems} with problems.");
-        return problems > 0 ? 1 : 0;
+
+        foreach (var r in results)
+        {
+            var report = r.Report;
+            var bw = report.Error is not null ? "error"
+                : $"{report.Verdict!.Kind}{(report.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
+            var integ = r.IntegrityError is not null ? "ERROR" : r.Integrity?.Status.ToString() ?? "-";
+            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {Path.GetFileName(report.Path)}");
+        }
+        Console.WriteLine($"{Environment.NewLine}{files.Count} files, {results.Count(r => r.HasProblem)} with problems.");
+        return results.Any(r => r.HasProblem) ? 1 : 0;
     }
 
     private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
