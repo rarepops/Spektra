@@ -75,8 +75,8 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB)
     {
         _ffmpeg = ffmpeg;
-        A = new DocumentViewModel(ffmpeg, pathA, Viewport);
-        B = new DocumentViewModel(ffmpeg, pathB, Viewport);
+        A = new DocumentViewModel(ffmpeg, pathA, Viewport) { PrefetchChannels = false };
+        B = new DocumentViewModel(ffmpeg, pathB, Viewport) { PrefetchChannels = false };
         TabTitle = $"{A.TabTitle} ⇄ {B.TabTitle}";
         Viewport.Changed += () => { if (_mode == CompareMode.Diff) DiffRequested?.Invoke(); };
     }

@@ -5,9 +5,20 @@ namespace Spektra.App;
 
 public sealed class DocumentViewModel : ObservableObject, ITab
 {
+    /// Mix + both channels of a stereo file fit; surround files stay bounded
+    /// and fall back to lazy recompute past this.
+    private const int ChannelCacheCapacity = 3;
+
     private readonly FfmpegPaths _ffmpeg;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _tileCts;
+
+    // Finished overviews per combo index (0 = Mix, i = channel i-1), UI thread only.
+    private readonly LruCache<int, ChannelOverview> _channelCache = new(ChannelCacheCapacity);
+    private CancellationTokenSource? _computeCts;
+    private Task? _computeLoop;
+    private SpectrogramDocument? _computingDoc;
+    private int _computingIndex = -1;
 
     private string _headerText;
     private string _statusText = "";
@@ -20,6 +31,11 @@ public sealed class DocumentViewModel : ObservableObject, ITab
 
     public string FilePath { get; }
     public string TabTitle => Path.GetFileName(FilePath);
+
+    /// Background-compute the remaining channel variants after the visible
+    /// overview finishes. Comparison documents turn this off: they never
+    /// expose the channel selector.
+    public bool PrefetchChannels { get; init; } = true;
 
     public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
     public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
@@ -114,7 +130,37 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         {
             if (value < 0) return; // ComboBox emits -1 transiently on ItemsSource swap
             if (!Set(ref _selectedChannelIndex, value)) return;
-            if (Metadata is not null) _ = LoadOverviewAsync();
+            if (Metadata is not { } meta) return;
+            _tileCts?.Cancel();
+            Tile = null;
+            ErrorText = null;
+            if (_channelCache.TryGet(value, out var hit))
+            {
+                // Instant swap; DocumentChanged also re-schedules the sharp
+                // zoom tile via SpectrogramView.OnDocumentChanged.
+                Document = hit.Document;
+                DocumentChanged?.Invoke();
+                Verdict = hit.Verdict;
+                Loudness = hit.Loudness;
+                StatusText = $"Cached · {hit.Document.Count} columns";
+            }
+            else if (_computingIndex == value && _computingDoc is { } doc)
+            {
+                // Attach to the in-flight compute: show its partial document;
+                // the loop publishes verdict and status when it finishes.
+                Document = doc;
+                DocumentChanged?.Invoke();
+                Verdict = null;
+                Loudness = null;
+                StatusText = "Analyzing…";
+            }
+            else
+            {
+                Verdict = null;
+                Loudness = null;
+                StatusText = "Analyzing…";
+                _ = RestartComputeLoopAsync(meta);
+            }
         }
     }
 
@@ -157,8 +203,10 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     {
         _loadCts?.Cancel();
         _tileCts?.Cancel();
+        _computeCts?.Cancel();
         var cts = _loadCts = new CancellationTokenSource();
 
+        _channelCache.Clear();
         ErrorText = null;
         Tile = null;
         Verdict = null;
@@ -169,9 +217,8 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         try
         {
             var session = new AnalysisSession(_ffmpeg);
-            var settings = new SpectrogramSettings(WindowSize: _windowSize, Window: _window);
-
             var meta = await Task.Run(() => session.ReadMetadata(FilePath), cts.Token);
+            if (cts.Token.IsCancellationRequested) return;
             Metadata = meta;
             if (ChannelOptions.Count == 1 && meta.Channels > 1)
                 ChannelOptions = ["Mix", .. Enumerable.Range(1, meta.Channels).Select(i => $"Ch {i}")];
@@ -181,34 +228,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
             Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
 
-            var estSamples = (long)totalSamples;
-            var estWindows = Math.Max(1, (estSamples - settings.WindowSize) / settings.Hop + 1);
-            var estColumns = (int)Math.Min(estWindows, settings.MaxColumns);
-
-            var doc = new SpectrogramDocument(meta, settings, estColumns);
-            Document = doc;
-            DocumentChanged?.Invoke();
-
-            StatusText = "Analyzing…";
-            var started = DateTime.UtcNow;
-            await Task.Run(() =>
-            {
-                var sinceRefresh = 0;
-                foreach (var column in session.AnalyzeColumns(FilePath, meta, settings, cts.Token,
-                    new DecodeOptions(Channel: SelectedChannel)))
-                {
-                    doc.Append(column);
-                    if (++sinceRefresh >= 32)
-                    {
-                        sinceRefresh = 0;
-                        Dispatcher.UIThread.Post(() => DocumentUpdated?.Invoke());
-                    }
-                }
-            }, cts.Token);
-
-            DocumentUpdated?.Invoke();
-            StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {doc.Count} columns";
-            Verdict = await Task.Run(() => AnalyzeBandwidth(doc, meta.SampleRate), cts.Token);
+            await RestartComputeLoopAsync(meta);
         }
         catch (OperationCanceledException) { /* superseded or closed */ }
         catch (AudioDecodeException ex)
@@ -219,6 +239,126 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
             StatusText = "";
         }
+    }
+
+    /// Cancels the running compute loop, waits for it to unwind (so decodes
+    /// never overlap), then starts a fresh loop unless superseded meanwhile.
+    private async Task RestartComputeLoopAsync(AudioMetadata meta)
+    {
+        _computeCts?.Cancel();
+        _computingIndex = -1;
+        _computingDoc = null;
+        var cts = _computeCts = new CancellationTokenSource();
+        if (_computeLoop is { } previous) await previous;
+        if (cts.Token.IsCancellationRequested) return;
+        _computeLoop = RunComputeLoopAsync(meta, cts.Token);
+    }
+
+    /// Sequentially computes overviews: the selected channel first, then (when
+    /// the whole file fits the cache) the remaining variants as silent
+    /// prefetch. Runs on the UI thread; only decode/FFT work is offloaded.
+    /// Never throws.
+    private async Task RunComputeLoopAsync(AudioMetadata meta, CancellationToken ct)
+    {
+        var failed = new HashSet<int>();
+        while (!ct.IsCancellationRequested)
+        {
+            var index = NextIndexToCompute(meta, failed);
+            if (index < 0) return;
+            var started = DateTime.UtcNow;
+            _computingIndex = index;
+            try
+            {
+                var entry = await ComputeOverviewAsync(index, meta, ct);
+                _channelCache.Set(index, entry);
+                if (index == SelectedChannelIndex)
+                {
+                    Document = entry.Document;
+                    DocumentUpdated?.Invoke();
+                    Verdict = entry.Verdict;
+                    Loudness = entry.Loudness;
+                    StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {entry.Document.Count} columns";
+                }
+            }
+            catch (OperationCanceledException) { return; }
+            catch (AudioDecodeException ex)
+            {
+                if (ct.IsCancellationRequested) return;
+                if (index == SelectedChannelIndex)
+                {
+                    // Visible failure: show the banner and stop; if one channel
+                    // cannot decode the rest almost certainly cannot either.
+                    // Re-selecting the channel retries with a fresh run.
+                    Document = null;
+                    DocumentChanged?.Invoke();
+                    ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
+                    StatusText = "";
+                    return;
+                }
+                failed.Add(index); // silent per-channel prefetch failure
+            }
+            finally
+            {
+                _computingIndex = -1;
+                _computingDoc = null;
+            }
+        }
+    }
+
+    /// The selected channel if not yet cached, else the first missing prefetch
+    /// candidate (only when prefetch is on and 1 + Channels fits the cache,
+    /// i.e. stereo), else -1 to stop.
+    private int NextIndexToCompute(AudioMetadata meta, HashSet<int> failed)
+    {
+        if (!_channelCache.TryGet(SelectedChannelIndex, out _)) return SelectedChannelIndex;
+        if (!PrefetchChannels || meta.Channels < 2) return -1;
+        var variants = 1 + meta.Channels;
+        if (variants > ChannelCacheCapacity) return -1;
+        for (var i = 0; i < variants; i++)
+            if (!failed.Contains(i) && !_channelCache.TryGet(i, out _)) return i;
+        return -1;
+    }
+
+    /// Computes one channel's overview end to end (stream columns, then the
+    /// bandwidth verdict). While its document is the visible one it paints
+    /// progressively, exactly like a fresh load; as silent prefetch it posts
+    /// nothing.
+    private async Task<ChannelOverview> ComputeOverviewAsync(int index, AudioMetadata meta, CancellationToken ct)
+    {
+        var session = new AnalysisSession(_ffmpeg);
+        var settings = new SpectrogramSettings(WindowSize: _windowSize, Window: _window);
+        var estSamples = (long)(meta.Duration.TotalSeconds * meta.SampleRate);
+        var estWindows = Math.Max(1, (estSamples - settings.WindowSize) / settings.Hop + 1);
+        var estColumns = (int)Math.Min(estWindows, settings.MaxColumns);
+
+        var doc = new SpectrogramDocument(meta, settings, estColumns);
+        _computingDoc = doc;
+        if (index == SelectedChannelIndex)
+        {
+            Document = doc;
+            DocumentChanged?.Invoke();
+            StatusText = "Analyzing…";
+        }
+
+        var channel = index == 0 ? (int?)null : index - 1;
+        await Task.Run(() =>
+        {
+            var sinceRefresh = 0;
+            foreach (var column in session.AnalyzeColumns(FilePath, meta, settings, ct,
+                new DecodeOptions(Channel: channel)))
+            {
+                doc.Append(column);
+                if (++sinceRefresh >= 32)
+                {
+                    sinceRefresh = 0;
+                    if (ReferenceEquals(Document, doc))
+                        Dispatcher.UIThread.Post(() => DocumentUpdated?.Invoke());
+                }
+            }
+        }, ct);
+
+        var verdict = await Task.Run(() => AnalyzeBandwidth(doc, meta.SampleRate), ct);
+        return new ChannelOverview(doc, verdict, null);
     }
 
     public async Task RenderTileAsync(int targetColumns)
@@ -259,6 +399,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     {
         _loadCts?.Cancel();
         _tileCts?.Cancel();
+        _computeCts?.Cancel();
         _integrityCts?.Cancel();
         _loudnessCts?.Cancel();
     }
@@ -298,14 +439,21 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         if (Metadata is null) return;
         _loudnessCts?.Cancel();
         var cts = _loudnessCts = new CancellationTokenSource();
+        var channelIndex = SelectedChannelIndex;
+        var channel = SelectedChannel;
         StatusText = "Measuring loudness…";
         try
         {
             var report = await Task.Run(
-                () => new LoudnessMeasurer(_ffmpeg).Measure(FilePath, SelectedChannel, cts.Token), cts.Token);
+                () => new LoudnessMeasurer(_ffmpeg).Measure(FilePath, channel, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested) return;
-            Loudness = report;
-            StatusText = report.Summary;
+            if (_channelCache.TryGet(channelIndex, out var entry))
+                _channelCache.Set(channelIndex, entry with { Loudness = report });
+            if (channelIndex == SelectedChannelIndex)
+            {
+                Loudness = report;
+                StatusText = report.Summary;
+            }
         }
         catch (OperationCanceledException) { }
         catch (AudioDecodeException ex) { StatusText = ex.Message; }
@@ -321,4 +469,9 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         for (var i = 0; i < count; i++) columns.Add(doc.GetColumn(i));
         return CutoffAnalyzer.Analyze(columns, sampleRate);
     }
+
+    /// One channel's finished analysis: the overview document, its bandwidth
+    /// verdict, and any loudness measured while that channel was active.
+    private sealed record ChannelOverview(
+        SpectrogramDocument Document, LosslessVerdict? Verdict, LoudnessReport? Loudness);
 }
