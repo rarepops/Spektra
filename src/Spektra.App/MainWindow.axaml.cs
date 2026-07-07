@@ -223,6 +223,10 @@ public partial class MainWindow : Window
                 _vm.ShowSpectrum = !_vm.ShowSpectrum;
                 e.Handled = true;
                 break;
+            case Key.H:
+                _vm.ShowCrosshair = !_vm.ShowCrosshair;
+                e.Handled = true;
+                break;
             case Key.I when _vm.Selected is DocumentViewModel doc:
                 _ = doc.RunIntegrityCheckAsync();
                 e.Handled = true;

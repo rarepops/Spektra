@@ -156,7 +156,6 @@ public sealed class SpectrogramView : Control
         return list;
     }
 
-    private static readonly IPen CrosshairPen = new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1);
     private static readonly IBrush ReadoutBg = new SolidColorBrush(Color.FromArgb(200, 20, 20, 20));
     private static readonly IBrush ReadoutFg = new SolidColorBrush(Color.FromRgb(230, 230, 230));
     private static readonly Typeface ReadoutFont = new("Segoe UI, Inter, sans-serif");
@@ -165,6 +164,7 @@ public sealed class SpectrogramView : Control
     // from the overview column nearest the cursor (coarse but instant).
     private void DrawCursorReadout(DrawingContext ctx, Rect plot)
     {
+        if (!_display.ShowCrosshair) return;
         if (_cursor is not { } p || _vm?.Document is not { } doc || _vm.Metadata is not { } meta) return;
         if (!plot.Contains(p)) return;
         var vp = _vm.Viewport;
@@ -177,8 +177,10 @@ public sealed class SpectrogramView : Control
         var hz = q * nyquist;
         var db = SampleDb(doc, tN, q);
 
-        ctx.DrawLine(CrosshairPen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));
-        ctx.DrawLine(CrosshairPen, new Point(plot.Left, p.Y), new Point(plot.Right, p.Y));
+        ctx.DrawLine(SpectrogramDraw.CursorUnderlayPen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));
+        ctx.DrawLine(SpectrogramDraw.CursorUnderlayPen, new Point(plot.Left, p.Y), new Point(plot.Right, p.Y));
+        ctx.DrawLine(SpectrogramDraw.CursorLinePen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));
+        ctx.DrawLine(SpectrogramDraw.CursorLinePen, new Point(plot.Left, p.Y), new Point(plot.Right, p.Y));
 
         var timeLabel = AudioMetadata.FormatDuration(TimeSpan.FromSeconds(Math.Max(0, seconds)))
                         + "." + (int)(Math.Max(0, seconds) * 10 % 10);

@@ -14,6 +14,13 @@ static class SpectrogramDraw
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#9A9A9A"));
     private static readonly Typeface Font = new("Segoe UI, Inter, sans-serif");
 
+    // Dual-stroke cursor line: a dark underlay with a light core stays visible
+    // over both the black background and bright colormap content.
+    public static readonly IBrush CursorUnderlayBrush = new SolidColorBrush(Color.FromArgb(0x8C, 0x00, 0x00, 0x00));
+    public static readonly IBrush CursorCoreBrush = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
+    public static readonly IPen CursorUnderlayPen = new Pen(CursorUnderlayBrush, 3);
+    public static readonly IPen CursorLinePen = new Pen(CursorCoreBrush, 1);
+
     public static Rect PlotRect(Rect bounds) => new(
         RulerLeft, Pad,
         Math.Max(1, bounds.Width - RulerLeft - LegendWidth - Pad),

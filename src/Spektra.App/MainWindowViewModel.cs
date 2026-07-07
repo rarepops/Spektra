@@ -103,6 +103,12 @@ public sealed class MainWindowViewModel : ObservableObject
         set { if (SetDisplay(v => Settings.ShowSpectrum = v, Settings.ShowSpectrum, value)) RaisePropertyChanged(nameof(ShowSpectrum)); }
     }
 
+    public bool ShowCrosshair
+    {
+        get => Settings.ShowCrosshair;
+        set { if (SetDisplay(v => Settings.ShowCrosshair = v, Settings.ShowCrosshair, value)) RaisePropertyChanged(nameof(ShowCrosshair)); }
+    }
+
     private bool SetDisplay<T>(Action<T> assign, T current, T value)
     {
         if (EqualityComparer<T>.Default.Equals(current, value)) return false;

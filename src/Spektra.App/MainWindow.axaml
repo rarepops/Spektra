@@ -82,6 +82,8 @@
         <MenuItem Header="_View">
           <MenuItem Header="Average _Spectrum" ToggleType="CheckBox"
                     IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" InputGesture="Ctrl+R" />
+          <MenuItem Header="Cross_hair" ToggleType="CheckBox"
+                    IsChecked="{Binding ShowCrosshair, Mode=TwoWay}" InputGesture="Ctrl+H" />
         </MenuItem>
         <MenuItem Header="_Analyze">
           <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
