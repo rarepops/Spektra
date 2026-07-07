@@ -18,12 +18,13 @@ public sealed class AppSettings
     public int DbFloor { get; set; } = -120;
     public bool LogFrequency { get; set; }
     public bool ShowSpectrum { get; set; }
+    public bool ShowCrosshair { get; set; } = true;
 
     // Updates
     public bool CheckForUpdatesOnStartup { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
 
-    public DisplaySettings ToDisplaySettings() => new(Palette, DbFloor, LogFrequency, ShowSpectrum);
+    public DisplaySettings ToDisplaySettings() => new(Palette, DbFloor, LogFrequency, ShowSpectrum, ShowCrosshair);
 
     public void PushRecent(string path)
     {

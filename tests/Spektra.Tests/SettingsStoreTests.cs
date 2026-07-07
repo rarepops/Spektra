@@ -34,6 +34,19 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void ShowCrosshair_DefaultsOn_AndRoundTrips()
+    {
+        Assert.True(SettingsStore.Load(SettingsPath).ShowCrosshair);
+        Assert.True(new AppSettings().ToDisplaySettings().ShowCrosshair);
+
+        var s = new AppSettings { ShowCrosshair = false };
+        SettingsStore.Save(SettingsPath, s);
+        var r = SettingsStore.Load(SettingsPath);
+        Assert.False(r.ShowCrosshair);
+        Assert.False(r.ToDisplaySettings().ShowCrosshair);
+    }
+
+    [Fact]
     public void Load_CorruptJson_ReturnsDefaults()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);

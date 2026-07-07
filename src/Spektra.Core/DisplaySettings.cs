@@ -7,7 +7,8 @@ public sealed record DisplaySettings(
     PaletteKind Palette = PaletteKind.Magma,
     float DbFloor = -120f,
     bool LogFrequency = false,
-    bool ShowSpectrum = false)
+    bool ShowSpectrum = false,
+    bool ShowCrosshair = true)
 {
     public float DbCeil => 0f;
 }
