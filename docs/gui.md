@@ -25,7 +25,10 @@ When the overview finishes, the **bandwidth banner** appears under the header:
 
 Zoom with the wheel (time) and Shift+wheel (frequency), drag to pan,
 double-click to reset. Zoomed spans re-render sharply via an ffmpeg segment
-decode. Multichannel files get a channel selector (Mix / Ch 1 / Ch 2 / …).
+decode. Multichannel files get a channel selector (Mix / Ch 1 / Ch 2 / …);
+for stereo files the other views are precomputed in the background right
+after load, so switching is instant. The integrity result sticks to the file
+across switches; loudness is remembered per channel.
 
 ## Deeper checks (Analyze menu)
 
