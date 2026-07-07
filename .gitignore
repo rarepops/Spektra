@@ -16,3 +16,4 @@ tools/ffmpeg/
 
 # release artifacts
 dist/
+/design/
