@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Spektra.App.ExportProgressDialog"
+        Title="Export Folder Report" Width="410" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" Background="#1A1A1A"
+        CanResize="False" ShowInTaskbar="False">
+  <StackPanel Margin="24" Spacing="14">
+    <TextBlock x:Name="LabelText" FontSize="13" Foreground="#BFBFBF" />
+    <ProgressBar x:Name="Bar" Minimum="0" Height="8" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancel" Click="OnCancel" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

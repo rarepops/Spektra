@@ -71,7 +71,8 @@
           <MenuItem Header="_Save Image…" Click="OnSaveImageClicked" InputGesture="Ctrl+S" />
           <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
           <Separator />
-          <MenuItem Header="Export _Report…" Click="OnExportReportClicked" />
+          <MenuItem Header="Expor_t Report…" Click="OnExportReportClicked" />
+          <MenuItem Header="Export Fol_der Report…" Click="OnExportFolderReportClicked" />
           <Separator />
           <MenuItem Header="E_xit" Click="OnExitClicked" />
         </MenuItem>

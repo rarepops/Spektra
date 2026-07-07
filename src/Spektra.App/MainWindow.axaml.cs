@@ -418,6 +418,52 @@ public partial class MainWindow : Window
         _vm.StatusText = $"Exported {file.Name}";
     }
 
+    private async void OnExportFolderReportClicked(object? sender, RoutedEventArgs e) =>
+        await ExportFolderReportAsync();
+
+    private async Task ExportFolderReportAsync()
+    {
+        if (_vm.Ffmpeg is not { } ffmpeg)
+        {
+            _vm.StatusText = "ffmpeg is required to analyze a folder.";
+            return;
+        }
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose a folder to audit",
+            AllowMultiple = false,
+        });
+        if (folders.Count == 0 || folders[0].TryGetLocalPath() is not { } folder) return;
+
+        var files = BandwidthReport.FindAudioFiles(folder).ToList();
+        if (files.Count == 0)
+        {
+            _vm.StatusText = "No audio files found in that folder.";
+            return;
+        }
+
+        var dialog = new ExportProgressDialog(ffmpeg, files);
+        await dialog.ShowDialog(this);
+        if (dialog.Results is not { } results) return; // cancelled: write nothing
+
+        var suggested = SanitizeFileName(
+            Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))) + "-report.csv";
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export folder report",
+            SuggestedFileName = suggested,
+            DefaultExtension = "csv",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
+                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
+            ],
+        });
+        if (file is null) return;
+        await WriteReportAsync(file, results.Select(r => r.ToRow()).ToList());
+        _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
+    }
+
     /// CSV or JSON is chosen by the saved file's extension; anything that is
     /// not .json (including no extension) writes CSV, matching the default.
     private static async Task WriteReportAsync(IStorageFile file, IReadOnlyList<AuditRow> rows)

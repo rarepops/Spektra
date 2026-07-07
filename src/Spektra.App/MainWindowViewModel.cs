@@ -15,6 +15,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<ITab> Tabs { get; } = [];
 
+    public FfmpegPaths? Ffmpeg => _ffmpeg;
+
     public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
 
     public string? ShellErrorText
