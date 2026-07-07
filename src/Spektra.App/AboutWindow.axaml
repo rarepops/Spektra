@@ -47,8 +47,24 @@
         <TextBlock Grid.Column="1" Text="Pan  ·  reset the view" Foreground="#9A9A9A" FontSize="12" />
       </Grid>
       <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="T  ·  D  ·  Esc" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Compare: flip A/B  ·  difference  ·  back to both" Foreground="#9A9A9A" FontSize="12" />
+        <TextBlock Grid.Column="0" Text="T  ·  D  ·  A  ·  Esc" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Compare: flip A/B  ·  difference  ·  auto-align  ·  back to both" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+D  ·  Ctrl+Shift+S" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Compare two files  ·  export the current file's report" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+0  ·  Ctrl+1..9" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Reset the view  ·  jump to tab N" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+Up / Ctrl+Down  ·  F5" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Switch channel  ·  reload the file" Foreground="#9A9A9A" FontSize="12" />
+      </Grid>
+      <Grid ColumnDefinitions="160,*">
+        <TextBlock Grid.Column="0" Text="Ctrl+H" Foreground="#C9C9C9" FontSize="12" />
+        <TextBlock Grid.Column="1" Text="Toggle the crosshair" Foreground="#9A9A9A" FontSize="12" />
       </Grid>
       <Grid ColumnDefinitions="160,*">
         <TextBlock Grid.Column="0" Text="File → Compare…" Foreground="#C9C9C9" FontSize="12" />

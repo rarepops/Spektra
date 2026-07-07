@@ -58,7 +58,11 @@ verdict.
 | `Ctrl+I` · `Ctrl+L` | Check integrity · measure loudness (LUFS) |
 | Wheel · `Shift`+Wheel | Zoom time · zoom frequency |
 | Drag · Double-click | Pan · reset the view |
-| `T` · `D` · `Esc` | Compare view: flip A/B · show difference · back to both |
+| `T` · `D` · `A` · `Esc` | Compare view: flip A/B · difference · auto-align · back to both |
+| `Ctrl+D` · `Ctrl+Shift+S` | Compare two files · export the current file's report |
+| `Ctrl+0` · `Ctrl+1`..`Ctrl+9` | Reset the view · jump to tab N |
+| `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file |
+| `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
 
 Check for a newer release any time from **Help → Check for Updates**. Spektra
 never updates itself; it only tells you when a newer release exists and links to

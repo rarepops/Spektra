@@ -27,8 +27,11 @@ Zoom with the wheel (time) and Shift+wheel (frequency), drag to pan,
 double-click to reset. Zoomed spans re-render sharply via an ffmpeg segment
 decode. Multichannel files get a channel selector (Mix / Ch 1 / Ch 2 / …);
 for stereo files the other views are precomputed in the background right
-after load, so switching is instant. The integrity result sticks to the file
-across switches; loudness is remembered per channel.
+after load, so switching is instant (Ctrl+Up / Ctrl+Down step through them).
+The integrity result sticks to the file across switches; loudness is
+remembered per channel. Ctrl+0 resets the view, F5 reloads the file, and the
+cursor crosshair with its time / frequency / dB readout can be hidden via
+View → Crosshair (Ctrl+H).
 
 ## Deeper checks (Analyze menu)
 
@@ -59,9 +62,12 @@ comparison tab stacks A over B on a shared time axis with synced zoom/pan.
   the offset by cross-correlation. Drift (clock-rate mismatch) is detected and
   flagged.
 - **Modes:** Both / A / B / Diff (hotkeys: `T` flips A/B, `D` shows the
-  difference, `Esc` returns to Both). The Diff view renders A−B on a diverging
-  blue-white-red scale; a transcode shows up as a solid red band above its
-  cutoff.
+  difference, `A` auto-aligns, `Esc` returns to Both). The Diff view renders
+  A−B on a diverging blue-white-red scale; a transcode shows up as a solid
+  red band above its cutoff.
+- **Cursor line:** a vertical line runs through both panes with a time tick
+  on the shared ruler, so a feature in A can be matched to the same instant
+  in B. Toggle it via View → Crosshair (Ctrl+H).
 - **Null test:** time-domain A−B residual over the visible span, reported in
   dB (deeper = more identical).
 
