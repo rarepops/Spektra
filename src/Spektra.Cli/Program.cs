@@ -106,7 +106,7 @@ internal static class Program
                 Console.WriteLine("  " + r.Metadata!.ToDisplayLine(Path.GetFileName(r.Path)));
                 Console.WriteLine("  " + r.Verdict!.Summary);
             }
-        return reports.Any(r => r.Verdict?.Kind == VerdictKind.Lossy) ? 1 : 0;
+        return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
     }
 
     private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
@@ -123,11 +123,11 @@ internal static class Program
         if (fmt != OutFormat.Text)
         {
             Emit(reports.Select(Reporting.ToBandwidthRow).ToList(), fmt);
-            return reports.Any(r => r.Verdict?.Kind == VerdictKind.Lossy) ? 1 : 0;
+            return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
         }
 
         Console.WriteLine($"Scanning {files.Count} audio file(s) under {root} ...");
-        int lossless = 0, suspect = 0, lossy = 0, unknown = 0, errors = 0;
+        int lossless = 0, suspect = 0, lossy = 0, upsampled = 0, unknown = 0, errors = 0;
         foreach (var r in reports)
         {
             Console.WriteLine($"  {Tag(r)}  {Path.GetRelativePath(root, r.Path)}");
@@ -136,13 +136,14 @@ internal static class Program
                 case VerdictKind.Lossless: lossless++; break;
                 case VerdictKind.Suspicious: suspect++; break;
                 case VerdictKind.Lossy: lossy++; break;
+                case VerdictKind.Upsampled: upsampled++; break;
                 default: if (r.Error is not null) errors++; else unknown++; break;
             }
         }
         Console.WriteLine(
             $"{Environment.NewLine}{files.Count} files: {lossless} lossless, {suspect} suspect, " +
-            $"{lossy} likely lossy, {unknown} unknown, {errors} errors.");
-        return lossy > 0 ? 1 : 0;
+            $"{lossy} likely lossy, {upsampled} upsampled, {unknown} unknown, {errors} errors.");
+        return lossy > 0 || upsampled > 0 ? 1 : 0;
     }
 
     private static int Check(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
@@ -222,7 +223,7 @@ internal static class Program
         {
             rows.Add(Reporting.ToAuditRow(report, ir, ierr));
 
-            if (report.Error is not null || report.Verdict?.Kind == VerdictKind.Lossy
+            if (report.Error is not null || report.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled
                 || ierr is not null || ir?.Status == IntegrityStatus.Corrupt) problems++;
 
             if (fmt == OutFormat.Text)
@@ -276,6 +277,7 @@ internal static class Program
             VerdictKind.Lossless => "[LOSSLESS]",
             VerdictKind.Suspicious => "[SUSPECT ]",
             VerdictKind.Lossy => "[LOSSY   ]",
+            VerdictKind.Upsampled => "[UPSAMPLE]",
             _ => "[UNKNOWN ]",
         };
         var cut = r.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k".PadRight(6) : "      ";
@@ -301,7 +303,7 @@ internal static class Program
             Folders are analyzed in parallel. By default Spektra uses about 80% of
             the CPU cores; cap it with --jobs N (or -j N), e.g. spektra scan Music -j 4
 
-            Exit code is 1 when anything is likely lossy or corrupt, 2 on setup errors.
+            Exit code is 1 when anything is likely lossy, upsampled, or corrupt, 2 on setup errors.
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
