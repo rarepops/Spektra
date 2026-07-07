@@ -343,7 +343,7 @@ public partial class MainWindow : Window
         var docs = _vm.OpenDocuments;
         if (docs.Count < 2)
         {
-            _vm.StatusText = "Open at least two files to compare.";
+            _vm.SetErrorStatus("Open at least two files to compare.");
             return;
         }
         var chooser = new CompareChooser(docs);
@@ -399,7 +399,7 @@ public partial class MainWindow : Window
     private async Task SaveImageAsync()
     {
         using var rtb = RenderSurface();
-        if (rtb is null) { _vm.StatusText = "Open a file first to save its spectrogram."; return; }
+        if (rtb is null) { _vm.SetErrorStatus("Open a file first to save its spectrogram."); return; }
         var suggested = SanitizeFileName(_vm.Selected?.TabTitle ?? "spektra") + ".png";
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
@@ -419,7 +419,7 @@ public partial class MainWindow : Window
     private async Task CopyImageAsync()
     {
         using var rtb = RenderSurface();
-        if (rtb is null) { _vm.StatusText = "Open a file first to copy its spectrogram."; return; }
+        if (rtb is null) { _vm.SetErrorStatus("Open a file first to copy its spectrogram."); return; }
         if (Clipboard is null) return;
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(DataFormat.Bitmap, (Bitmap)rtb));
@@ -442,12 +442,12 @@ public partial class MainWindow : Window
     {
         if (_vm.Selected is not DocumentViewModel doc || doc.Metadata is null)
         {
-            _vm.StatusText = "Open a file first to export its report.";
+            _vm.SetErrorStatus("Open a file first to export its report.");
             return;
         }
         if (doc.Verdict is null)
         {
-            _vm.StatusText = "Wait for the analysis to finish before exporting.";
+            _vm.SetErrorStatus("Wait for the analysis to finish before exporting.");
             return;
         }
         if (doc.Integrity is null) await doc.RunIntegrityCheckAsync();
@@ -477,7 +477,7 @@ public partial class MainWindow : Window
     {
         if (_vm.Ffmpeg is not { } ffmpeg)
         {
-            _vm.StatusText = "ffmpeg is required to analyze a folder.";
+            _vm.SetErrorStatus("ffmpeg is required to analyze a folder.");
             return;
         }
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
@@ -490,7 +490,7 @@ public partial class MainWindow : Window
         var files = BandwidthReport.FindAudioFiles(folder).ToList();
         if (files.Count == 0)
         {
-            _vm.StatusText = "No audio files found in that folder.";
+            _vm.SetErrorStatus("No audio files found in that folder.");
             return;
         }
 

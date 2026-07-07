@@ -38,7 +38,17 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool PrefetchChannels { get; init; } = true;
 
     public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
-    public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
+    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
+    public string StatusText
+    {
+        get => _statusText;
+        private set { _ = Set(ref _statusText, value); StatusIsError = false; }
+    }
+
+    private bool _statusIsError;
+    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
+
+    private void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
 
     public string? ErrorText
     {
@@ -456,7 +466,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             }
         }
         catch (OperationCanceledException) { }
-        catch (AudioDecodeException ex) { StatusText = ex.Message; }
+        catch (AudioDecodeException ex) { SetErrorStatus(ex.Message); }
     }
 
     /// Snapshots the finished overview columns and runs the bandwidth/lossless

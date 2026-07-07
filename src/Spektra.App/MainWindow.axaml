@@ -53,6 +53,12 @@
     <Style Selector="Border.integrity.corrupt">
       <Setter Property="Background" Value="#3A1717" />
     </Style>
+    <Style Selector="TextBlock.status">
+      <Setter Property="Foreground" Value="#888888" />
+    </Style>
+    <Style Selector="TextBlock.status.error">
+      <Setter Property="Foreground" Value="#E08080" />
+    </Style>
   </Window.Styles>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top">
@@ -195,7 +201,8 @@
     </Grid>
 
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusText}"
-               Margin="12,4" FontSize="11" Foreground="#888888" />
+               Margin="12,4" FontSize="11"
+               Classes="status" Classes.error="{Binding StatusIsError}" />
 
     <DockPanel x:Name="CompareStrip" DockPanel.Dock="Bottom" IsVisible="False" Margin="12,4,12,8">
       <Button DockPanel.Dock="Right" Content="Auto" Click="OnAutoAlignClicked" Margin="8,0,0,0" VerticalAlignment="Center" />

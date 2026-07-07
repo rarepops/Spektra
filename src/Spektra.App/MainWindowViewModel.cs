@@ -17,7 +17,17 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public FfmpegPaths? Ffmpeg => _ffmpeg;
 
-    public string StatusText { get => _statusText; set => Set(ref _statusText, value); }
+    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
+    public string StatusText
+    {
+        get => _statusText;
+        set { _ = Set(ref _statusText, value); StatusIsError = false; }
+    }
+
+    private bool _statusIsError;
+    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
+
+    public void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
 
     public string? ShellErrorText
     {
@@ -206,6 +216,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 value.PropertyChanged += OnSelectedDocPropertyChanged;
             }
             StatusText = value?.StatusText ?? "";
+            StatusIsError = value?.StatusIsError ?? false;
             RaisePropertyChanged(nameof(Selected));
             SelectedChanged?.Invoke(value);
         }
@@ -225,8 +236,12 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void OnSelectedDocPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (ReferenceEquals(sender, _selected) && e.PropertyName == nameof(ITab.StatusText))
+        if (!ReferenceEquals(sender, _selected)) return;
+        if (e.PropertyName is nameof(ITab.StatusText) or nameof(ITab.StatusIsError))
+        {
             StatusText = _selected!.StatusText;
+            StatusIsError = _selected.StatusIsError;
+        }
     }
 
     public void OpenFiles(IEnumerable<string> paths)

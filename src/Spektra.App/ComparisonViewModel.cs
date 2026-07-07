@@ -29,7 +29,17 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
 
     public string TabTitle { get; }
     public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
-    public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
+    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
+    public string StatusText
+    {
+        get => _statusText;
+        private set { _ = Set(ref _statusText, value); StatusIsError = false; }
+    }
+
+    private bool _statusIsError;
+    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
+
+    private void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
 
     public IReadOnlyList<float[]>? Diff { get; private set; }
     public double DiffT0 { get; private set; }
@@ -237,7 +247,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
             if (!cts.Token.IsCancellationRequested) StatusText = res.Summary;
         }
         catch (OperationCanceledException) { }
-        catch (AudioDecodeException ex) { StatusText = ex.Message; }
+        catch (AudioDecodeException ex) { SetErrorStatus(ex.Message); }
         finally { if (ReferenceEquals(_nullCts, cts)) BusyText = null; }
     }
 
@@ -246,7 +256,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         if (A.Metadata is not { } ma || B.Metadata is not { } mb) return;
         if (A.Document is null || B.Document is null)
         {
-            StatusText = "Diff unavailable — one file failed to decode.";
+            SetErrorStatus("Diff unavailable: one file failed to decode.");
             return;
         }        _diffCts?.Cancel();
         var cts = _diffCts = new CancellationTokenSource();
