@@ -24,6 +24,7 @@ public sealed class CompareSurface : Control
     private int _spinPhase;
     private bool _panning;
     private Point _lastPointer;
+    private Point? _cursor;
     private DisplaySettings _display = new();
 
     /// Colormap + dB range for the A/B panes and their legends (the signed diff
@@ -201,10 +202,16 @@ public sealed class CompareSurface : Control
             }
         }
 
+        DrawCursorLine(ctx, plot);
+
         if (_vm.BusyText is { } busy) DrawBusyBadge(ctx, plot, busy);
     }
 
     private static readonly Typeface BusyFont = new("Segoe UI, Inter, sans-serif");
+    private static readonly IPen TickUnderlayPen = new Pen(SpectrogramDraw.CursorUnderlayBrush, 5);
+    private static readonly IPen TickPen = new Pen(SpectrogramDraw.CursorCoreBrush, 3);
+    private static readonly IBrush LabelBg = new SolidColorBrush(Color.FromArgb(200, 20, 20, 20));
+    private static readonly IBrush LabelFg = new SolidColorBrush(Color.FromRgb(230, 230, 230));
 
     // Centered "processing" pill with an animated spinner, painted while a
     // long-running compare op (align / diff) is in flight.
@@ -276,6 +283,40 @@ public sealed class CompareSurface : Control
         SpectrogramDraw.Text(ctx, "⚠ " + msg, rect.X + 12, rect.Y + rect.Height / 2 - 6);
     }
 
+    // Vertical cursor line through the pane(s), with a thicker tick and a time
+    // label on the shared ruler: lets a feature in A be matched to the same
+    // instant in B. Toggled by View > Crosshair. In Both mode the panes carve
+    // up the plot rect, so one full-height line spans A, the gap, and B.
+    private void DrawCursorLine(DrawingContext ctx, Rect plot)
+    {
+        if (!_display.ShowCrosshair || _cursor is not { } p || _vm is null) return;
+        if (!plot.Contains(p)) return;
+
+        ctx.DrawLine(SpectrogramDraw.CursorUnderlayPen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));
+        ctx.DrawLine(SpectrogramDraw.CursorLinePen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));
+
+        var tickTop = new Point(p.X, plot.Bottom);
+        var tickBottom = new Point(p.X, plot.Bottom + 10);
+        ctx.DrawLine(TickUnderlayPen, tickTop, tickBottom);
+        ctx.DrawLine(TickPen, tickTop, tickBottom);
+
+        var durA = _vm.A.Metadata?.Duration.TotalSeconds ?? 0;
+        if (durA <= 0) return;
+        var vp = _vm.Viewport;
+        var seconds = Math.Max(0, (vp.T0 + (p.X - plot.Left) / plot.Width * (vp.T1 - vp.T0)) * durA);
+        var label = AudioMetadata.FormatDuration(TimeSpan.FromSeconds(seconds))
+                    + "." + (int)(seconds * 10 % 10);
+        var ft = new FormattedText(label, CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight, BusyFont, 11, LabelFg);
+        var boxW = ft.Width + 10;
+        var boxH = ft.Height + 4;
+        if (plot.Width <= boxW) return; // degenerate window: skip the label
+        var bx = Math.Clamp(p.X - boxW / 2, plot.Left, plot.Right - boxW);
+        var by = plot.Bottom + 11;
+        ctx.FillRectangle(LabelBg, new Rect(bx, by, boxW, boxH), 3);
+        ctx.DrawText(ft, new Point(bx + 5, by + 2));
+    }
+
     private void RenderDiff(DrawingContext ctx, Rect plot, Viewport vp)
     {
         var srA = _vm!.A.Metadata?.SampleRate ?? 0;
@@ -331,13 +372,25 @@ public sealed class CompareSurface : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (!_panning || _vm is null) return;
+        if (_vm is null) return;
         var plot = SpectrogramDraw.PlotRect(Bounds);
         var p = e.GetPosition(this);
-        var vp = _vm.Viewport;
-        vp.PanTime(-(p.X - _lastPointer.X) / plot.Width * vp.TimeSpanN);
-        vp.PanFrequency((p.Y - _lastPointer.Y) / plot.Height * vp.FreqSpanN);
-        _lastPointer = p;
+        _cursor = p;
+        if (_panning)
+        {
+            var vp = _vm.Viewport;
+            vp.PanTime(-(p.X - _lastPointer.X) / plot.Width * vp.TimeSpanN);
+            vp.PanFrequency((p.Y - _lastPointer.Y) / plot.Height * vp.FreqSpanN);
+            _lastPointer = p;
+        }
+        else InvalidateVisual();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        _cursor = null;
+        InvalidateVisual();
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
