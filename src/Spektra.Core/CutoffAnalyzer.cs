@@ -43,7 +43,16 @@ public static class CutoffAnalyzer
     // faster, reads as an upsample (44.1→96 is 2.18×; 44.1→48 at 1.09× must
     // NOT trigger). 16 kHz doubles as the MP3-128 cutoff, so the 32 kHz base
     // is trusted only for unambiguously hi-res containers.
-    private const double NyquistMatchTolerance = 0.03;
+    //
+    // Two edges are matched because resampler skirts differ wildly (measured
+    // 2026-07-06 on real 44.1/48→96 kHz output): a good resampler (soxr)
+    // silences everything within ~2% of the source Nyquist, so the stopband
+    // edge (peak-55 dB) lands on it; ffmpeg's default swr leaks a lazy
+    // ~14 dB/kHz skirt that pushes that edge up to ~15% past the source
+    // Nyquist, while the passband edge (peak-12 dB) stays within ~4%.
+    private const float PassbandSpanDb = 12f;
+    private const double StopbandMatchTolerance = 0.04;
+    private const double PassbandMatchTolerance = 0.055;
     private const double MinStepUpFactor = 1.5;
     private const int SecondaryMinDeclaredHz = 88200;
 
@@ -109,10 +118,16 @@ public static class CutoffAnalyzer
 
         if (transitionHz <= SharpTransitionHz)
         {
-            if (TryMatchUpsampleBase(cutoffHz, sampleRate, out var baseRateHz))
-                return new LosslessVerdict(VerdictKind.Upsampled, cutoffHz, nyquist,
-                    $"Sharp cutoff at {Khz(cutoffHz)} matches a {RateKhz(baseRateHz)} source; " +
-                    $"likely upsampled to {RateKhz(sampleRate)}.", null);
+            var passbandLine = globalPeak - PassbandSpanDb;
+            var passbandBin = 0;
+            for (var k = peak.Length - 1; k >= 0; k--)
+                if (peak[k] >= passbandLine) { passbandBin = k; break; }
+            var passbandHz = passbandBin * hzPerBin;
+
+            if (TryMatchUpsampleBase(cutoffHz, passbandHz, sampleRate, out var baseRateHz, out var edgeHz))
+                return new LosslessVerdict(VerdictKind.Upsampled, edgeHz, nyquist,
+                    $"Bandwidth ends near {Khz(edgeHz)}; matches a {RateKhz(baseRateHz)} " +
+                    $"source upsampled to {RateKhz(sampleRate)}.", null);
 
             return new LosslessVerdict(VerdictKind.Lossy, cutoffHz, nyquist,
                 $"Sharp cutoff at {Khz(cutoffHz)}. Consistent with lossy encoding ({guess}).", guess);
@@ -143,21 +158,39 @@ public static class CutoffAnalyzer
         };
     }
 
-    /// True when `cutoffHz` sits on another standard rate's Nyquist and the
-    /// declared rate is a real step up from that base rate.
-    private static bool TryMatchUpsampleBase(double cutoffHz, int sampleRate, out int baseRateHz)
+    /// True when either band edge sits on another standard rate's Nyquist and
+    /// the declared rate is a real step up from that base rate. The stopband
+    /// edge gets the tight window, the passband edge the wider one (see the
+    /// constants above); among qualifying matches the closest log-ratio wins,
+    /// which is what disambiguates a 44.1 kHz source from a 48 kHz one inside
+    /// a lazy resampler skirt.
+    private static bool TryMatchUpsampleBase(
+        double stopbandHz, double passbandHz, int sampleRate, out int baseRateHz, out double edgeHz)
     {
+        baseRateHz = 0;
+        edgeHz = 0;
+        var best = double.MaxValue;
         foreach (var (baseRate, primary) in StandardBaseRates)
         {
-            var nyquist = baseRate / 2.0;
-            if (Math.Abs(cutoffHz - nyquist) > NyquistMatchTolerance * nyquist) continue;
             if (sampleRate < MinStepUpFactor * baseRate) continue;
             if (!primary && sampleRate < SecondaryMinDeclaredHz) continue;
-            baseRateHz = baseRate;
-            return true;
+            var nyquist = baseRate / 2.0;
+
+            foreach (var (hz, tolerance) in new[]
+                     {
+                         (stopbandHz, StopbandMatchTolerance),
+                         (passbandHz, PassbandMatchTolerance),
+                     })
+            {
+                if (hz <= 0) continue;
+                var distance = Math.Abs(Math.Log(hz / nyquist));
+                if (distance > Math.Log(1 + tolerance) || distance >= best) continue;
+                best = distance;
+                baseRateHz = baseRate;
+                edgeHz = hz;
+            }
         }
-        baseRateHz = 0;
-        return false;
+        return baseRateHz != 0;
     }
 
     private static string Khz(double hz) => $"{hz / 1000.0:0.0} kHz";

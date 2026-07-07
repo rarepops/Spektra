@@ -180,6 +180,42 @@ public class CutoffAnalyzerTests
         Assert.Equal(VerdictKind.Lossy, v.Kind);
     }
 
+    /// Emulates ffmpeg's default (swr) resampler: passband to `sourceNyquistHz`,
+    /// then a lazy ~14 dB/kHz skirt down to -60 dB, then a cliff to silence.
+    /// Geometry measured on real swr 44.1→96 kHz output (probe, 2026-07-06),
+    /// where the peak-55 dB edge overshoots the source Nyquist by ~15%.
+    private static float[] LazySkirtColumn(double nyquist, double sourceNyquistHz)
+    {
+        const int bins = 1025;
+        var hzPerBin = nyquist / (bins - 1);
+        var col = new float[bins];
+        for (var k = 0; k < bins; k++)
+        {
+            var hz = k * hzPerBin;
+            var level = hz <= sourceNyquistHz
+                ? -6f
+                : -6f - 14f * (float)((hz - sourceNyquistHz) / 1000.0);
+            col[k] = level < -60f ? Db.Floor : level;
+        }
+        return col;
+    }
+
+    [Fact]
+    public void LazyResamplerSkirt_44k1To96k_IsUpsampled()
+    {
+        var v = CutoffAnalyzer.Analyze([LazySkirtColumn(48000, 22050)], 96000);
+        Assert.Equal(VerdictKind.Upsampled, v.Kind);
+        Assert.Contains("44.1", v.Summary);
+    }
+
+    [Fact]
+    public void LazyResamplerSkirt_48kTo96k_NamesThe48kSource()
+    {
+        var v = CutoffAnalyzer.Analyze([LazySkirtColumn(48000, 24000)], 96000);
+        Assert.Equal(VerdictKind.Upsampled, v.Kind);
+        Assert.Contains("48 kHz", v.Summary);
+    }
+
     [Fact]
     public void SixteenKWall_OnlyUpsampledWhenContainerIsHiRes()
     {
