@@ -22,6 +22,11 @@ verdict.
 - Progressive spectrogram with time/frequency rulers and dB legend
 - Automated bandwidth verdict: detects a lossy low-pass cutoff and reports
   Lossless / Suspicious / Lossy with a likely codec/bitrate guess
+- Upsampling detection: a hi-res file whose real bandwidth stops at a lower
+  standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged
+  Upsampled, naming the likely true source rate
+- Export report: save the bandwidth + integrity audit for the current file or
+  a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan,
   double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay
@@ -58,6 +63,13 @@ verdict.
 Check for a newer release any time from **Help → Check for Updates**. Spektra
 never updates itself; it only tells you when a newer release exists and links to
 it. You can also enable a quiet once-a-day check on startup in Preferences.
+
+## Documentation
+
+- **[GUI guide](docs/gui.md)**: inspecting files, verdict banners, compare
+  workflows, integrity/loudness checks, report export.
+- **[CLI guide](docs/cli.md)**: every command with sample output, JSON/CSV
+  reports, exit codes, and scripting examples.
 
 ## Download
 
@@ -109,6 +121,9 @@ analysis engine. It writes to stdout and exits 1 when anything looks lossy or co
 Add `--json` or `--csv` to any command for a machine-readable report:
 
     spektra scan Music --csv > library.csv
+
+Full command reference with sample output and scripting recipes:
+**[docs/cli.md](docs/cli.md)**.
 
 (`--report` / `--scan` are accepted too.) Build it with
 `dotnet publish src/Spektra.Cli -c Release`.
