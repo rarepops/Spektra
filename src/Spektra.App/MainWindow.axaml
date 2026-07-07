@@ -37,6 +37,9 @@
     <Style Selector="Border.verdict.lossy">
       <Setter Property="Background" Value="#3A1717" />
     </Style>
+    <Style Selector="Border.verdict.upsampled">
+      <Setter Property="Background" Value="#2C1F3A" />
+    </Style>
     <Style Selector="Border.integrity">
       <Setter Property="Padding" Value="12,6" />
       <Setter Property="Background" Value="#1E1E1E" />
@@ -148,6 +151,7 @@
               Classes.lossless="{Binding VerdictIsLossless}"
               Classes.suspicious="{Binding VerdictIsSuspicious}"
               Classes.lossy="{Binding VerdictIsLossy}"
+              Classes.upsampled="{Binding VerdictIsUpsampled}"
               IsVisible="{Binding HasVerdict}">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Text="Bandwidth:" Foreground="#888888" FontSize="12" VerticalAlignment="Center" />

@@ -48,6 +48,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             RaisePropertyChanged(nameof(VerdictIsLossless));
             RaisePropertyChanged(nameof(VerdictIsSuspicious));
             RaisePropertyChanged(nameof(VerdictIsLossy));
+            RaisePropertyChanged(nameof(VerdictIsUpsampled));
         }
     }
 
@@ -56,6 +57,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool VerdictIsLossless => _verdict?.Kind == VerdictKind.Lossless;
     public bool VerdictIsSuspicious => _verdict?.Kind == VerdictKind.Suspicious;
     public bool VerdictIsLossy => _verdict?.Kind == VerdictKind.Lossy;
+    public bool VerdictIsUpsampled => _verdict?.Kind == VerdictKind.Upsampled;
 
     private IntegrityReport? _integrity;
 
