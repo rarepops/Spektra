@@ -66,12 +66,12 @@
         <MenuItem Header="_File">
           <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
           <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
-          <MenuItem Header="_Compare…" Click="OnCompareClicked" />
+          <MenuItem Header="_Compare…" Click="OnCompareClicked" InputGesture="Ctrl+D" />
           <Separator />
           <MenuItem Header="_Save Image…" Click="OnSaveImageClicked" InputGesture="Ctrl+S" />
           <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
           <Separator />
-          <MenuItem Header="Expor_t Report…" Click="OnExportReportClicked" />
+          <MenuItem Header="Expor_t Report…" Click="OnExportReportClicked" InputGesture="Ctrl+Shift+S" />
           <MenuItem Header="Export Fol_der Report…" Click="OnExportFolderReportClicked" />
           <Separator />
           <MenuItem Header="E_xit" Click="OnExitClicked" />

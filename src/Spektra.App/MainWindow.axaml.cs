@@ -198,6 +198,15 @@ public partial class MainWindow : Window
                 case Key.T: cmp.FlipAB(); e.Handled = true; return;
                 case Key.D: cmp.Mode = CompareMode.Diff; e.Handled = true; return;
                 case Key.Escape: cmp.Mode = CompareMode.Both; e.Handled = true; return;
+                case Key.A: _ = cmp.AlignAsync(); e.Handled = true; return;
+            }
+        }
+        if (e.Key == Key.F5)
+        {
+            switch (_vm.Selected)
+            {
+                case DocumentViewModel rdoc: _ = rdoc.LoadOverviewAsync(); e.Handled = true; return;
+                case ComparisonViewModel rcmp: _ = rcmp.LoadAsync(); e.Handled = true; return;
             }
         }
         if (e.Handled || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
@@ -209,6 +218,10 @@ public partial class MainWindow : Window
                 break;
             case Key.E:
                 _ = new PreferencesWindow(_vm).ShowDialog(this);
+                e.Handled = true;
+                break;
+            case Key.S when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                _ = ExportReportAsync();
                 e.Handled = true;
                 break;
             case Key.S:
@@ -243,7 +256,40 @@ public partial class MainWindow : Window
                 _vm.SelectNext(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
                 e.Handled = true;
                 break;
+            case Key.D:
+                _ = CompareViaDialogAsync();
+                e.Handled = true;
+                break;
+            case Key.D0 or Key.NumPad0:
+                switch (_vm.Selected)
+                {
+                    case DocumentViewModel zdoc: zdoc.Viewport.Reset(); break;
+                    case ComparisonViewModel zcmp: zcmp.Viewport.Reset(); break;
+                }
+                e.Handled = true;
+                break;
+            case >= Key.D1 and <= Key.D9:
+                SelectTab(e.Key - Key.D1);
+                e.Handled = true;
+                break;
+            case >= Key.NumPad1 and <= Key.NumPad9:
+                SelectTab(e.Key - Key.NumPad1);
+                e.Handled = true;
+                break;
+            case Key.Down or Key.Up when _vm.Selected is DocumentViewModel cdoc && cdoc.HasMultipleChannels:
+            {
+                var step = e.Key == Key.Down ? 1 : -1;
+                cdoc.SelectedChannelIndex = Math.Clamp(
+                    cdoc.SelectedChannelIndex + step, 0, cdoc.ChannelOptions.Count - 1);
+                e.Handled = true;
+                break;
+            }
         }
+    }
+
+    private void SelectTab(int index)
+    {
+        if (index >= 0 && index < _vm.Tabs.Count) _vm.Selected = _vm.Tabs[index];
     }
 
     private async void OnOpenClicked(object? sender, RoutedEventArgs e) =>
@@ -290,7 +336,9 @@ public partial class MainWindow : Window
     private async void OnDownloadFfmpegClicked(object? sender, RoutedEventArgs e) =>
         await _vm.DownloadFfmpegAsync();
 
-    private async void OnCompareClicked(object? sender, RoutedEventArgs e)
+    private async void OnCompareClicked(object? sender, RoutedEventArgs e) => await CompareViaDialogAsync();
+
+    private async Task CompareViaDialogAsync()
     {
         var docs = _vm.OpenDocuments;
         if (docs.Count < 2)
