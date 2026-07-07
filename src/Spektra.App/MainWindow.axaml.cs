@@ -381,6 +381,54 @@ public partial class MainWindow : Window
         return name;
     }
 
+    private async void OnExportReportClicked(object? sender, RoutedEventArgs e) => await ExportReportAsync();
+
+    /// Exports the active document's bandwidth + integrity audit as one CSV or
+    /// JSON row. Reuses the verdict already computed on load; runs the
+    /// integrity check first if it hasn't been run yet.
+    private async Task ExportReportAsync()
+    {
+        if (_vm.Selected is not DocumentViewModel doc || doc.Metadata is null)
+        {
+            _vm.StatusText = "Open a file first to export its report.";
+            return;
+        }
+        if (doc.Verdict is null)
+        {
+            _vm.StatusText = "Wait for the analysis to finish before exporting.";
+            return;
+        }
+        if (doc.Integrity is null) await doc.RunIntegrityCheckAsync();
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export report",
+            SuggestedFileName = SanitizeFileName(Path.GetFileNameWithoutExtension(doc.TabTitle)) + "-report.csv",
+            DefaultExtension = "csv",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
+                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
+            ],
+        });
+        if (file is null) return;
+
+        var report = new FileReport(doc.FilePath, doc.Metadata, doc.Verdict, null);
+        await WriteReportAsync(file, [Reporting.ToAuditRow(report, doc.Integrity, null)]);
+        _vm.StatusText = $"Exported {file.Name}";
+    }
+
+    /// CSV or JSON is chosen by the saved file's extension; anything that is
+    /// not .json (including no extension) writes CSV, matching the default.
+    private static async Task WriteReportAsync(IStorageFile file, IReadOnlyList<AuditRow> rows)
+    {
+        var json = Path.GetExtension(file.Name).Equals(".json", StringComparison.OrdinalIgnoreCase);
+        var text = json ? Reporting.ToJson(rows) : Reporting.ToCsv(rows);
+        await using var stream = await file.OpenWriteAsync();
+        await using var writer = new StreamWriter(stream);
+        await writer.WriteAsync(text);
+    }
+
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
         await new PreferencesWindow(_vm).ShowDialog(this);
 
