@@ -59,6 +59,10 @@
     <Style Selector="TextBlock.status.error">
       <Setter Property="Foreground" Value="#E08080" />
     </Style>
+    <Style Selector="Border.separator">
+      <Setter Property="Height" Value="1" />
+      <Setter Property="Background" Value="#2A2A2A" />
+    </Style>
   </Window.Styles>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top">
@@ -102,6 +106,8 @@
         </MenuItem>
       </Menu>
     </DockPanel>
+
+    <Border DockPanel.Dock="Top" Classes="separator" />
 
     <Border DockPanel.Dock="Top" Background="#5C1010" Padding="12,8"
             IsVisible="{Binding HasShellError}">
@@ -229,6 +235,8 @@
                 Value="{Binding FineMs, Mode=TwoWay}" ToolTip.Tip="Fine (±500 ms)" />
       </Grid>
     </DockPanel>
+
+    <Border DockPanel.Dock="Bottom" Classes="separator" />
 
     <Panel>
       <controls:SpectrogramView x:Name="Spectro" />
