@@ -31,6 +31,50 @@ public sealed record CompareReport(
 /// orchestration of the existing primitives; the pure parts live in statics.
 public sealed class AudioCompare(FfmpegPaths ffmpeg)
 {
+    /// Metadata, alignment (unless pinned), drift estimate, then a spectral
+    /// diff and a null test over the files' overlapping span. Channels are
+    /// null throughout: mono mixdown, the GUI compare default. Throws
+    /// AudioDecodeException when the files do not overlap at the offset.
+    public CompareReport Run(
+        string pathA, string pathB, CompareOptions options, CancellationToken ct = default)
+    {
+        var session = new AnalysisSession(ffmpeg);
+        var metaA = session.ReadMetadata(pathA);
+        var metaB = session.ReadMetadata(pathB);
+
+        double offset;
+        double? confidence;
+        if (options.OffsetSeconds is { } pinned) { offset = pinned; confidence = null; }
+        else
+        {
+            var res = Aligner.EstimateOffset(ffmpeg, pathA, pathB, null, null, ct: ct);
+            offset = res.Offset.TotalSeconds;
+            confidence = res.Confidence;
+        }
+
+        var drift = Aligner.EstimateDriftSeconds(ffmpeg, pathA, pathB, null, null, ct: ct);
+
+        var (start, duration) = OverlapSpan(
+            metaA.Duration.TotalSeconds, metaB.Duration.TotalSeconds, offset);
+        if (duration <= 0)
+            throw new AudioDecodeException(
+                "The files do not overlap at this offset; nothing to compare.");
+
+        var cols = new SpectralDiff(ffmpeg).Compute(
+            pathA, metaA, null, pathB, metaB, null,
+            start, duration, offset, options.TargetColumns, options.WindowSize,
+            options.Window, ct);
+        var diff = DiffScore.Compute(cols);
+
+        var rate = Math.Min(metaA.SampleRate, metaB.SampleRate);
+        var nul = new NullTest(ffmpeg).Compute(
+            pathA, null, pathB, null, start, duration, offset, rate, ct);
+
+        return new CompareReport(
+            pathA, pathB, metaA, metaB, offset, confidence, drift,
+            start, duration, diff, nul, options.ThresholdDb);
+    }
+
     /// A-time overlap window of the two files when B is shifted by
     /// offsetSeconds (positive = B's content is later than A's).
     /// A returned Duration <= 0 means the files do not overlap.
