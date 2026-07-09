@@ -121,10 +121,15 @@ analysis engine. It writes to stdout and exits 1 when anything looks lossy or co
     spektra check <file|folder> ...    Integrity check (corruption / missing data).
     spektra audit <file|folder> ...    Bandwidth + integrity together.
     spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
+    spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
 
 Add `--json` or `--csv` to any command for a machine-readable report:
 
     spektra scan Music --csv > library.csv
+
+`spektra diff` exits 0 when two files are effectively identical (verify a rip
+or transcode is transparent) and 1 when they differ; `spektra --version`
+prints the version.
 
 Full command reference with sample output and scripting recipes:
 **[docs/cli.md](docs/cli.md)**.

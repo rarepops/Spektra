@@ -2,7 +2,8 @@
 
 The `spektra` command-line tool reuses the desktop app's analysis engine. It
 writes plain text to stdout (pipe/redirect friendly) and uses the exit code to
-signal problems, so it drops straight into scripts and CI.
+signal problems, so it drops straight into scripts and CI. `spektra --version`
+prints the version.
 
     spektra <command> <file|folder> ... [--json|--csv] [--jobs N]
 
@@ -11,8 +12,9 @@ signal problems, so it drops straight into scripts and CI.
   are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the
   workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` anything likely lossy, upsampled, or corrupt,
-  `2` setup errors (e.g. ffmpeg missing). Requires ffmpeg + ffprobe on `PATH`.
+- **Exit codes:** `0` clean, `1` anything likely lossy, upsampled, or corrupt
+  (for `diff`: the files differ), `2` setup errors (e.g. ffmpeg missing).
+  Requires ffmpeg + ffprobe on `PATH`.
 
 ## report: bandwidth verdict per file
 
@@ -66,6 +68,44 @@ be natural), **Lossy** (sharp codec cutoff, with a codec/bitrate guess),
     $ spektra loudness master.flac
     master.flac
       -9.8 LUFS integrated, LRA 4.2 LU, true peak -0.1 dBTP, crest 9.6 dB.
+
+## diff: are two files the same recording?
+
+Aligns the files automatically (cross-correlation, like the desktop app's Auto
+button), runs a spectral diff and a time-domain null test over their
+overlapping span, and turns the result into a SAME / DIFFERS verdict:
+
+    $ spektra diff track.wav track-copy.wav
+    A: track.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    B: track-copy.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    Aligned +0 ms (confidence 1.00) · overlap 0:03
+    Spectral: mean |Δ| 0.0 dB · RMS 0.0 dB · max 0.0 dB · 100% within tolerance
+    Null:     Perfect null: identical samples over this span.
+    SAME      perfect null (identical samples)
+
+    $ spektra diff track.wav track-128k.mp3
+    A: track.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    B: track-128k.mp3 — MP3 · 44.1 kHz · 2 ch · 0:03 · 128 kbps
+    Aligned +0 ms (confidence 1.00) · overlap 0:03
+    Spectral: mean |Δ| 1.6 dB · RMS 8.3 dB · max 113.6 dB · 91% within tolerance
+    Null:     Residual -9.4 dB RMS (6.0 dB below signal), peak 0.0 dB.
+    DIFFERS   null depth 6.0 dB < threshold 40.0 dB
+
+- **SAME** means the null depth (how far the A minus B residual sits below the
+  signal) reaches the threshold, 40 dB by default; tune it with
+  `--threshold-db <N>`. Exit code `0` for SAME, `1` for DIFFERS.
+- Alignment is automatic; pin an exact offset instead with `--offset <ms>`
+  (positive = B's content is later than A's, the same convention as the
+  desktop app's Align box). A warning is printed when the alignment
+  confidence is low, and a note when the files drift apart over time.
+- `--json` / `--csv` emit one row: `fileA, fileB, offsetMs, alignConfidence,
+  driftMs, overlapSeconds, meanAbsDb, rmsDb, maxAbsDb, withinTolerancePct,
+  residualRmsDb, residualPeakDb, nullDepthDb, thresholdDb, same`.
+
+```
+# gate a release: the remaster must be transparent against the approved master
+spektra diff approved.flac remaster.flac --threshold-db 60 || exit 1
+```
 
 ## Machine-readable reports
 
