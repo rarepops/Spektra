@@ -24,6 +24,13 @@ public sealed record LoudnessRow(
     string File, double? IntegratedLufs, double? LoudnessRangeLu, double? TruePeakDbtp,
     double PeakDbfs, double RmsDbfs, double CrestFactorDb, long ClippedSamples, string? Error);
 
+public sealed record CompareRow(
+    string FileA, string FileB, double OffsetMs, double? AlignConfidence,
+    double DriftMs, double OverlapSeconds,
+    double MeanAbsDb, double RmsDb, double MaxAbsDb, double WithinTolerancePct,
+    double ResidualRmsDb, double ResidualPeakDb, double NullDepthDb,
+    double ThresholdDb, bool Same);
+
 /// Builds report rows from analysis results and serializes them to JSON or CSV.
 /// Column order follows the record's declaration order.
 public static class Reporting
@@ -49,6 +56,13 @@ public static class Reporting
     public static LoudnessRow ToLoudnessRow(string path, LoudnessReport? r, string? error) => new(
         Path.GetFileName(path), r?.IntegratedLufs, r?.LoudnessRangeLu, r?.TruePeakDbtp,
         r?.PeakDbfs ?? 0, r?.RmsDbfs ?? 0, r?.CrestFactorDb ?? 0, r?.ClippedSamples ?? 0, error);
+
+    public static CompareRow ToCompareRow(CompareReport r) => new(
+        Path.GetFileName(r.PathA), Path.GetFileName(r.PathB),
+        r.OffsetSeconds * 1000, r.AlignConfidence, r.DriftSeconds * 1000, r.OverlapSeconds,
+        r.Diff.MeanAbsDb, r.Diff.RmsDb, r.Diff.MaxAbsDb, r.Diff.FractionWithinTolerance * 100,
+        r.Null.ResidualRmsDb, r.Null.ResidualPeakDb, r.Null.NullDepthDb,
+        r.ThresholdDb, r.IsSame);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

@@ -67,4 +67,34 @@ public sealed class AudioCompareTests
         Assert.True(Report(-60, -14, driftSeconds: 0.021).HasDrift);
         Assert.False(Report(-60, -14, driftSeconds: 0.019).HasDrift);
     }
+
+    [Fact]
+    public void ToCompareRow_MapsUnitsAndFileNames()
+    {
+        var report = new CompareReport(
+            @"C:\music\a.flac", @"C:\music\b.mp3", Meta, Meta,
+            OffsetSeconds: 0.012, AlignConfidence: 0.94, DriftSeconds: 0.005,
+            OverlapStartSeconds: 0, OverlapSeconds: 231.5,
+            new DiffMetrics(4.2f, 6.1f, 38f, 0.61),
+            new NullResult(-44.9f, -31.2f, -14.2f),
+            ThresholdDb: 40f);
+
+        var row = Reporting.ToCompareRow(report);
+
+        Assert.Equal("a.flac", row.FileA);
+        Assert.Equal("b.mp3", row.FileB);
+        Assert.Equal(12, row.OffsetMs, precision: 6);
+        Assert.Equal(0.94, row.AlignConfidence!.Value, precision: 6);
+        Assert.Equal(5, row.DriftMs, precision: 6);
+        Assert.Equal(231.5, row.OverlapSeconds, precision: 6);
+        Assert.Equal(4.2, row.MeanAbsDb, precision: 5);
+        Assert.Equal(6.1, row.RmsDb, precision: 5);
+        Assert.Equal(38, row.MaxAbsDb, precision: 5);
+        Assert.Equal(61, row.WithinTolerancePct, precision: 5);
+        Assert.Equal(-44.9, row.ResidualRmsDb, precision: 5);
+        Assert.Equal(-31.2, row.ResidualPeakDb, precision: 5);
+        Assert.Equal(30.7, row.NullDepthDb, precision: 4); // -14.2 - (-44.9)
+        Assert.Equal(40, row.ThresholdDb, precision: 6);
+        Assert.False(row.Same); // depth 30.7 < threshold 40
+    }
 }
