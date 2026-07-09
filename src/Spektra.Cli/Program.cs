@@ -1,4 +1,7 @@
+using System.Globalization;
+using System.Reflection;
 using Spektra.Core;
+using CompareOptions = Spektra.Core.CompareOptions;
 
 namespace Spektra.Cli;
 
@@ -13,6 +16,12 @@ internal static class Program
     {
         if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
             return Usage(args.Length == 0 ? 1 : 0);
+
+        if (args[0] is "--version" or "-v")
+        {
+            Console.WriteLine($"spektra {Version()}");
+            return 0;
+        }
 
         var ffmpeg = FfmpegLocator.LocateDefault();
         if (ffmpeg is null)
@@ -30,6 +39,7 @@ internal static class Program
             "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
             "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
             "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
+            "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
             _ => Usage(1),
         };
     }
@@ -57,6 +67,17 @@ internal static class Program
             else rest.Add(a);
         }
         return (fmt, jobs, rest.ToArray());
+    }
+
+    // Informational version (the csproj <Version>), minus any +buildmetadata.
+    private static string Version()
+    {
+        var asm = typeof(Program).Assembly;
+        var v = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                    .InformationalVersion
+                ?? asm.GetName().Version?.ToString() ?? "unknown";
+        var plus = v.IndexOf('+');
+        return plus >= 0 ? v[..plus] : v;
     }
 
     // Analyzes files concurrently, capped at `jobs` workers, and returns results
@@ -254,6 +275,78 @@ internal static class Program
         return 0;
     }
 
+    private static int Diff(FfmpegPaths ffmpeg, string[] args, OutFormat fmt)
+    {
+        double? offsetMs = null;
+        var thresholdDb = 40f;
+        var files = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a is "--offset" && i + 1 < args.Length && double.TryParse(
+                    args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ms))
+            {
+                offsetMs = ms;
+                i++;
+            }
+            else if (a is "--threshold-db" && i + 1 < args.Length && float.TryParse(
+                    args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var t))
+            {
+                thresholdDb = t;
+                i++;
+            }
+            else files.Add(a);
+        }
+        if (files.Count != 2)
+        {
+            Console.Error.WriteLine("spektra diff: give exactly two audio files.");
+            return Usage(1);
+        }
+
+        var options = new CompareOptions(OffsetSeconds: offsetMs / 1000, ThresholdDb: thresholdDb);
+        CompareReport report;
+        try { report = new AudioCompare(ffmpeg).Run(files[0], files[1], options); }
+        catch (Exception ex) when (ex is AudioDecodeException or IOException)
+        {
+            Console.Error.WriteLine($"spektra diff: {ex.Message}");
+            return 2;
+        }
+
+        if (fmt != OutFormat.Text)
+        {
+            Emit(new[] { Reporting.ToCompareRow(report) }, fmt);
+            return report.IsSame ? 0 : 1;
+        }
+
+        Console.WriteLine("A: " + report.MetaA.ToDisplayLine(Path.GetFileName(report.PathA)));
+        Console.WriteLine("B: " + report.MetaB.ToDisplayLine(Path.GetFileName(report.PathB)));
+        var overlap = AudioMetadata.FormatDuration(TimeSpan.FromSeconds(report.OverlapSeconds));
+        var offsetText = $"{report.OffsetSeconds * 1000:+0.###;-0.###} ms";
+        Console.WriteLine(report.AlignConfidence is { } conf
+            ? $"Aligned {offsetText} (confidence {conf:0.00}) · overlap {overlap}"
+            : $"Offset {offsetText} (pinned) · overlap {overlap}");
+        if (report.LowConfidence)
+            Console.WriteLine(
+                $"warning: alignment confidence {report.AlignConfidence:0.00} is low; the offset may be wrong");
+        if (report.HasDrift)
+            Console.WriteLine(
+                $"note: alignment drifts about {report.DriftSeconds * 1000:0} ms across the file; " +
+                "a single offset can't fully align it");
+        Console.WriteLine("Spectral: " + report.Diff.Summary);
+        Console.WriteLine("Null:     " + report.Null.Summary);
+        Console.WriteLine(VerdictLine(report));
+        return report.IsSame ? 0 : 1;
+    }
+
+    private static string VerdictLine(CompareReport r)
+    {
+        if (r.Null.ResidualRmsDb <= Db.Floor + 1f)
+            return "SAME      perfect null (identical samples)";
+        return r.IsSame
+            ? $"SAME      null depth {r.Null.NullDepthDb:0.0} dB >= threshold {r.ThresholdDb:0.0} dB"
+            : $"DIFFERS   null depth {r.Null.NullDepthDb:0.0} dB < threshold {r.ThresholdDb:0.0} dB";
+    }
+
     private static string Tag(FileReport r)
     {
         if (r.Error is not null) return "[ERROR   ]      ";
@@ -280,6 +373,8 @@ internal static class Program
               spektra check <file|folder> ...    Integrity check (corruption / missing data).
               spektra audit <file|folder> ...    Bandwidth + integrity together.
               spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
+              spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
+              spektra --version                  Print the version.
               spektra --help                     Show this help.
 
             Add --json or --csv to any command for a machine-readable report,
@@ -288,7 +383,12 @@ internal static class Program
             Folders are analyzed in parallel. By default Spektra uses about 80% of
             the CPU cores; cap it with --jobs N (or -j N), e.g. spektra scan Music -j 4
 
-            Exit code is 1 when anything is likely lossy, upsampled, or corrupt, 2 on setup errors.
+            diff aligns the files automatically; pin an offset with --offset <ms>
+            (positive = B later than A) and tune the verdict with --threshold-db <N>
+            (default 40: the null depth needed to count as SAME).
+
+            Exit code is 1 when anything is likely lossy, upsampled, or corrupt
+            (for diff: when the files differ), 2 on setup errors.
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
