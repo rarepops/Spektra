@@ -1,8 +1,10 @@
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using System.ComponentModel;
 
 namespace Spektra.App.Controls;
@@ -68,6 +70,9 @@ public partial class FolderView : UserControl
 
     private void OnRowDoubleTapped(object? sender, TappedEventArgs e)
     {
+        // Two quick clicks on a column header (sort, then flip direction) also
+        // raise DoubleTapped on the grid; only a tap landing on a row opens.
+        if ((e.Source as Visual)?.FindAncestorOfType<DataGridRow>(includeSelf: true) is null) return;
         if (Grid.SelectedItem is FolderRow row) _vm?.RequestOpen(row);
     }
 
