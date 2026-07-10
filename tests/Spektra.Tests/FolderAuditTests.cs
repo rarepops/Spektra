@@ -65,4 +65,24 @@ public class FolderAuditTests
         Assert.ThrowsAny<OperationCanceledException>(
             () => FolderAudit.Run(Ff, [P("chirp.wav")], jobs: 1, null, cts.Token));
     }
+
+    [Fact]
+    public void CollectTargets_ReturnsOnlyAudio_WithRealSizesAndMtimes()
+    {
+        var dir = Directory.CreateTempSubdirectory("spektra-targets").FullName;
+        try
+        {
+            File.Copy(P("chirp.wav"), Path.Combine(dir, "chirp.wav"));
+            File.WriteAllText(Path.Combine(dir, "notes.txt"), "not audio");
+
+            var targets = FolderAudit.CollectTargets(dir);
+
+            var t = Assert.Single(targets);
+            Assert.Equal(Path.Combine(dir, "chirp.wav"), t.Path);
+            Assert.Equal(new FileInfo(t.Path).Length, t.SizeBytes);
+            Assert.Equal(File.GetLastWriteTimeUtc(t.Path).Ticks, t.MtimeTicks);
+            Assert.True(t.SizeBytes > 0);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
 }

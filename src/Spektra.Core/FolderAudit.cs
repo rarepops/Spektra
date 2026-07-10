@@ -1,5 +1,11 @@
 namespace Spektra.Core;
 
+/// A file selected for audit, with the identity fields the cache keys on.
+public sealed record AuditTarget(string Path, long SizeBytes, long MtimeTicks);
+
+/// One audited file: the flat report row plus identity and provenance.
+public sealed record AuditEntry(AuditTarget Target, AuditRow Row, bool HasProblem, bool FromCache);
+
 /// One file's combined bandwidth + integrity audit.
 public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, string? IntegrityError)
 {
@@ -20,6 +26,17 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
 /// Shared by the CLI `audit` verb and the GUI report export.
 public static class FolderAudit
 {
+    /// Enumerates a folder's audio files with the size/mtime identity the
+    /// cache keys on (one stat per file).
+    public static AuditTarget[] CollectTargets(string folder, bool recursive = true) =>
+        BandwidthReport.FindAudioFiles(folder, recursive)
+            .Select(p =>
+            {
+                var info = new FileInfo(p);
+                return new AuditTarget(p, info.Length, info.LastWriteTimeUtc.Ticks);
+            })
+            .ToArray();
+
     public static AuditResult AnalyzeFile(FfmpegPaths ffmpeg, string path, CancellationToken ct = default)
     {
         var report = BandwidthReport.Analyze(ffmpeg, path, ct: ct);
