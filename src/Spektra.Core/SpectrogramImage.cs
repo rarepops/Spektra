@@ -13,6 +13,24 @@ public sealed record ImageOptions(
 /// colormap into an RGB buffer PngWriter can serialize.
 public sealed class SpectrogramImage(FfmpegPaths ffmpeg)
 {
+    /// Analyzes the whole file (the engine's MaxColumns peak-hold merging
+    /// keeps any length within the column budget) and returns the bitmap.
+    /// Throws AudioDecodeException when no columns come out.
+    public (int Width, int Height, byte[] Rgb) Render(
+        string path, ImageOptions options, CancellationToken ct = default)
+    {
+        var session = new AnalysisSession(ffmpeg);
+        var meta = session.ReadMetadata(path);
+        var settings = new SpectrogramSettings(
+            WindowSize: options.WindowSize, MaxColumns: options.MaxColumns);
+        var columns = session.AnalyzeColumns(
+            path, meta, settings, ct, new DecodeOptions(Channel: options.Channel)).ToList();
+        if (columns.Count == 0)
+            throw new AudioDecodeException(
+                "The file is shorter than one FFT window; nothing to render.");
+        return ToRgb(columns, options.Palette, options.FloorDb);
+    }
+
     /// Pure: columns to RGB, bin 0 (DC) on the bottom row. Requires a
     /// non-empty column list (Render throws on zero columns first).
     public static (int Width, int Height, byte[] Rgb) ToRgb(
