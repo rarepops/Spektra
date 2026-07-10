@@ -68,8 +68,14 @@ public partial class MainWindow : Window
         else
         {
             var files = args.Where(File.Exists).ToList();
+            var folders = args.Where(Directory.Exists).ToList();
             if (files.Count > 0)
                 Opened += (_, _) => _vm.OpenFiles(files);
+            if (folders.Count > 0)
+                Opened += (_, _) =>
+                {
+                    foreach (var folder in folders) _vm.OpenFolder(folder);
+                };
         }
     }
 

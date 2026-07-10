@@ -55,7 +55,8 @@ scripted sweeps are interchangeable.
 
 ## Folder audit
 
-Drop a folder onto the window (or File > Open Folder..., Ctrl+Shift+O) to
+Drop a folder onto the window (or File > Open Folder..., Ctrl+Shift+O, or
+pass a folder on the command line: `spektra Music`) to
 audit a whole library in place. Files stream into a sortable grid as they
 are analyzed: bandwidth verdict, cutoff, integrity, codec, bitrate, length.
 Lossy and corrupt values show red, upsampled shows violet. Check "Problems
