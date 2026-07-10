@@ -40,6 +40,34 @@ public class FfprobeMetadataReaderTests
     }
 
     [Fact]
+    public void Parse_MalformedJson_ReadsAsDecodeError()
+    {
+        var ex = Assert.Throws<AudioDecodeException>(
+            () => FfprobeMetadataReader.Parse("garbage {", "boom from stderr"));
+        Assert.Contains("unreadable", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_ValidPayload_MapsFields()
+    {
+        var json = """
+            {
+              "streams": [ { "codec_name": "flac", "sample_rate": "44100",
+                             "channels": 2, "bits_per_raw_sample": "16" } ],
+              "format": { "duration": "3.0", "bit_rate": "900000" }
+            }
+            """;
+        var m = FfprobeMetadataReader.Parse(json, "");
+        Assert.Equal("flac", m.Codec);
+        Assert.Equal(44100, m.SampleRate);
+        Assert.Equal(2, m.Channels);
+        Assert.Equal(16, m.BitsPerSample);
+        Assert.Equal(900_000L, m.BitRateBps);
+        Assert.Equal(3.0, m.Duration.TotalSeconds, 3);
+        Assert.False(m.DurationIsEstimated);
+    }
+
+    [Fact]
     public void DisplayLine_FormatsSegments()
     {
         var m = new AudioMetadata("flac", 44100, 2, 16, 1_017_000, TimeSpan.FromSeconds(252));

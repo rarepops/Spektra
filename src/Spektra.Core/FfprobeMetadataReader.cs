@@ -34,7 +34,14 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         if (p.ExitCode != 0)
             throw new AudioDecodeException("ffprobe could not read this file.", Tail(stderr));
 
-        using var doc = JsonDocument.Parse(stdout);
+        return Parse(stdout, stderr);
+    }
+
+    /// Maps ffprobe's -print_format json output (stderr rides along for error
+    /// detail and the estimated-duration marker). Pure; unit-tested.
+    public static AudioMetadata Parse(string stdout, string stderr)
+    {
+        using var doc = ParseDocument(stdout, stderr);
         var root = doc.RootElement;
         if (!root.TryGetProperty("streams", out var streams) || streams.GetArrayLength() == 0)
             throw new AudioDecodeException("No audio stream found in this file.", Tail(stderr));
@@ -51,6 +58,21 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
             Duration: TimeSpan.FromSeconds(
                 Dbl(Str(format, "duration")) ?? Dbl(Str(s, "duration")) ?? 0),
             DurationIsEstimated: stderr.Contains("Estimating duration from bitrate"));
+    }
+
+    private static JsonDocument ParseDocument(string stdout, string stderr)
+    {
+        try
+        {
+            return JsonDocument.Parse(stdout);
+        }
+        catch (JsonException)
+        {
+            // A zero-exit ffprobe can still emit unusable output (killed mid
+            // write, wrong binary on PATH); that must read as a per-file
+            // decode error, not escape the audit pipeline's catch lists.
+            throw new AudioDecodeException("ffprobe produced unreadable output.", Tail(stderr));
+        }
     }
 
     private static string? Str(JsonElement e, string name) =>
