@@ -466,7 +466,7 @@ public partial class MainWindow : Window
         if (file is null) return;
 
         var report = new FileReport(doc.FilePath, doc.Metadata, doc.Verdict, null);
-        await WriteReportAsync(file, [Reporting.ToAuditRow(report, doc.Integrity, null)]);
+        await ReportWriter.WriteAsync(file, [Reporting.ToAuditRow(report, doc.Integrity, null)]);
         _vm.StatusText = $"Exported {file.Name}";
     }
 
@@ -512,19 +512,8 @@ public partial class MainWindow : Window
             ],
         });
         if (file is null) return;
-        await WriteReportAsync(file, results.Select(r => r.Row).ToList());
+        await ReportWriter.WriteAsync(file, results.Select(r => r.Row).ToList());
         _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
-    }
-
-    /// CSV or JSON is chosen by the saved file's extension; anything that is
-    /// not .json (including no extension) writes CSV, matching the default.
-    private static async Task WriteReportAsync(IStorageFile file, IReadOnlyList<AuditRow> rows)
-    {
-        var json = Path.GetExtension(file.Name).Equals(".json", StringComparison.OrdinalIgnoreCase);
-        var text = json ? Reporting.ToJson(rows) : Reporting.ToCsv(rows);
-        await using var stream = await file.OpenWriteAsync();
-        await using var writer = new StreamWriter(stream);
-        await writer.WriteAsync(text);
     }
 
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
