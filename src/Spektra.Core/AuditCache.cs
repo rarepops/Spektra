@@ -27,7 +27,9 @@ public sealed class AuditCache : IDisposable
 
     /// Opens (creating schema as needed). A corrupt database is deleted and
     /// recreated once; a second failure propagates so callers can fall back
-    /// to running uncached.
+    /// to running uncached. Only true corruption recreates: BUSY/IOERR/FULL
+    /// and friends propagate, so a second running instance or a flaky disk
+    /// cannot wipe a healthy cache.
     public static AuditCache Open(string dbPath)
     {
         var dir = Path.GetDirectoryName(dbPath);
@@ -36,13 +38,18 @@ public sealed class AuditCache : IDisposable
         {
             return OpenOnce(dbPath);
         }
-        catch (SqliteException)
+        catch (SqliteException e) when (IsCorruptionError(e))
         {
             foreach (var f in new[] { dbPath, dbPath + "-wal", dbPath + "-shm" })
                 if (File.Exists(f)) File.Delete(f);
             return OpenOnce(dbPath);
         }
     }
+
+    /// SQLITE_CORRUPT (11) and SQLITE_NOTADB (26): the file itself is bad and
+    /// a rebuild helps. Pure; unit-tested.
+    public static bool IsCorruptionError(SqliteException e) =>
+        e.SqliteErrorCode is 11 or 26;
 
     private static AuditCache OpenOnce(string dbPath)
     {

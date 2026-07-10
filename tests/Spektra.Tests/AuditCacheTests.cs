@@ -94,6 +94,19 @@ public sealed class AuditCacheTests : IDisposable
         Assert.NotNull(cache.TryGet(Target()));
     }
 
+    [Theory]
+    [InlineData(5, false)]   // SQLITE_BUSY: another instance has the file
+    [InlineData(6, false)]   // SQLITE_LOCKED
+    [InlineData(10, false)]  // SQLITE_IOERR: flaky disk
+    [InlineData(13, false)]  // SQLITE_FULL
+    [InlineData(14, false)]  // SQLITE_CANTOPEN
+    [InlineData(11, true)]   // SQLITE_CORRUPT
+    [InlineData(26, true)]   // SQLITE_NOTADB
+    public void IsCorruptionError_RecreatesOnlyForBadFiles(int sqliteCode, bool expected)
+    {
+        Assert.Equal(expected, AuditCache.IsCorruptionError(new SqliteException("boom", sqliteCode)));
+    }
+
     [Fact]
     public void Put_InParallel_UpsertsAllRows()
     {
