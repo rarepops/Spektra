@@ -1,6 +1,6 @@
 namespace Spektra.Core;
 
-public enum PaletteKind { Magma, Viridis, Inferno, Grayscale }
+public enum PaletteKind { Magma, Viridis, Inferno, Grayscale, Plasma, Cividis, Turbo }
 
 /// dB-to-color maps for the spectrogram. Each palette is a small table of anchor
 /// RGBs (matplotlib-derived / public-domain data) interpolated linearly. The
@@ -54,6 +54,52 @@ public static class Colormaps
         (255, 255, 255),
     ];
 
+    private static readonly (byte R, byte G, byte B)[] PlasmaAnchors =
+    [
+        (13, 8, 135),
+        (65, 4, 157),
+        (106, 0, 168),
+        (143, 13, 164),
+        (177, 42, 144),
+        (204, 71, 120),
+        (225, 100, 98),
+        (242, 132, 75),
+        (252, 166, 54),
+        (252, 206, 37),
+        (240, 249, 33),
+    ];
+
+    // Colorblind-friendly (deuteranopia/protanopia-safe) blue-to-yellow ramp.
+    private static readonly (byte R, byte G, byte B)[] CividisAnchors =
+    [
+        (0, 34, 78),
+        (18, 53, 112),
+        (59, 73, 108),
+        (87, 93, 109),
+        (112, 113, 115),
+        (138, 134, 120),
+        (165, 156, 116),
+        (195, 179, 105),
+        (225, 204, 85),
+        (253, 234, 69),
+    ];
+
+    // Google's perceptually-improved rainbow (the modern "jet").
+    private static readonly (byte R, byte G, byte B)[] TurboAnchors =
+    [
+        (48, 18, 59),
+        (69, 91, 205),
+        (62, 155, 254),
+        (24, 214, 203),
+        (72, 248, 130),
+        (164, 252, 59),
+        (226, 220, 56),
+        (254, 163, 49),
+        (239, 89, 17),
+        (194, 36, 3),
+        (122, 4, 3),
+    ];
+
     public static uint ToBgra(PaletteKind kind, float db, float floor, float ceil = 0f)
     {
         if (ceil <= floor) ceil = floor + 1f;
@@ -76,6 +122,9 @@ public static class Colormaps
         PaletteKind.Viridis => ViridisAnchors,
         PaletteKind.Inferno => InfernoAnchors,
         PaletteKind.Grayscale => GrayscaleAnchors,
+        PaletteKind.Plasma => PlasmaAnchors,
+        PaletteKind.Cividis => CividisAnchors,
+        PaletteKind.Turbo => TurboAnchors,
         _ => MagmaAnchors,
     };
 }
