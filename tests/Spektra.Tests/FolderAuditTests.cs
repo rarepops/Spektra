@@ -51,10 +51,16 @@ public class FolderAuditTests
     }
 
     [Fact]
-    public void HasProblem_LossyIsProblem_CleanIsNot()
+    public void HasProblem_TranscodeIsProblem_HonestLossyIsNot()
     {
-        var lossy = FolderAudit.AnalyzeFile(Ff, P("chirp-mp3-64.mp3"));
-        Assert.True(lossy.HasProblem);
+        // A lossy wall inside a lossless container is a transcode.
+        var transcode = FolderAudit.AnalyzeFile(Ff, P("transcode.flac"));
+        Assert.True(transcode.HasProblem);
+
+        // The same wall in the mp3 it came from is just an mp3 being an mp3.
+        var honest = FolderAudit.AnalyzeFile(Ff, P("chirp-mp3-64.mp3"));
+        Assert.Equal(VerdictKind.Lossy, honest.Report.Verdict?.Kind);
+        Assert.False(honest.HasProblem);
 
         var clean = FolderAudit.AnalyzeFile(Ff, P("chirp.wav"));
         Assert.False(clean.HasProblem);
@@ -106,7 +112,7 @@ public class FolderAuditTests
         using var cache = AuditCache.Open(NewTempDb());
         var target = T("chirp.wav");
         var poisoned = new AuditRow(
-            "chirp.wav", "flac", 1, 1, 1, "Lossy", 1000, "Corrupt", 9, 9, true, null);
+            "chirp.wav", "flac", 1, 1, 1, 1, "Lossy", 1000, "Corrupt", 9, 9, true, null);
         cache.Put(target, poisoned, hasProblem: true);
 
         var entries = FolderAudit.Run(Ff, [target], jobs: 1, cache, fresh: true);

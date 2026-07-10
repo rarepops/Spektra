@@ -476,8 +476,9 @@ internal static class Program
             image options: -o <out.png>, --palette <name>, --floor <dB>, --fft <size>,
             --channel <n>, --columns <max width> (defaults: magma, -120, 2048, mix, 2048).
 
-            Exit code is 1 when anything is likely lossy, upsampled, or corrupt
-            (for diff: when the files differ), 2 on setup errors.
+            Exit code is 1 on findings (report/scan: lossy or upsampled; audit:
+            a transcode, an upsample, or corruption - an honest lossy file is
+            not a problem; diff: the files differ), 2 on setup errors.
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;

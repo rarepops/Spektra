@@ -16,7 +16,7 @@ public sealed record IntegrityRow(
     double DecodedSeconds, double ExpectedSeconds, bool Truncated, string Detail, string? Error);
 
 public sealed record AuditRow(
-    string File, string? Codec, int? SampleRateHz, long? BitrateBps, double DurationSeconds,
+    string File, string? Codec, int? SampleRateHz, int? Channels, long? BitrateBps, double DurationSeconds,
     string Bandwidth, double? CutoffHz, string Integrity, int DecodeErrors, int Dropouts,
     bool Truncated, string? Error);
 
@@ -47,8 +47,8 @@ public static class Reporting
         ir?.Summary ?? error ?? "", error);
 
     public static AuditRow ToAuditRow(FileReport r, IntegrityReport? ir, string? integrityError) => new(
-        Path.GetFileName(r.Path), r.Metadata?.Codec, r.Metadata?.SampleRate, r.Metadata?.BitRateBps,
-        r.Metadata?.Duration.TotalSeconds ?? 0,
+        Path.GetFileName(r.Path), r.Metadata?.Codec, r.Metadata?.SampleRate, r.Metadata?.Channels,
+        r.Metadata?.BitRateBps, r.Metadata?.Duration.TotalSeconds ?? 0,
         r.Verdict?.Kind.ToString() ?? "Error", r.Verdict?.CutoffHz,
         ir?.Status.ToString() ?? "Error", ir?.DecodeErrors ?? 0, ir?.Dropouts.Count ?? 0,
         ir?.Truncated ?? false, r.Error ?? integrityError);

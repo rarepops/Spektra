@@ -30,7 +30,9 @@ public sealed class FolderRow(AuditEntry entry)
     public bool Truncated => Row.Truncated;
     public string? Error => Row.Error;
 
-    public bool BandwidthIsBad => Row.Bandwidth is "Lossy" || Row.Error is not null;
+    public bool BandwidthIsBad => Row.Error is not null
+        || (Row.Bandwidth is "Lossy"
+            && TranscodeCheck.IsSuspectLossy(Row.Codec, Row.BitrateBps, Row.Channels, Row.CutoffHz));
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
 }

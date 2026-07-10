@@ -12,8 +12,10 @@ prints the version.
   are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the
   workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` anything likely lossy, upsampled, or corrupt
-  (for `diff`: the files differ), `2` setup errors (e.g. ffmpeg missing).
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg
+  missing). Findings per command: `report`/`scan` anything lossy or upsampled,
+  `check` corruption, `audit` real problems only (a transcode, an upsample, or
+  corruption; an honest lossy file is not a problem), `diff` the files differ.
   Requires ffmpeg + ffprobe on `PATH`.
 
 ## report: bandwidth verdict per file
@@ -62,6 +64,12 @@ be natural), **Lossy** (sharp codec cutoff, with a codec/bitrate guess),
       bandwidth=Upsampled 22.0k    integrity=Ok       03 Fake96k.flac
 
     3 files, 2 with problems.
+
+A `Lossy` verdict counts as a problem only when it should not be there:
+lossy content inside a lossless format (`Transcode.flac` above), or an
+mp3/aac whose cutoff sits far below what its bitrate should deliver (a
+320 kbps MP3 walling at 16 kHz was re-encoded from a ~128 kbps source).
+An MP3 with the cutoff its bitrate predicts is just an MP3 and exits `0`.
 
 Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db`
 (keyed by size and modified time), so repeat runs of the same library only

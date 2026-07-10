@@ -15,7 +15,7 @@ public sealed class AuditCacheTests : IDisposable
         new(path, size, mtime);
 
     private static AuditRow Row(string file = "a.flac", string? error = null) => new(
-        file, "flac", 44100, 900_000, 231.5, "Lossless", 22050, "Ok", 0, 0, false, error);
+        file, "flac", 44100, 2, 900_000, 231.5, "Lossless", 22050, "Ok", 0, 0, false, error);
 
     [Fact]
     public void TryGet_OnEmptyCache_ReturnsNull()

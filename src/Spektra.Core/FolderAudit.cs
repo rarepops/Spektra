@@ -11,11 +11,17 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
 {
     public AuditRow ToRow() => Reporting.ToAuditRow(Report, Integrity, IntegrityError);
 
-    /// True when the file warrants attention: unreadable, judged lossy or
-    /// upsampled, or corrupt.
+    /// True when the file warrants attention: unreadable, upsampled, corrupt,
+    /// or a transcode (a Lossy verdict counts only when TranscodeCheck says
+    /// the wall does not belong there - lossy content in a lossless container,
+    /// or an mp3/aac far below its bitrate's expected cutoff).
     public bool HasProblem =>
         Report.Error is not null
-        || Report.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled
+        || Report.Verdict?.Kind is VerdictKind.Upsampled
+        || (Report.Verdict?.Kind is VerdictKind.Lossy
+            && TranscodeCheck.IsSuspectLossy(
+                Report.Metadata?.Codec, Report.Metadata?.BitRateBps,
+                Report.Metadata?.Channels, Report.Verdict.CutoffHz))
         || IntegrityError is not null
         || Integrity?.Status == IntegrityStatus.Corrupt;
 }

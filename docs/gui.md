@@ -59,9 +59,13 @@ Drop a folder onto the window (or File > Open Folder..., Ctrl+Shift+O, or
 pass a folder on the command line: `spektra Music`) to
 audit a whole library in place. Files stream into a sortable grid as they
 are analyzed: bandwidth verdict, cutoff, integrity, codec, bitrate, length.
-Lossy and corrupt values show red, upsampled shows violet. Check "Problems
-only" to hide clean files, double-click a row (or press Enter) to open that
-file as a normal tab, and use Export to save the grid as CSV or JSON.
+Transcodes and corrupt values show red, upsampled shows violet; an honest
+lossy file (an MP3 with the cutoff its bitrate predicts) is not a problem
+and stays neutral. Red bandwidth means the wall does not belong there:
+lossy content in a lossless format, or an mp3/aac far below its bitrate's
+expected cutoff. Check "Problems only" to hide clean files, double-click a
+row (or press Enter) to open that file as a normal tab, and use Export to
+save the grid as CSV or JSON.
 
 Results are cached in `%APPDATA%\Spektra\audit-cache.db` keyed by file size
 and modified time, so rescanning a big library only analyzes new or changed
