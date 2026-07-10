@@ -382,6 +382,7 @@ internal static class Program
 
         string? outPath = null;
         string? paletteName = null;
+        double? gamma = null;
         var options = new ImageOptions();
         var files = new List<string>();
         for (var i = 0; i < args.Length; i++)
@@ -390,6 +391,9 @@ internal static class Program
             var value = i + 1 < args.Length ? args[i + 1] : null;
             if (a is "-o" or "--out" && value is not null) { outPath = value; i++; }
             else if (a is "--palette" && value is not null) { paletteName = value; i++; }
+            else if (a is "--gamma" && value is not null && double.TryParse(
+                         value, NumberStyles.Float, CultureInfo.InvariantCulture, out var g) && g > 0)
+            { gamma = g; i++; }
             else if (a is "--floor" && value is not null && float.TryParse(
                          value, NumberStyles.Float, CultureInfo.InvariantCulture, out var floor))
             { options = options with { FloorDb = floor }; i++; }
@@ -410,17 +414,20 @@ internal static class Program
             return Usage(1);
         }
 
-        if (paletteName is not null)
+        // The render follows the app's saved theme (palette + tightness);
+        // --palette/--gamma override. Resolved after the loop so a later
+        // --floor still shapes db-pinned custom palettes correctly.
+        var saved = SettingsStore.Load(SettingsStore.DefaultPath);
+        var palettes = PaletteRegistry.LoadWithCustom();
+        if (paletteName is not null && !palettes.Has(paletteName))
+            Console.Error.WriteLine(
+                $"spektra image: unknown palette '{paletteName}'; using turbo. " +
+                $"Available: {string.Join(", ", palettes.Names)}.");
+        options = options with
         {
-            // Resolved after the loop so a later --floor still shapes db-pinned
-            // custom palettes correctly.
-            var palettes = PaletteRegistry.LoadWithCustom();
-            if (!palettes.Has(paletteName))
-                Console.Error.WriteLine(
-                    $"spektra image: unknown palette '{paletteName}'; using magma. " +
-                    $"Available: {string.Join(", ", palettes.Names)}.");
-            options = options with { PaletteLut = palettes.BakeLut(paletteName, options.FloorDb) };
-        }
+            PaletteLut = palettes.BakeLut(
+                paletteName ?? saved.Palette, options.FloorDb, gamma: gamma ?? saved.PaletteGamma),
+        };
 
         var input = files[0];
         outPath ??= Path.ChangeExtension(input, ".png");
@@ -484,11 +491,12 @@ internal static class Program
             (positive = B later than A) and tune the verdict with --threshold-db <N>
             (default 40: the null depth needed to count as SAME).
 
-            image options: -o <out.png>, --palette <name>, --floor <dB>, --fft <size>,
-            --channel <n>, --columns <max width> (defaults: magma, -120, 2048, mix, 2048).
-            --palette also accepts custom palettes: JSON files dropped in
-            %APPDATA%\Spektra\palettes or a palettes folder next to the app
-            (see docs/cli.md for the format).
+            image options: -o <out.png>, --palette <name>, --gamma <g> (the app's
+            Tightness), --floor <dB>, --fft <size>, --channel <n>, --columns <max
+            width>. Palette and gamma default to your app settings; the rest to
+            -120, 2048, mix, 2048. --palette also accepts custom palettes: JSON
+            files dropped in %APPDATA%\Spektra\palettes or a palettes folder next
+            to the app (see docs/cli.md for the format).
 
             Exit code is 1 on findings (report/scan: lossy or upsampled; audit:
             a transcode, an upsample, or corruption - an honest lossy file is

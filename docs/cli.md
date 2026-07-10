@@ -139,11 +139,16 @@ low frequencies at the bottom, colormapped exactly like the desktop app. The
 image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
 
 - `-o <out.png>` sets the output (default: the input name with `.png`).
-- `--palette magma|viridis|inferno|grayscale|plasma|cividis|turbo|monogreen|monoamber|monoice`
-  or the name of a custom palette (below), `--floor <dB>` (default -120),
-  `--fft <size>` (default 2048), `--channel <n>` (1-based; default mixdown),
-  `--columns <n>` (width budget, default 2048; long files are peak-hold
-  merged to fit, so any length stays whole-file).
+- `--palette magma|viridis|inferno|grayscale|plasma|cividis|turbo|monogreen|monoamber`
+  or the name of a custom palette (below); defaults to the palette saved in
+  the app's settings (Turbo out of the box).
+- `--gamma <g>` - the level curve the app calls Tightness (default: your app
+  setting): above 1 keeps quiet detail darker so peaks read tighter, below 1
+  blooms.
+- `--floor <dB>` (default -120), `--fft <size>` (default 2048),
+  `--channel <n>` (1-based; default mixdown), `--columns <n>` (width budget,
+  default 2048; long files are peak-hold merged to fit, so any length stays
+  whole-file).
 
 ### Custom palettes
 

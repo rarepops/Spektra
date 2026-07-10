@@ -120,12 +120,24 @@ public sealed class PaletteRegistryTests : IDisposable
     }
 
     [Fact]
-    public void UnknownName_FallsBackToMagma()
+    public void UnknownName_FallsBackToTheTurboDefault()
     {
         var reg = PaletteRegistry.LoadWithCustom(_dir);
-        Assert.Equal(reg.BakeLut("Magma", -120f), reg.BakeLut("NoSuchPalette", -120f));
+        Assert.Equal(reg.BakeLut("Turbo", -120f), reg.BakeLut("NoSuchPalette", -120f));
         Assert.False(reg.Has("NoSuchPalette"));
         Assert.True(reg.Has("magma")); // case-insensitive
+    }
+
+    [Fact]
+    public void Gamma_TightensTheLowEnd_EndpointsUntouched()
+    {
+        var reg = PaletteRegistry.LoadWithCustom(_dir);
+        var straight = reg.BakeLut("Grayscale", -120f);
+        var tight = reg.BakeLut("Grayscale", -120f, gamma: 2.0);
+        Assert.Equal(At(straight, 0), At(tight, 0));
+        Assert.Equal(At(straight, 1), At(tight, 1));
+        Assert.InRange(At(straight, 0.5).R, 126, 129); // linear ramp midpoint
+        Assert.InRange(At(tight, 0.5).R, 62, 66);      // 0.5^2 = 0.25 of the ramp
     }
 
     [Fact]

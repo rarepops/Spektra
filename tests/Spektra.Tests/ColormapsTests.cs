@@ -58,9 +58,17 @@ public class ColormapsTests
     }
 
     [Fact]
-    public void PaletteWrapper_MatchesMagmaOverFullRange()
+    public void DefaultLut_IsTurbo_ClampsAndStaysOpaque()
     {
-        foreach (var db in new[] { -120f, -90f, -60f, -30f, 0f })
-            Assert.Equal(Colormaps.ToBgra(PaletteKind.Magma, db, Db.Floor, 0f), Palette.ToBgra(db));
+        var lut = Colormaps.DefaultLut;
+        Assert.Equal(Colormaps.ToBgra(PaletteKind.Turbo, 0f, Db.Floor, 0f),
+            PaletteLut.Sample(lut, 0f, Db.Floor, 0f));
+        Assert.Equal(Colormaps.ToBgra(PaletteKind.Turbo, Db.Floor, Db.Floor, 0f),
+            PaletteLut.Sample(lut, Db.Floor, Db.Floor, 0f));
+        Assert.Equal(PaletteLut.Sample(lut, Db.Floor, Db.Floor, 0f),
+            PaletteLut.Sample(lut, -500f, Db.Floor, 0f)); // clamps below the floor
+        Assert.Equal(PaletteLut.Sample(lut, 0f, Db.Floor, 0f),
+            PaletteLut.Sample(lut, 10f, Db.Floor, 0f));   // clamps above the ceiling
+        Assert.Equal(0xFFu, PaletteLut.Sample(lut, -60f, Db.Floor, 0f) >> 24);
     }
 }

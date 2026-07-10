@@ -107,6 +107,19 @@ public sealed class MainWindowViewModel : ObservableObject
         set { if (SetDisplay(v => Settings.Palette = v, Settings.Palette, value)) RaisePropertyChanged(nameof(Palette)); }
     }
 
+    /// Level-curve exponent: >1 keeps quiet detail darker (tighter peaks),
+    /// <1 blooms. Rebakes the palette LUT like any display change.
+    public double Tightness
+    {
+        get => Settings.PaletteGamma;
+        set
+        {
+            value = Math.Clamp(Math.Round(value, 2), 0.5, 2.5);
+            if (SetDisplay(v => Settings.PaletteGamma = v, Settings.PaletteGamma, value))
+                RaisePropertyChanged(nameof(Tightness));
+        }
+    }
+
     public int DbFloor
     {
         get => Settings.DbFloor;

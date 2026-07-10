@@ -1,9 +1,10 @@
 namespace Spektra.Core;
 
-/// Options for a headless spectrogram render; defaults mirror the desktop
-/// app (Magma, -120 dB floor, FFT 2048 Hann, mono mixdown, 2048 columns).
+/// Options for a headless spectrogram render (-120 dB floor, FFT 2048 Hann,
+/// mono mixdown, 2048 columns; the CLI resolves PaletteLut from the app's
+/// saved theme).
 public sealed record ImageOptions(
-    uint[]? PaletteLut = null,    // baked via PaletteRegistry; null = Magma
+    uint[]? PaletteLut = null,    // baked via PaletteRegistry; null = Turbo
     float FloorDb = -120f,
     int WindowSize = 2048,
     int? Channel = null,          // 0-based decode channel; null = mixdown

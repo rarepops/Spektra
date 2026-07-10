@@ -15,8 +15,11 @@ public sealed class AppSettings
 
     // Display. Palette is a name: a built-in (old settings files stored the
     // enum by name, so they load unchanged) or a custom palette from
-    // PaletteRegistry; unknown names fall back to Magma at bake time.
-    public string Palette { get; set; } = "Magma";
+    // PaletteRegistry; unknown names fall back to Turbo at bake time.
+    public string Palette { get; set; } = "Turbo";
+    // Level-curve exponent ("Tightness" in Preferences): >1 keeps quiet
+    // detail darker so peaks read tighter, <1 blooms.
+    public double PaletteGamma { get; set; } = 1.0;
     public int DbFloor { get; set; } = -120;
     public bool LogFrequency { get; set; }
     public bool ShowSpectrum { get; set; }
@@ -29,7 +32,8 @@ public sealed class AppSettings
     /// The registry resolves the palette name (built-in or custom) to a baked
     /// LUT; db-pinned custom stops resolve against the current floor.
     public DisplaySettings ToDisplaySettings(PaletteRegistry palettes) => new(
-        palettes.BakeLut(Palette, DbFloor), DbFloor, LogFrequency, ShowSpectrum, ShowCrosshair);
+        palettes.BakeLut(Palette, DbFloor, gamma: PaletteGamma),
+        DbFloor, LogFrequency, ShowSpectrum, ShowCrosshair);
 
     public void PushRecent(string path)
     {

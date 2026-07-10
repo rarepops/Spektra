@@ -20,8 +20,9 @@ public sealed class SpectrogramImageTests
         Assert.Equal(3, h);
         Assert.Equal(2 * 3 * 3, rgb.Length);
 
-        var hot = Unpack(Colormaps.ToBgra(PaletteKind.Magma, 0f, floor));
-        var cold = Unpack(Colormaps.ToBgra(PaletteKind.Magma, floor, floor));
+        // DefaultLut is Turbo; endpoints land exactly on the anchor colors.
+        var hot = Unpack(Colormaps.ToBgra(PaletteKind.Turbo, 0f, floor));
+        var cold = Unpack(Colormaps.ToBgra(PaletteKind.Turbo, floor, floor));
 
         var bottomLeft = (h - 1) * w * 3; // column 0, bin 0: the loud cell
         Assert.Equal((hot.R, hot.G, hot.B),

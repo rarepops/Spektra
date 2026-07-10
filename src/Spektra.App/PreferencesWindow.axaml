@@ -20,15 +20,25 @@
     <Border Height="1" Background="#2E2E2E" />
 
     <TextBlock Text="Display" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
-    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
       <TextBlock Grid.Row="0" Grid.Column="0" Text="Color palette" Foreground="#C9C9C9"
                  FontSize="12" VerticalAlignment="Center" />
       <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
                 ItemsSource="{Binding Palettes}" SelectedItem="{Binding Palette, Mode=TwoWay}" />
 
-      <TextBlock Grid.Row="1" Grid.Column="0" Text="Dynamic range floor" Foreground="#C9C9C9"
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Tightness" Foreground="#C9C9C9"
                  FontSize="12" VerticalAlignment="Center" />
       <DockPanel Grid.Row="1" Grid.Column="1">
+        <TextBlock DockPanel.Dock="Right" Width="52" TextAlignment="Right" Foreground="#9A9A9A" FontSize="12"
+                   VerticalAlignment="Center" Text="{Binding Tightness, StringFormat='{}{0:0.00}'}" />
+        <Slider Minimum="0.5" Maximum="2.5" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                Value="{Binding Tightness, Mode=TwoWay}"
+                ToolTip.Tip="Higher = quiet detail stays darker so peaks read tighter; lower = bloomier. 1.00 leaves the palette untouched" />
+      </DockPanel>
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="Dynamic range floor" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <DockPanel Grid.Row="2" Grid.Column="1">
         <TextBlock DockPanel.Dock="Right" Width="52" TextAlignment="Right" Foreground="#9A9A9A" FontSize="12"
                    VerticalAlignment="Center" Text="{Binding DbFloor, StringFormat='{}{0} dB'}" />
         <Slider Minimum="-140" Maximum="-40" TickFrequency="10" IsSnapToTickEnabled="True"
@@ -36,9 +46,9 @@
                 ToolTip.Tip="Lower = reveal more quiet detail; higher = show only louder content" />
       </DockPanel>
 
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="Frequency axis" Foreground="#C9C9C9"
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="Frequency axis" Foreground="#C9C9C9"
                  FontSize="12" VerticalAlignment="Center" />
-      <CheckBox Grid.Row="2" Grid.Column="1" Content="Logarithmic" Foreground="#C9C9C9"
+      <CheckBox Grid.Row="3" Grid.Column="1" Content="Logarithmic" Foreground="#C9C9C9"
                 IsChecked="{Binding LogFrequency, Mode=TwoWay}" />
     </Grid>
 
@@ -53,7 +63,7 @@
 
     <TextBlock TextWrapping="Wrap" Foreground="#8C8C8C" FontSize="11">
       FFT size and window function change the analysis and re-scan open files.
-      Palette, dynamic range, and axis are display-only and apply instantly.
+      Palette, tightness, dynamic range, and axis are display-only and apply instantly.
     </TextBlock>
 
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">

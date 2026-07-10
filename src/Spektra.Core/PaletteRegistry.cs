@@ -19,14 +19,17 @@ public static class PaletteLut
             anchors.Length == 1 ? 0 : (double)i / (anchors.Length - 1), a.R, a.G, a.B))];
 
     /// `stops` must be sorted by Position and non-empty; positions outside the
-    /// outermost stops fill flat with the nearest stop's color.
-    public static uint[] Bake(IReadOnlyList<PaletteStop> stops, int size = Size)
+    /// outermost stops fill flat with the nearest stop's color. `gamma` warps
+    /// the level before it hits the ramp (t^gamma): above 1 the low end stays
+    /// dark longer ("tighter"), below 1 it brightens sooner ("bloomier").
+    public static uint[] Bake(IReadOnlyList<PaletteStop> stops, int size = Size, double gamma = 1.0)
     {
+        if (gamma <= 0) gamma = 1.0;
         var lut = new uint[size];
         var k = 0;
         for (var i = 0; i < size; i++)
         {
-            var t = (double)i / (size - 1);
+            var t = Math.Pow((double)i / (size - 1), gamma);
             while (k < stops.Count - 2 && t > stops[k + 1].Position) k++;
             var a = stops[k];
             var b = stops[Math.Min(k + 1, stops.Count - 1)];
@@ -87,14 +90,14 @@ public sealed class PaletteRegistry
     public bool Has(string? name) =>
         name is not null && (_builtIns.ContainsKey(name) || _customs.ContainsKey(name));
 
-    /// Unknown or null names fall back to Magma, so a deleted custom palette
-    /// degrades gracefully instead of failing.
-    public uint[] BakeLut(string? name, float floorDb, float ceilDb = 0f)
+    /// Unknown or null names fall back to Turbo (the default), so a deleted
+    /// custom palette degrades gracefully instead of failing.
+    public uint[] BakeLut(string? name, float floorDb, float ceilDb = 0f, double gamma = 1.0)
     {
         if (name is not null && _customs.TryGetValue(name, out var custom))
-            return PaletteLut.Bake(Resolve(custom, floorDb, ceilDb));
-        var kind = name is not null && _builtIns.TryGetValue(name, out var k) ? k : PaletteKind.Magma;
-        return PaletteLut.Bake(PaletteLut.EvenStops(Colormaps.AnchorsFor(kind)));
+            return PaletteLut.Bake(Resolve(custom, floorDb, ceilDb), gamma: gamma);
+        var kind = name is not null && _builtIns.TryGetValue(name, out var k) ? k : PaletteKind.Turbo;
+        return PaletteLut.Bake(PaletteLut.EvenStops(Colormaps.AnchorsFor(kind)), gamma: gamma);
     }
 
     private static IReadOnlyList<PaletteStop> Resolve(CustomEntry entry, float floor, float ceil)
