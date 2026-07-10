@@ -295,7 +295,8 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     /// Sequentially computes overviews: the selected channel first, then (when
     /// the whole file fits the cache) the remaining variants as silent
     /// prefetch. Runs on the UI thread; only decode/FFT work is offloaded.
-    /// Never throws.
+    /// Handles cancellation and decode failures itself; anything unexpected
+    /// faults the loop task.
     private async Task RunComputeLoopAsync(AudioMetadata meta, CancellationToken ct)
     {
         var failed = new HashSet<int>();

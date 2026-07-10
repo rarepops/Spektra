@@ -12,6 +12,6 @@ public sealed record DisplaySettings(
 {
     public float DbCeil => 0f;
 
-    /// The resolved palette; Magma when none was baked.
+    /// The resolved palette; Turbo when none was baked.
     public uint[] Lut => PaletteLut ?? Colormaps.DefaultLut;
 }

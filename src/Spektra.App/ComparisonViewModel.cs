@@ -118,7 +118,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         set => SetOffset(value, syncSliders: true);
     }
 
-    // Coarse (±5 s) and fine (±100 ms) trims sum to the offset, giving the
+    // Coarse (±5 s) and fine (±500 ms) trims sum to the offset, giving the
     // precision the single wide slider couldn't. Dragging either recomputes the
     // offset without re-seating the sliders; an external set (Auto-align) re-seats
     // both (coarse = value, fine = remainder).
