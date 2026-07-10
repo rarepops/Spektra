@@ -122,6 +122,7 @@ analysis engine. It writes to stdout and exits 1 when anything looks lossy or co
     spektra audit <file|folder> ...    Bandwidth + integrity together.
     spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
     spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
+    spektra image <file>               Render the spectrogram to a PNG (no window).
 
 Add `--json` or `--csv` to any command for a machine-readable report:
 

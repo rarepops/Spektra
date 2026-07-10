@@ -107,6 +107,21 @@ overlapping span, and turns the result into a SAME / DIFFERS verdict:
 spektra diff approved.flac remaster.flac --threshold-db 60 || exit 1
 ```
 
+## image: spectrogram PNG without a window
+
+    $ spektra image rip.flac
+    Wrote rip.png (2048x1025)
+
+Renders the whole file's spectrogram headlessly: one pixel per analysis cell,
+low frequencies at the bottom, colormapped exactly like the desktop app. The
+image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
+
+- `-o <out.png>` sets the output (default: the input name with `.png`).
+- `--palette magma|viridis|inferno|grayscale`, `--floor <dB>` (default -120),
+  `--fft <size>` (default 2048), `--channel <n>` (1-based; default mixdown),
+  `--columns <n>` (width budget, default 2048; long files are peak-hold
+  merged to fit, so any length stays whole-file).
+
 ## Machine-readable reports
 
 Add `--json` or `--csv` to any command:
