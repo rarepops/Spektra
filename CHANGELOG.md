@@ -4,6 +4,27 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-10
+
+### Added
+- `spektra diff <fileA> <fileB>`: compares two files from the command line the
+  way the app's compare view does. It aligns them automatically (or takes a
+  pinned `--offset <ms>`), runs a spectral diff and a time-domain null test
+  over the overlapping span, and prints a SAME or DIFFERS verdict; the exit
+  code (0 same, 1 differs) makes "is this transcode transparent?" scriptable.
+  `--threshold-db <N>` tunes how deep the null must be to count as SAME, and
+  `--json` / `--csv` emit the numbers as a machine-readable row.
+- `spektra image <file>`: renders a file's whole spectrogram to a PNG with no
+  window: one pixel per analysis cell, low frequencies at the bottom, the same
+  colormaps as the app. Options: `-o`, `--palette`, `--floor`, `--fft`,
+  `--channel`, `--columns`. Long files are merged to fit the width budget, so
+  any length comes out whole-file.
+- `spektra --version` prints the version.
+
+### Changed
+- Subtle separator lines set the menu bar and the status bar off from the
+  content, and the FFT size dropdown is more compact.
+
 ## [0.9.0] - 2026-07-07
 
 ### Added
