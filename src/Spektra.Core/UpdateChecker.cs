@@ -11,7 +11,8 @@ public sealed record UpdateCheckResult(UpdateOutcome Outcome, UpdateInfo? Info =
 
 /// Notify-only update check against the GitHub Releases API. The parse/compare
 /// logic is pure and unit-tested; the network call is a thin boundary that
-/// fails soft (offline, timeout, and rate limits all read as CheckFailed).
+/// fails soft (offline, timeout, rate limits, and junk payloads all read as
+/// CheckFailed). Caller cancellation propagates.
 public static class UpdateChecker
 {
     public const string LatestReleaseApi =
@@ -28,42 +29,44 @@ public static class UpdateChecker
         return h;
     }
 
-    public static async Task<UpdateCheckResult> CheckAsync(Version current, CancellationToken ct = default)
+    public static Task<UpdateCheckResult> CheckAsync(Version current, CancellationToken ct = default) =>
+        CheckAsync(Http, current, ct);
+
+    public static async Task<UpdateCheckResult> CheckAsync(
+        HttpClient http, Version current, CancellationToken ct = default)
     {
         try
         {
-            var json = await Http.GetStringAsync(LatestReleaseApi, ct);
+            var json = await http.GetStringAsync(LatestReleaseApi, ct);
             var info = Evaluate(json, current);
             return new UpdateCheckResult(
                 info is null ? UpdateOutcome.UpToDate : UpdateOutcome.UpdateAvailable, info);
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception e) when (
+            e is HttpRequestException or JsonException
+            || (e is TaskCanceledException && !ct.IsCancellationRequested))
         {
+            // TaskCanceledException with an untripped caller token is the
+            // HttpClient timeout; a real caller cancel propagates instead.
             return new UpdateCheckResult(UpdateOutcome.CheckFailed);
         }
     }
 
     /// Parses a GitHub releases/latest payload and returns update info only when
-    /// its tag is strictly newer than `current`; otherwise null.
+    /// its tag is strictly newer than `current`; otherwise null. Malformed JSON
+    /// throws: CheckAsync reads that as CheckFailed rather than up to date.
     public static UpdateInfo? Evaluate(string json, Version current)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return null;
-            if (!root.TryGetProperty("tag_name", out var tagEl)) return null;
-            if (!TryParseVersion(tagEl.GetString(), out var latest)) return null;
-            if (!IsNewer(latest, current)) return null;
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return null;
+        if (!root.TryGetProperty("tag_name", out var tagEl)) return null;
+        if (!TryParseVersion(tagEl.GetString(), out var latest)) return null;
+        if (!IsNewer(latest, current)) return null;
 
-            var url = root.TryGetProperty("html_url", out var u) ? u.GetString() ?? "" : "";
-            var notes = root.TryGetProperty("body", out var b) ? b.GetString() : null;
-            return new UpdateInfo(latest, url, notes);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
+        var url = root.TryGetProperty("html_url", out var u) ? u.GetString() ?? "" : "";
+        var notes = root.TryGetProperty("body", out var b) ? b.GetString() : null;
+        return new UpdateInfo(latest, url, notes);
     }
 
     /// Parses a release tag like "v0.6.0" or "1.2.3-rc1" into a Version, dropping

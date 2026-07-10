@@ -1,4 +1,6 @@
 using Spektra.Core;
+using System.Net;
+using System.Text.Json;
 using Xunit;
 
 namespace Spektra.Tests;
@@ -57,10 +59,57 @@ public class UpdateCheckerTests
     }
 
     [Fact]
-    public void Evaluate_MissingOrJunk_ReturnsNull()
+    public void Evaluate_MissingTagOrWrongShape_ReturnsNull()
     {
         Assert.Null(UpdateChecker.Evaluate("""{ "name": "no tag here" }""", new Version(0, 6, 0)));
-        Assert.Null(UpdateChecker.Evaluate("not json", new Version(0, 6, 0)));
         Assert.Null(UpdateChecker.Evaluate("[]", new Version(0, 6, 0)));
+    }
+
+    [Fact]
+    public void Evaluate_MalformedJson_Throws()
+    {
+        Assert.ThrowsAny<JsonException>(() => UpdateChecker.Evaluate("not json", new Version(0, 6, 0)));
+    }
+
+    [Fact]
+    public async Task CheckAsync_MalformedPayload_IsCheckFailed_NotUpToDate()
+    {
+        using var http = new HttpClient(new StubHandler(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("not json"),
+        }));
+        var result = await UpdateChecker.CheckAsync(http, new Version(0, 6, 0));
+        Assert.Equal(UpdateOutcome.CheckFailed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task CheckAsync_CallerCancellation_Propagates()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        using var http = new HttpClient(new StubHandler(() => throw new InvalidOperationException("unreached")));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => UpdateChecker.CheckAsync(http, new Version(0, 6, 0), cts.Token));
+    }
+
+    [Fact]
+    public async Task CheckAsync_Timeout_IsCheckFailed()
+    {
+        // HttpClient's own timeout surfaces as TaskCanceledException with an
+        // untripped caller token; that must stay a soft failure.
+        using var http = new HttpClient(new StubHandler(
+            () => throw new TaskCanceledException("timed out")));
+        var result = await UpdateChecker.CheckAsync(http, new Version(0, 6, 0));
+        Assert.Equal(UpdateOutcome.CheckFailed, result.Outcome);
+    }
+
+    private sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(respond());
+        }
     }
 }
