@@ -86,6 +86,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool VerdictIsUpsampled => _verdict?.Kind == VerdictKind.Upsampled;
 
     private IntegrityReport? _integrity;
+    private bool _integrityVisible = true;
 
     /// File integrity result, populated on demand by RunIntegrityCheckAsync.
     public IntegrityReport? Integrity
@@ -94,6 +95,8 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         private set
         {
             if (!Set(ref _integrity, value)) return;
+            _integrityVisible = true; // fresh results always show
+            RaisePropertyChanged(nameof(IntegrityVisible));
             RaisePropertyChanged(nameof(IntegrityText));
             RaisePropertyChanged(nameof(HasIntegrity));
             RaisePropertyChanged(nameof(IntegrityIsOk));
@@ -102,7 +105,14 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         }
     }
 
-    public bool HasIntegrity => _integrity is not null;
+    /// Whether existing integrity results are shown (banner + time-axis lane).
+    public bool IntegrityVisible
+    {
+        get => _integrityVisible;
+        private set { if (Set(ref _integrityVisible, value)) RaisePropertyChanged(nameof(HasIntegrity)); }
+    }
+
+    public bool HasIntegrity => _integrity is not null && _integrityVisible;
     public string? IntegrityText => _integrity is null ? null : $"Integrity: {_integrity.Summary}";
     public bool IntegrityIsOk => _integrity?.Status == IntegrityStatus.Ok;
     public bool IntegrityIsSuspect => _integrity?.Status == IntegrityStatus.Suspect;
@@ -237,6 +247,12 @@ public sealed class DocumentViewModel : ObservableObject, ITab
             // max-zoom clamp: a nominal 1024-column tile never drops below 64 samples/hop
             var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
             Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
+
+            if (_integrityQueued)
+            {
+                _integrityQueued = false;
+                _ = RunIntegrityCheckAsync();
+            }
 
             await RestartComputeLoopAsync(meta);
         }
@@ -415,6 +431,25 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     }
 
     private CancellationTokenSource? _integrityCts;
+    private bool _integrityQueued;
+
+    /// Ctrl+I / the Analyze menu: the first use runs the check; once results
+    /// exist it toggles them (banner + lane) without re-analyzing.
+    public Task ToggleIntegrityAsync()
+    {
+        if (Integrity is null) return RunIntegrityCheckAsync();
+        IntegrityVisible = !IntegrityVisible;
+        return Task.CompletedTask;
+    }
+
+    /// From the folder grid: right after OpenFile the metadata is still
+    /// loading (RunIntegrityCheckAsync would no-op), so remember the request
+    /// and run it once the load lands.
+    public void QueueIntegrityCheck()
+    {
+        if (Metadata is not null) _ = RunIntegrityCheckAsync();
+        else _integrityQueued = true;
+    }
 
     /// Runs the integrity check (corrupt frames, missing data, truncation) on a
     /// background thread and publishes the result to the Integrity banner.

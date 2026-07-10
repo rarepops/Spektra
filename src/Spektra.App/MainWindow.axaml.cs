@@ -266,7 +266,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case Key.I when _vm.Selected is DocumentViewModel doc:
-                _ = doc.RunIntegrityCheckAsync();
+                _ = doc.ToggleIntegrityAsync();
                 e.Handled = true;
                 break;
             case Key.L when _vm.Selected is DocumentViewModel ldoc:
@@ -569,7 +569,7 @@ public partial class MainWindow : Window
 
     private void OnCheckIntegrityClicked(object? sender, RoutedEventArgs e)
     {
-        if (_vm.Selected is DocumentViewModel doc) _ = doc.RunIntegrityCheckAsync();
+        if (_vm.Selected is DocumentViewModel doc) _ = doc.ToggleIntegrityAsync();
     }
 
     private void OnMeasureLoudnessClicked(object? sender, RoutedEventArgs e)

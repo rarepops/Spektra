@@ -40,7 +40,8 @@ View → Crosshair (Ctrl+H).
   marked on a thin lane along the time axis: solid red for each silent gap,
   translucent red for a truncated file's missing tail. The lane zooms and
   pans with the spectrogram (decode errors carry no position, so they show
-  in the banner only).
+  in the banner only). Once results exist, Ctrl+I toggles them: press again
+  to hide the banner and lane, again to bring them back without re-analyzing.
 - **Measure Loudness (Ctrl+L):** integrated LUFS, loudness range, true peak
   (EBU R128 via ffmpeg), crest factor, and a clipping hint.
 

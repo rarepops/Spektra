@@ -287,7 +287,7 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             OpenFile(file);
             if (checkIntegrity && Selected is DocumentViewModel doc)
-                _ = doc.RunIntegrityCheckAsync();
+                doc.QueueIntegrityCheck();
         };
         Tabs.Add(folder);
         Selected = folder;
