@@ -12,6 +12,17 @@ public class IntegrityScannerTests
         new AnalysisSession(Ff).ReadMetadata(P(file));
 
     [Fact]
+    public void Check_PreCancelled_ThrowsWithoutSpawningFfmpeg()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var bogus = new FfmpegPaths(@"C:\nope\ffmpeg.exe", @"C:\nope\ffprobe.exe");
+        var meta = new AudioMetadata("flac", 44100, 1, 16, null, TimeSpan.FromSeconds(3));
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => new IntegrityScanner(bogus).Check(@"C:\nope\file.flac", meta, cts.Token));
+    }
+
+    [Fact]
     public void CleanFile_IsOk()
     {
         var r = new IntegrityScanner(Ff).Check(P("chirp.wav"), Meta("chirp.wav"), CancellationToken.None);

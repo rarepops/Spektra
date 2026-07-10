@@ -81,4 +81,14 @@ public class LoudnessMeasurerTests
         Assert.InRange(r.TruePeakDbtp!.Value, -2.0, 0.0);
         Assert.InRange(r.CrestFactorDb, 2.5f, 3.5f);
     }
+
+    [Fact]
+    public void Measure_PreCancelled_ThrowsWithoutSpawningFfmpeg()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var bogus = new FfmpegPaths(@"C:\nope\ffmpeg.exe", @"C:\nope\ffprobe.exe");
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => new LoudnessMeasurer(bogus).Measure(@"C:\nope\file.wav", ct: cts.Token));
+    }
 }

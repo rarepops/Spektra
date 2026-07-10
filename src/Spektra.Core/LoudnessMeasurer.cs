@@ -52,6 +52,7 @@ public sealed partial class LoudnessMeasurer(FfmpegPaths ffmpeg)
 
     private (double? I, double? Lra, double? Tp) RunEbur128(string path, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var psi = new ProcessStartInfo(ffmpeg.FfmpegPath)
         {
             UseShellExecute = false,
@@ -78,9 +79,16 @@ public sealed partial class LoudnessMeasurer(FfmpegPaths ffmpeg)
             }
         };
         p.BeginErrorReadLine();
-        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, ct);
+        // Kill on cancel so WaitForExit unblocks; the token used to reach
+        // only the stdout drain, leaving the measurement uncancellable.
+        using var killOnCancel = ct.Register(() =>
+        {
+            try { p.Kill(entireProcessTree: true); } catch { /* already exited */ }
+        });
+        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
         p.WaitForExit();
         try { drain.Wait(CancellationToken.None); } catch { /* best effort */ }
+        ct.ThrowIfCancellationRequested();
 
         string text;
         lock (sb) text = sb.ToString();

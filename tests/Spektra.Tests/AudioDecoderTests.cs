@@ -47,6 +47,16 @@ public class AudioDecoderTests
     }
 
     [Fact]
+    public void PreCancelled_ThrowsWithoutSpawningFfmpeg()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.ThrowsAny<OperationCanceledException>(() => new AudioDecoder(@"C:\nope\ffmpeg.exe")
+            .DecodeMonoChunks(@"C:\nope\file.wav", cts.Token)
+            .ToList());
+    }
+
+    [Fact]
     public void NonAudio_ThrowsWithStderr()
     {
         var ex = Assert.Throws<AudioDecodeException>(() => Decoder()

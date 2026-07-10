@@ -11,6 +11,7 @@ public sealed class AudioDecoder(string ffmpegPath)
     public IEnumerable<float[]> DecodeMonoChunks(
         string filePath, CancellationToken ct, DecodeOptions? options = null)
     {
+        ct.ThrowIfCancellationRequested();
         var psi = new ProcessStartInfo(ffmpegPath)
         {
             UseShellExecute = false,

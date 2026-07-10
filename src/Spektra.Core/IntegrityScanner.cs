@@ -106,6 +106,7 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
     /// error lines ffmpeg emits (corrupt frames, CRC mismatches, and the like).
     private int CountDecodeErrors(string path, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var psi = new ProcessStartInfo(ffmpeg.FfmpegPath)
         {
             UseShellExecute = false,
@@ -124,10 +125,17 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
             psi.ArgumentList.Add(a);
 
         using var p = Process.Start(psi) ?? throw new AudioDecodeException("Failed to start ffmpeg.");
-        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, ct);
+        // Kill on cancel so the blocking reads below unblock; the token used
+        // to reach only the stdout drain, leaving the pass uncancellable.
+        using var killOnCancel = ct.Register(() =>
+        {
+            try { p.Kill(entireProcessTree: true); } catch { /* already exited */ }
+        });
+        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
         var stderr = p.StandardError.ReadToEnd();
         p.WaitForExit();
         try { drain.Wait(CancellationToken.None); } catch { /* best effort */ }
+        ct.ThrowIfCancellationRequested();
 
         return stderr.Split('\n').Count(l => l.Trim().Length > 0);
     }
