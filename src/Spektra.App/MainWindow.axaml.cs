@@ -302,13 +302,13 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case Key.Down or Key.Up when _vm.Selected is DocumentViewModel cdoc && cdoc.HasMultipleChannels:
-            {
-                var step = e.Key == Key.Down ? 1 : -1;
-                cdoc.SelectedChannelIndex = Math.Clamp(
-                    cdoc.SelectedChannelIndex + step, 0, cdoc.ChannelOptions.Count - 1);
-                e.Handled = true;
-                break;
-            }
+                {
+                    var step = e.Key == Key.Down ? 1 : -1;
+                    cdoc.SelectedChannelIndex = Math.Clamp(
+                        cdoc.SelectedChannelIndex + step, 0, cdoc.ChannelOptions.Count - 1);
+                    e.Handled = true;
+                    break;
+                }
         }
     }
 

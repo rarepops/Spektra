@@ -124,27 +124,27 @@ public sealed class PaletteRegistry
         var registry = new PaletteRegistry(skipped);
 
         foreach (var dir in dirs.Where(Directory.Exists))
-        foreach (var file in Directory.EnumerateFiles(dir, "*.json").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
-        {
-            var label = Path.GetFileName(file);
-            try
+            foreach (var file in Directory.EnumerateFiles(dir, "*.json").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
             {
-                var (name, entry) = ParseFile(file);
-                if (registry._builtIns.ContainsKey(name))
-                    skipped.Add($"{label}: name '{name}' collides with a built-in");
-                else if (registry._customs.ContainsKey(name))
-                    skipped.Add($"{label}: duplicate name '{name}'");
-                else
+                var label = Path.GetFileName(file);
+                try
                 {
-                    registry._customs.Add(name, entry);
-                    customNames.Add(name);
+                    var (name, entry) = ParseFile(file);
+                    if (registry._builtIns.ContainsKey(name))
+                        skipped.Add($"{label}: name '{name}' collides with a built-in");
+                    else if (registry._customs.ContainsKey(name))
+                        skipped.Add($"{label}: duplicate name '{name}'");
+                    else
+                    {
+                        registry._customs.Add(name, entry);
+                        customNames.Add(name);
+                    }
+                }
+                catch (Exception e) when (e is JsonException or FormatException or IOException)
+                {
+                    skipped.Add($"{label}: {e.Message}");
                 }
             }
-            catch (Exception e) when (e is JsonException or FormatException or IOException)
-            {
-                skipped.Add($"{label}: {e.Message}");
-            }
-        }
         customNames.Sort(StringComparer.OrdinalIgnoreCase);
         registry.Names = [.. registry.Names, .. customNames];
         return registry;

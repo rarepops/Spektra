@@ -258,7 +258,8 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         {
             SetErrorStatus("Diff unavailable: one file failed to decode.");
             return;
-        }        _diffCts?.Cancel();
+        }
+        _diffCts?.Cancel();
         var cts = _diffCts = new CancellationTokenSource();
         var vp = Viewport;
         var refDur = ma.Duration.TotalSeconds;
