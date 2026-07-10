@@ -18,6 +18,7 @@ public sealed class SpectrogramView : Control
     private DisplaySettings _display = new();
     private float[]? _avgProfile;
     private float[]? _peakProfile;
+    private SpectrogramDocument? _profileDoc;
     private int _profileCount = -1;
 
     /// Colormap + dB range used to paint and to draw the legend.
@@ -61,6 +62,7 @@ public sealed class SpectrogramView : Control
         }
         _pane.SetDocument(vm?.Document);
         _pane.SetTile(vm?.Tile);
+        ResetProfiles();
         ScheduleTile();
         InvalidateVisual();
     }
@@ -81,7 +83,7 @@ public sealed class SpectrogramView : Control
     }
 
     private void OnTileChanged() { _pane.SetTile(_vm?.Tile); InvalidateVisual(); }
-    private void OnDocumentChanged() { _pane.SetDocument(_vm?.Document); _pane.SetTile(_vm?.Tile); ScheduleTile(); InvalidateVisual(); }
+    private void OnDocumentChanged() { _pane.SetDocument(_vm?.Document); _pane.SetTile(_vm?.Tile); ResetProfiles(); ScheduleTile(); InvalidateVisual(); }
     private void OnDocumentUpdated() { _pane.SyncColumns(); InvalidateVisual(); }
 
     public override void Render(DrawingContext ctx)
@@ -113,11 +115,12 @@ public sealed class SpectrogramView : Control
     private void DrawSpectrumOverlay(DrawingContext ctx, Rect plot)
     {
         if (!_display.ShowSpectrum || _vm?.Document is not { } doc || _vm.Metadata is not { } meta) return;
-        if (doc.Count != _profileCount && doc.Count > 0)
+        if ((doc != _profileDoc || doc.Count != _profileCount) && doc.Count > 0)
         {
             var snap = Snapshot(doc);
             _avgProfile = SpectrumProfile.Average(snap);
             _peakProfile = SpectrumProfile.Peak(snap);
+            _profileDoc = doc;
             _profileCount = doc.Count;
         }
         if (_peakProfile is not { Length: > 1 } peak || _avgProfile is not { } avg) return;
@@ -158,6 +161,17 @@ public sealed class SpectrogramView : Control
             g.EndFigure(false);
         }
         ctx.DrawGeometry(null, AvgPen, avgLine);
+    }
+
+    // A new document can share the old one's column count (same length, same
+    // analysis settings), so the cache is keyed on identity too and dropped
+    // eagerly on swap to release the old document.
+    private void ResetProfiles()
+    {
+        _avgProfile = null;
+        _peakProfile = null;
+        _profileDoc = null;
+        _profileCount = -1;
     }
 
     private static List<float[]> Snapshot(SpectrogramDocument doc)
