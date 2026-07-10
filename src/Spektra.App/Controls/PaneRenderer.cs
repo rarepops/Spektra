@@ -120,7 +120,7 @@ sealed class PaneRenderer : IDisposable
     // Draws a bitmap's frequency band [f0,f1] into dst. Linear is one stretch;
     // log splits dst into horizontal strips, each mapping its own frequency
     // sub-band (low frequencies get more vertical room).
-    private static void DrawBands(DrawingContext ctx, WriteableBitmap bmp, int bins,
+    internal static void DrawBands(DrawingContext ctx, WriteableBitmap bmp, int bins,
         double srcX, double srcW, Rect dst, double f0, double f1, bool logFreq, double nyquist)
     {
         if (!logFreq)

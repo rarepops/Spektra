@@ -162,8 +162,9 @@ public sealed class CompareSurface : Control
         switch (_vm.Mode)
         {
             case CompareMode.A:
-                _a.DrawInto(ctx, plot, vp.T0, vp.T1, f0For(srA), f1For(srA), vp.T0, vp.T1);
-                SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1);
+                _a.DrawInto(ctx, plot, vp.T0, vp.T1, f0For(srA), f1For(srA), vp.T0, vp.T1,
+                    _display.LogFrequency, srA / 2.0);
+                SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1, _display.LogFrequency);
                 SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
                 SpectrogramDraw.Legend(ctx, plot, _display);
                 DrawPaneError(ctx, plot, _vm.A);
@@ -171,8 +172,9 @@ public sealed class CompareSurface : Control
             case CompareMode.B:
                 {
                     var (b0, b1) = BPaneRange(vp.T0, vp.T1);
-                    _b.DrawInto(ctx, plot, b0, b1, f0For(srB), f1For(srB), vp.T0, vp.T1);
-                    SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1);
+                    _b.DrawInto(ctx, plot, b0, b1, f0For(srB), f1For(srB), vp.T0, vp.T1,
+                        _display.LogFrequency, srB / 2.0);
+                    SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1, _display.LogFrequency);
                     SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
                     SpectrogramDraw.Legend(ctx, plot, _display);
                     DrawPaneError(ctx, plot, _vm.B);
@@ -187,11 +189,13 @@ public sealed class CompareSurface : Control
                     var half = (plot.Height - gap) / 2;
                     var top = new Rect(plot.X, plot.Y, plot.Width, half);
                     var bot = new Rect(plot.X, plot.Y + half + gap, plot.Width, half);
-                    _a.DrawInto(ctx, top, vp.T0, vp.T1, f0For(srA), f1For(srA), vp.T0, vp.T1);
+                    _a.DrawInto(ctx, top, vp.T0, vp.T1, f0For(srA), f1For(srA), vp.T0, vp.T1,
+                        _display.LogFrequency, srA / 2.0);
                     var (b0, b1) = BPaneRange(vp.T0, vp.T1);
-                    _b.DrawInto(ctx, bot, b0, b1, f0For(srB), f1For(srB), vp.T0, vp.T1);
-                    SpectrogramDraw.FrequencyRuler(ctx, top, commonRate, vp.F0, vp.F1);
-                    SpectrogramDraw.FrequencyRuler(ctx, bot, commonRate, vp.F0, vp.F1);
+                    _b.DrawInto(ctx, bot, b0, b1, f0For(srB), f1For(srB), vp.T0, vp.T1,
+                        _display.LogFrequency, srB / 2.0);
+                    SpectrogramDraw.FrequencyRuler(ctx, top, commonRate, vp.F0, vp.F1, _display.LogFrequency);
+                    SpectrogramDraw.FrequencyRuler(ctx, bot, commonRate, vp.F0, vp.F1, _display.LogFrequency);
                     SpectrogramDraw.TimeRuler(ctx, bot, durA, vp.T0, vp.T1); // one shared ruler under B
                     SpectrogramDraw.Legend(ctx, plot, _display);
                     SpectrogramDraw.Text(ctx, "A", top.X + 4, top.Y + 2);
@@ -328,11 +332,10 @@ public sealed class CompareSurface : Control
         if (_diff is not null && _vm.Diff is not null &&
             Math.Abs(_vm.DiffT0 - vp.T0) < 1e-9 && Math.Abs(_vm.DiffT1 - vp.T1) < 1e-9)
         {
-            var src = new Rect(0, (1 - vp.F1) * _diff.PixelSize.Height,
-                _diff.PixelSize.Width, Math.Max(1, vp.FreqSpanN * _diff.PixelSize.Height));
-            ctx.DrawImage(_diff, src, plot);
+            PaneRenderer.DrawBands(ctx, _diff, _diff.PixelSize.Height, 0, _diff.PixelSize.Width,
+                plot, vp.F0, vp.F1, _display.LogFrequency, commonRate / 2.0);
         }
-        SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1);
+        SpectrogramDraw.FrequencyRuler(ctx, plot, commonRate, vp.F0, vp.F1, _display.LogFrequency);
         SpectrogramDraw.TimeRuler(ctx, plot, durA, vp.T0, vp.T1);
         SpectrogramDraw.DivergingLegend(ctx, plot, ComparisonViewModel.DiffClamp);
     }
