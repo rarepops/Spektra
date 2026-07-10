@@ -147,8 +147,10 @@ image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
 
 ### Custom palettes
 
-Drop JSON files in `%APPDATA%\Spektra\palettes` and both the desktop app
-(Preferences) and `--palette <name>` pick them up. Anchors are either hex
+Drop JSON files in `%APPDATA%\Spektra\palettes` (per-user, always writable)
+or in a `palettes` folder next to the executable (portable installs,
+shipped presets) and both the desktop app (Preferences) and
+`--palette <name>` pick them up; on a name collision the user folder wins. Anchors are either hex
 colors spread evenly across the display range:
 
     { "name": "Nightfall", "anchors": ["#000000", "#3D2E6B", "#F5B7A5"] }

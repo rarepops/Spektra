@@ -487,7 +487,8 @@ internal static class Program
             image options: -o <out.png>, --palette <name>, --floor <dB>, --fft <size>,
             --channel <n>, --columns <max width> (defaults: magma, -120, 2048, mix, 2048).
             --palette also accepts custom palettes: JSON files dropped in
-            %APPDATA%\Spektra\palettes (see docs/cli.md for the format).
+            %APPDATA%\Spektra\palettes or a palettes folder next to the app
+            (see docs/cli.md for the format).
 
             Exit code is 1 on findings (report/scan: lossy or upsampled; audit:
             a transcode, an upsample, or corruption - an honest lossy file is

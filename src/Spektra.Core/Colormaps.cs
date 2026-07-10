@@ -10,7 +10,7 @@ public static class Colormaps
 {
     private static readonly (byte R, byte G, byte B)[] MagmaAnchors =
     [
-        (0, 0, 4),
+        (0, 0, 0),
         (28, 16, 68),
         (79, 18, 123),
         (129, 37, 129),
@@ -21,8 +21,13 @@ public static class Colormaps
         (252, 253, 191),
     ];
 
+    // House rule: every built-in opens at true black, so zero signal renders
+    // as nothing. Maps whose reference tables start on a color (viridis,
+    // plasma, cividis, turbo) get a prepended black anchor; the original
+    // ramp follows unchanged.
     private static readonly (byte R, byte G, byte B)[] ViridisAnchors =
     [
+        (0, 0, 0),
         (68, 1, 84),
         (72, 40, 120),
         (62, 74, 137),
@@ -37,7 +42,7 @@ public static class Colormaps
 
     private static readonly (byte R, byte G, byte B)[] InfernoAnchors =
     [
-        (0, 0, 4),
+        (0, 0, 0),
         (31, 12, 72),
         (85, 15, 109),
         (136, 34, 106),
@@ -56,6 +61,7 @@ public static class Colormaps
 
     private static readonly (byte R, byte G, byte B)[] PlasmaAnchors =
     [
+        (0, 0, 0),
         (13, 8, 135),
         (65, 4, 157),
         (106, 0, 168),
@@ -72,6 +78,7 @@ public static class Colormaps
     // Colorblind-friendly (deuteranopia/protanopia-safe) blue-to-yellow ramp.
     private static readonly (byte R, byte G, byte B)[] CividisAnchors =
     [
+        (0, 0, 0),
         (0, 34, 78),
         (18, 53, 112),
         (59, 73, 108),
@@ -129,6 +136,7 @@ public static class Colormaps
     // Google's perceptually-improved rainbow (the modern "jet").
     private static readonly (byte R, byte G, byte B)[] TurboAnchors =
     [
+        (0, 0, 0),
         (48, 18, 59),
         (69, 91, 205),
         (62, 155, 254),

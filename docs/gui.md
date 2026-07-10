@@ -119,8 +119,9 @@ FFT size (512-8192) and window function (Hann/Hamming/Blackman/
 Blackman-Harris) are analysis settings that re-analyze open tabs; palette
 (Magma, Inferno, Plasma, Viridis, Cividis, Turbo, Grayscale, single-hue
 MonoGreen/MonoAmber/MonoIce ramps where saturation tracks intensity, plus
-any custom palette JSON dropped in `%APPDATA%\Spektra\palettes` - see the
-CLI guide for the format; the list refreshes when Preferences opens), dB
+any custom palette JSON dropped in `%APPDATA%\Spektra\palettes` or a
+`palettes` folder next to the app - see the CLI guide for the format; the
+list refreshes when Preferences opens), dB
 floor, and linear/log frequency axis are
 display settings applied instantly. The once-a-day update check toggle also
 lives here; updates are notify-only (Help → Check for Updates).

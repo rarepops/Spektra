@@ -129,6 +129,32 @@ public sealed class PaletteRegistryTests : IDisposable
     }
 
     [Fact]
+    public void EarlierDirectories_ShadowLaterOnes()
+    {
+        var userDir = Path.Combine(_dir, "user");
+        var appDir = Path.Combine(_dir, "app");
+        Directory.CreateDirectory(userDir);
+        Directory.CreateDirectory(appDir);
+        File.WriteAllText(Path.Combine(userDir, "a.json"), """{ "name": "Shade", "anchors": ["#000000", "#FF0000"] }""");
+        File.WriteAllText(Path.Combine(appDir, "b.json"), """{ "name": "Shade", "anchors": ["#000000", "#00FF00"] }""");
+        File.WriteAllText(Path.Combine(appDir, "c.json"), """{ "name": "AppOnly", "anchors": ["#000000", "#FFFFFF"] }""");
+
+        var reg = PaletteRegistry.LoadWithCustom([userDir, appDir]);
+
+        Assert.True(reg.Has("AppOnly"));
+        Assert.Single(reg.Skipped); // the app-dir Shade lost the collision
+        Assert.Equal(((byte)255, (byte)0, (byte)0), At(reg.BakeLut("Shade", -120f), 1)); // user red won
+    }
+
+    [Fact]
+    public void BuiltIns_AllOpenAtTrueBlack()
+    {
+        var reg = PaletteRegistry.LoadWithCustom(_dir);
+        foreach (var name in reg.Names)
+            Assert.Equal(((byte)0, (byte)0, (byte)0), At(reg.BakeLut(name, -120f), 0));
+    }
+
+    [Fact]
     public void CustomNames_ListAfterBuiltIns()
     {
         var reg = Load(("z.json", """{ "name": "Zebra", "anchors": ["#000000", "#FFFFFF"] }"""));

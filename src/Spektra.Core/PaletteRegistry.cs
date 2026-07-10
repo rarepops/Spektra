@@ -56,9 +56,16 @@ public static class PaletteLut
 /// display floor/ceiling, so the color stays glued to its dB level.
 public sealed class PaletteRegistry
 {
-    public static string DefaultDir => Path.Combine(
+    /// Per-user palettes; always writable, survives upgrades. Wins name
+    /// collisions so user files shadow shipped presets.
+    public static string UserDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Spektra", "palettes");
+
+    /// Palettes next to the executable: shipped presets, and the natural
+    /// spot for portable installs (Program Files installs are not writable
+    /// without elevation, which is why UserDir exists and wins).
+    public static string AppDir => Path.Combine(AppContext.BaseDirectory, "palettes");
 
     // Raw stop values are `at` fractions or absolute dB depending on DbPinned.
     private sealed record CustomEntry(IReadOnlyList<(double Raw, byte R, byte G, byte B)> Stops, bool DbPinned);
@@ -100,17 +107,20 @@ public sealed class PaletteRegistry
             .OrderBy(s => s.Position)];
     }
 
-    /// Loads built-ins plus every valid `*.json` in `dir` (default:
-    /// %APPDATA%\Spektra\palettes). Invalid files and name collisions are
-    /// skipped and listed in `Skipped`, never fatal.
-    public static PaletteRegistry LoadWithCustom(string? dir = null)
+    /// Loads built-ins plus every valid `*.json` in `dir`, or - when null -
+    /// in the user folder then the app folder (earlier directories win name
+    /// collisions). Invalid files and collisions are skipped and listed in
+    /// `Skipped`, never fatal.
+    public static PaletteRegistry LoadWithCustom(string? dir = null) =>
+        LoadWithCustom(dir is not null ? [dir] : [UserDir, AppDir]);
+
+    public static PaletteRegistry LoadWithCustom(IReadOnlyList<string> dirs)
     {
-        dir ??= DefaultDir;
         var customNames = new List<string>();
         var skipped = new List<string>();
         var registry = new PaletteRegistry(skipped);
 
-        if (!Directory.Exists(dir)) return registry;
+        foreach (var dir in dirs.Where(Directory.Exists))
         foreach (var file in Directory.EnumerateFiles(dir, "*.json").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
         {
             var label = Path.GetFileName(file);
