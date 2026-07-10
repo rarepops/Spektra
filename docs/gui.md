@@ -53,6 +53,23 @@ The format follows the extension you choose in the save dialog: `.csv` or
 `.json`. The schema matches the CLI's `audit --csv/--json` exactly, so GUI and
 scripted sweeps are interchangeable.
 
+## Folder audit
+
+Drop a folder onto the window (or File > Open Folder..., Ctrl+Shift+O) to
+audit a whole library in place. Files stream into a sortable grid as they
+are analyzed: bandwidth verdict, cutoff, integrity, codec, bitrate, length.
+Lossy and corrupt values show red, upsampled shows violet. Check "Problems
+only" to hide clean files, double-click a row (or press Enter) to open that
+file as a normal tab, and use Export to save the grid as CSV or JSON.
+
+Results are cached in `%APPDATA%\Spektra\audit-cache.db` keyed by file size
+and modified time, so rescanning a big library only analyzes new or changed
+files ("1,850 from cache" in the status bar). F5 rescans using the cache;
+Shift+F5 (or Shift+click Rescan) re-analyzes everything. The progress bar is
+byte-weighted and the remaining-time estimate appears once enough files have
+finished to make it meaningful. Cancelling keeps the rows already scanned,
+and finished files stay cached, so the next scan resumes cheaply.
+
 ## Compare two encodes
 
 Open both files, then **File → Compare…** (or `spektra --compare A B`). The

@@ -27,6 +27,9 @@ verdict.
   Upsampled, naming the likely true source rate
 - Export report: save the bandwidth + integrity audit for the current file or
   a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
+- Folder audit grid: drop a folder to triage a whole library live (sortable,
+  problems-only filter), with a persistent cache so re-scans only analyze
+  what changed
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan,
   double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay
