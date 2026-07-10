@@ -5,6 +5,10 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
+/// Ordered row severity for the grid filter: a corrupt file is also a
+/// suspect file, so filtering at a tier shows that tier and everything worse.
+public enum RowSeverity { Clean = 0, Suspect = 1, Problem = 2 }
+
 /// One grid row: the flat audit columns plus identity and provenance.
 /// Numeric values stay numeric so DataGrid sorting works; display-only
 /// strings are separate properties.
@@ -33,6 +37,10 @@ public sealed class FolderRow(AuditEntry entry)
     public bool BandwidthIsBad => Row.Error is not null
         || (Row.Bandwidth is "Lossy"
             && TranscodeCheck.IsSuspectLossy(Row.Codec, Row.BitrateBps, Row.Channels, Row.CutoffHz));
+
+    public RowSeverity Severity => HasProblem ? RowSeverity.Problem
+        : Row.Integrity is "Suspect" || Row.Bandwidth is "Suspicious" ? RowSeverity.Suspect
+        : RowSeverity.Clean;
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
 }
@@ -77,8 +85,12 @@ public sealed class FolderViewModel : ObservableObject, ITab
 
     public void Cancel() => _cts.Cancel();
 
-    private bool _problemsOnly;
-    public bool ProblemsOnly { get => _problemsOnly; set => Set(ref _problemsOnly, value); }
+    public IReadOnlyList<string> FilterOptions { get; } = ["All files", "Suspect + worse", "Problems only"];
+
+    private int _filterIndex;
+    /// Index into FilterOptions; doubles as the minimum RowSeverity to show
+    /// (a tier shows itself and everything worse).
+    public int FilterIndex { get => _filterIndex; set => Set(ref _filterIndex, value); }
 
     private double _progressFraction;
     public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }

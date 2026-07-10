@@ -17,8 +17,9 @@
   <DockPanel>
     <DockPanel DockPanel.Dock="Top" Margin="12,8,12,6">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-        <CheckBox Content="Problems only" IsChecked="{Binding ProblemsOnly, Mode=TwoWay}"
-                  FontSize="12" VerticalAlignment="Center" />
+        <ComboBox ItemsSource="{Binding FilterOptions}" SelectedIndex="{Binding FilterIndex, Mode=TwoWay}"
+                  MinWidth="140" FontSize="12" VerticalAlignment="Center"
+                  ToolTip.Tip="Show rows at this severity and worse" />
         <Button x:Name="CancelButton" Content="Cancel" Click="OnCancelClicked"
                 IsVisible="{Binding IsScanning}" />
         <Button x:Name="RescanButton" Content="Rescan" Click="OnRescanClicked"

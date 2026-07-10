@@ -33,14 +33,14 @@ public partial class FolderView : UserControl
         vm.PropertyChanged += OnVmPropertyChanged;
         _view = new DataGridCollectionView(vm.Rows)
         {
-            Filter = o => _vm is not { ProblemsOnly: true } || ((FolderRow)o).HasProblem,
+            Filter = o => _vm is null || ((FolderRow)o).Severity >= (RowSeverity)_vm.FilterIndex,
         };
         Grid.ItemsSource = _view;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FolderViewModel.ProblemsOnly)) _view?.Refresh();
+        if (e.PropertyName == nameof(FolderViewModel.FilterIndex)) _view?.Refresh();
     }
 
     private void OnCancelClicked(object? sender, RoutedEventArgs e) => _vm?.Cancel();

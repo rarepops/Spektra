@@ -70,7 +70,9 @@ Transcodes and corrupt values show red, upsampled shows violet; an honest
 lossy file (an MP3 with the cutoff its bitrate predicts) is not a problem
 and stays neutral. Red bandwidth means the wall does not belong there:
 lossy content in a lossless format, or an mp3/aac far below its bitrate's
-expected cutoff. Check "Problems only" to hide clean files, double-click a
+expected cutoff. The severity filter (All files / Suspect + worse / Problems
+only) hides rows below the chosen tier; each tier includes everything worse,
+so a corrupt file always passes a bar a suspect file passes. Double-click a
 row (or press Enter) to open that file as a normal tab, and use Export to
 save the grid as CSV or JSON. Opening a row whose integrity is Corrupt or
 Suspect runs the integrity check on the new tab automatically, so the
