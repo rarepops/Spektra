@@ -1,6 +1,6 @@
 namespace Spektra.Core;
 
-public enum PaletteKind { Magma, Viridis, Inferno, Grayscale, Plasma, Cividis, Turbo }
+public enum PaletteKind { Magma, Viridis, Inferno, Grayscale, Plasma, Cividis, Turbo, MonoGreen, MonoAmber, MonoIce }
 
 /// dB-to-color maps for the spectrogram. Each palette is a small table of anchor
 /// RGBs (matplotlib-derived / public-domain data) interpolated linearly. The
@@ -84,6 +84,48 @@ public static class Colormaps
         (253, 234, 69),
     ];
 
+    // Single-hue "phosphor" ramps: saturation IS the intensity (HSV with
+    // S = t and V = t^0.75, hue fixed), so quiet content sits dim and
+    // gray-tinted and loud content goes fully vivid. Baked to RGB anchors.
+    private static readonly (byte R, byte G, byte B)[] MonoGreenAnchors =
+    [
+        (0, 0, 0),
+        (47, 54, 47),
+        (68, 90, 68),
+        (76, 122, 76),
+        (76, 152, 76),
+        (67, 179, 67),
+        (51, 206, 51),
+        (29, 231, 29),
+        (0, 255, 0),
+    ];
+
+    private static readonly (byte R, byte G, byte B)[] MonoAmberAnchors =
+    [
+        (0, 0, 0),
+        (54, 52, 47),
+        (90, 85, 68),
+        (122, 111, 76),
+        (152, 133, 76),
+        (179, 151, 67),
+        (206, 167, 51),
+        (231, 180, 29),
+        (255, 191, 0),
+    ];
+
+    private static readonly (byte R, byte G, byte B)[] MonoIceAnchors =
+    [
+        (0, 0, 0),
+        (47, 52, 54),
+        (68, 85, 90),
+        (76, 111, 122),
+        (76, 133, 152),
+        (67, 151, 179),
+        (51, 167, 206),
+        (29, 180, 231),
+        (0, 191, 255),
+    ];
+
     // Google's perceptually-improved rainbow (the modern "jet").
     private static readonly (byte R, byte G, byte B)[] TurboAnchors =
     [
@@ -125,6 +167,9 @@ public static class Colormaps
         PaletteKind.Plasma => PlasmaAnchors,
         PaletteKind.Cividis => CividisAnchors,
         PaletteKind.Turbo => TurboAnchors,
+        PaletteKind.MonoGreen => MonoGreenAnchors,
+        PaletteKind.MonoAmber => MonoAmberAnchors,
+        PaletteKind.MonoIce => MonoIceAnchors,
         _ => MagmaAnchors,
     };
 }
