@@ -40,6 +40,7 @@ internal static class Program
             "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
             "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
             "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
+            "--image" or "image" => Image(ffmpeg, rest, fmt),
             _ => Usage(1),
         };
     }
@@ -347,6 +348,63 @@ internal static class Program
             : $"DIFFERS   null depth {r.Null.NullDepthDb:0.0} dB < threshold {r.ThresholdDb:0.0} dB";
     }
 
+    private static int Image(FfmpegPaths ffmpeg, string[] args, OutFormat fmt)
+    {
+        if (fmt != OutFormat.Text)
+        {
+            Console.Error.WriteLine("spektra image: --json/--csv do not apply to image.");
+            return Usage(1);
+        }
+
+        string? outPath = null;
+        var options = new ImageOptions();
+        var files = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            var value = i + 1 < args.Length ? args[i + 1] : null;
+            if (a is "-o" or "--out" && value is not null) { outPath = value; i++; }
+            else if (a is "--palette" && value is not null
+                     && Enum.TryParse<PaletteKind>(value, ignoreCase: true, out var palette))
+            { options = options with { Palette = palette }; i++; }
+            else if (a is "--floor" && value is not null && float.TryParse(
+                         value, NumberStyles.Float, CultureInfo.InvariantCulture, out var floor))
+            { options = options with { FloorDb = floor }; i++; }
+            else if (a is "--fft" && value is not null
+                     && int.TryParse(value, out var fft) && fft >= 16)
+            { options = options with { WindowSize = fft }; i++; }
+            else if (a is "--channel" && value is not null
+                     && int.TryParse(value, out var ch) && ch >= 1)
+            { options = options with { Channel = ch - 1 }; i++; }
+            else if (a is "--columns" && value is not null
+                     && int.TryParse(value, out var cols) && cols >= 1)
+            { options = options with { MaxColumns = cols }; i++; }
+            else files.Add(a);
+        }
+        if (files.Count != 1 || Directory.Exists(files[0]))
+        {
+            Console.Error.WriteLine("spektra image: give one audio file (folders are not supported).");
+            return Usage(1);
+        }
+
+        var input = files[0];
+        outPath ??= Path.ChangeExtension(input, ".png");
+        try
+        {
+            var (w, h, rgb) = new SpectrogramImage(ffmpeg).Render(input, options);
+            using var stream = File.Create(outPath);
+            PngWriter.Write(stream, w, h, rgb);
+            Console.WriteLine($"Wrote {outPath} ({w}x{h})");
+            return 0;
+        }
+        catch (Exception ex) when (
+            ex is AudioDecodeException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"spektra image: {ex.Message}");
+            return 2;
+        }
+    }
+
     private static string Tag(FileReport r)
     {
         if (r.Error is not null) return "[ERROR   ]      ";
@@ -374,6 +432,7 @@ internal static class Program
               spektra audit <file|folder> ...    Bandwidth + integrity together.
               spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
               spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
+              spektra image <file>               Render the spectrogram to a PNG (no window).
               spektra --version                  Print the version.
               spektra --help                     Show this help.
 
@@ -386,6 +445,9 @@ internal static class Program
             diff aligns the files automatically; pin an offset with --offset <ms>
             (positive = B later than A) and tune the verdict with --threshold-db <N>
             (default 40: the null depth needed to count as SAME).
+
+            image options: -o <out.png>, --palette <name>, --floor <dB>, --fft <size>,
+            --channel <n>, --columns <max width> (defaults: magma, -120, 2048, mix, 2048).
 
             Exit code is 1 when anything is likely lossy, upsampled, or corrupt
             (for diff: when the files differ), 2 on setup errors.
