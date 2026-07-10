@@ -19,6 +19,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify formatting
+        run: dotnet format Spektra.slnx --verify-no-changes --nologo
+
       - name: Install ffmpeg
         run: choco install ffmpeg -y --no-progress
 
