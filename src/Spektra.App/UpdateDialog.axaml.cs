@@ -21,7 +21,7 @@ public partial class UpdateDialog : Window
             case UpdateOutcome.UpdateAvailable when result.Info is { } info:
                 TitleText.Text = "Update available";
                 MessageText.Text =
-                    $"Spektra {Fmt(info.Latest)} is available. You have {currentVersion}.";
+                    $"Spektra {UpdateChecker.FormatVersion(info.Latest)} is available. You have {currentVersion}.";
                 _releaseUrl = info.Url;
                 ViewReleaseButton.IsVisible = !string.IsNullOrEmpty(info.Url);
                 break;
@@ -36,8 +36,6 @@ public partial class UpdateDialog : Window
                 break;
         }
     }
-
-    private static string Fmt(Version v) => $"{v.Major}.{v.Minor}.{Math.Max(0, v.Build)}";
 
     private async void OnViewRelease(object? sender, RoutedEventArgs e)
     {

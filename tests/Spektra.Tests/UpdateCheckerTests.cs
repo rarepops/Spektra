@@ -29,6 +29,16 @@ public class UpdateCheckerTests
     }
 
     [Fact]
+    public void FormatVersion_ClampsMissingBuild()
+    {
+        // A two-part Version reports Build == -1; it must render as ".0",
+        // not "1.2.-1".
+        Assert.Equal("1.2.0", UpdateChecker.FormatVersion(new Version(1, 2)));
+        Assert.Equal("0.11.0", UpdateChecker.FormatVersion(new Version(0, 11, 0)));
+        Assert.Equal("1.2.3", UpdateChecker.FormatVersion(new Version(1, 2, 3, 4)));
+    }
+
+    [Fact]
     public void IsNewer_ComparesOnMajorMinorBuild_IgnoringRevision()
     {
         Assert.True(UpdateChecker.IsNewer(new Version(0, 7, 0), new Version(0, 6, 0, 0)));

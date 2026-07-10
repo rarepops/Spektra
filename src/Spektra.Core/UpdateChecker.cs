@@ -90,4 +90,9 @@ public static class UpdateChecker
         var c = new Version(N(current.Major), N(current.Minor), N(current.Build));
         return l > c;
     }
+
+    /// Display form "major.minor.build" with a missing build clamped to 0 (a
+    /// two-part Version reports Build as -1, which would render "1.2.-1").
+    public static string FormatVersion(Version v) =>
+        $"{v.Major}.{v.Minor}.{Math.Max(0, v.Build)}";
 }

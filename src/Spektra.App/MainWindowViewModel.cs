@@ -162,8 +162,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private UpdateInfo? _update;
     private static Version CurrentVersion =>
         typeof(MainWindowViewModel).Assembly.GetName().Version ?? new Version(0, 0, 0);
-    private static string Fmt(Version v) => $"{v.Major}.{v.Minor}.{Math.Max(0, v.Build)}";
-    public string CurrentVersionText => Fmt(CurrentVersion);
+    public string CurrentVersionText => UpdateChecker.FormatVersion(CurrentVersion);
 
     public UpdateInfo? Update
     {
@@ -179,7 +178,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool HasUpdate => _update is not null;
     public string UpdateText => _update is null
         ? ""
-        : $"Spektra {Fmt(_update.Latest)} is available (you have {Fmt(CurrentVersion)}).";
+        : $"Spektra {UpdateChecker.FormatVersion(_update.Latest)} is available (you have {UpdateChecker.FormatVersion(CurrentVersion)}).";
 
     public void DismissUpdate() => Update = null;
 
