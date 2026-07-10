@@ -270,7 +270,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
             case Key.L when _vm.Selected is DocumentViewModel ldoc:
-                _ = ldoc.RunLoudnessCheckAsync();
+                _ = ldoc.ToggleLoudnessAsync();
                 e.Handled = true;
                 break;
             case Key.W when _vm.Selected is { } tab:
@@ -574,7 +574,7 @@ public partial class MainWindow : Window
 
     private void OnMeasureLoudnessClicked(object? sender, RoutedEventArgs e)
     {
-        if (_vm.Selected is DocumentViewModel doc) _ = doc.RunLoudnessCheckAsync();
+        if (_vm.Selected is DocumentViewModel doc) _ = doc.ToggleLoudnessAsync();
     }
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>

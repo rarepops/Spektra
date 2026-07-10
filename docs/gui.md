@@ -43,7 +43,9 @@ View → Crosshair (Ctrl+H).
   in the banner only). Once results exist, Ctrl+I toggles them: press again
   to hide the banner and lane, again to bring them back without re-analyzing.
 - **Measure Loudness (Ctrl+L):** integrated LUFS, loudness range, true peak
-  (EBU R128 via ffmpeg), crest factor, and a clipping hint.
+  (EBU R128 via ffmpeg), crest factor, and a clipping hint. Like Ctrl+I,
+  pressing it again hides the banner and again brings it back without
+  re-measuring.
 
 ## Export a report
 

@@ -119,6 +119,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool IntegrityIsCorrupt => _integrity?.Status == IntegrityStatus.Corrupt;
 
     private LoudnessReport? _loudness;
+    private bool _loudnessVisible = true;
 
     /// Loudness/dynamics result, populated on demand by RunLoudnessCheckAsync.
     public LoudnessReport? Loudness
@@ -127,12 +128,23 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         private set
         {
             if (!Set(ref _loudness, value)) return;
+            _loudnessVisible = true; // fresh results always show
             RaisePropertyChanged(nameof(LoudnessText));
             RaisePropertyChanged(nameof(HasLoudness));
         }
     }
 
-    public bool HasLoudness => _loudness is not null;
+    /// Ctrl+L / the Analyze menu: the first use measures; once results exist
+    /// it toggles the banner without re-measuring.
+    public Task ToggleLoudnessAsync()
+    {
+        if (Loudness is null) return RunLoudnessCheckAsync();
+        _loudnessVisible = !_loudnessVisible;
+        RaisePropertyChanged(nameof(HasLoudness));
+        return Task.CompletedTask;
+    }
+
+    public bool HasLoudness => _loudness is not null && _loudnessVisible;
     public string? LoudnessText => _loudness is null ? null : $"Loudness: {_loudness.Summary}";
 
     public List<string> ChannelOptions
