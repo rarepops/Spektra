@@ -11,7 +11,9 @@ public sealed class AuditCache : IDisposable
     /// Bump whenever verdict or integrity analysis changes so stale rows
     /// re-analyze (see the release checklist in CONTRIBUTING.md).
     /// 2: transcode-based problem semantics + the Channels row field.
-    public const int AnalysisVersion = 2;
+    /// 3: integrity false-positive hardening (no bits_left counting, stray
+    ///    errors are Suspect, no truncation verdict on estimated durations).
+    public const int AnalysisVersion = 3;
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

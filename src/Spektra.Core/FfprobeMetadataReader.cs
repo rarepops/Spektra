@@ -19,7 +19,9 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         };
         foreach (var a in new[]
         {
-            "-v", "error", "-print_format", "json",
+            // -v warning (not error): the demuxer's "Estimating duration from
+            // bitrate" notice is how we know the duration is untrustworthy.
+            "-v", "warning", "-print_format", "json",
             "-show_format", "-show_streams", "-select_streams", "a", filePath,
         }) psi.ArgumentList.Add(a);
 
@@ -47,7 +49,8 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
             BitsPerSample: NonZero(IntProp(s, "bits_per_raw_sample") ?? IntProp(s, "bits_per_sample")),
             BitRateBps: NonZero(Long(Str(s, "bit_rate")) ?? Long(Str(format, "bit_rate"))),
             Duration: TimeSpan.FromSeconds(
-                Dbl(Str(format, "duration")) ?? Dbl(Str(s, "duration")) ?? 0));
+                Dbl(Str(format, "duration")) ?? Dbl(Str(s, "duration")) ?? 0),
+            DurationIsEstimated: stderr.Contains("Estimating duration from bitrate"));
     }
 
     private static string? Str(JsonElement e, string name) =>

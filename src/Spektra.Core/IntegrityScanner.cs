@@ -25,6 +25,11 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
     // (small differences from codec priming/padding are normal).
     private const double TruncationToleranceSeconds = 1.0;
 
+    // One or two stray decode errors (an isolated damaged frame, or embedded
+    // junk the decoder resyncs past) make a file worth a listen, not provably
+    // corrupt; from this many errors on, it counts as damaged.
+    private const int CorruptErrorThreshold = 3;
+
     public IntegrityReport Check(string path, AudioMetadata meta, CancellationToken ct = default)
     {
         var decodeErrors = CountDecodeErrors(path, ct);
@@ -54,10 +59,13 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
 
         var decodedSeconds = meta.SampleRate > 0 ? (double)samples / meta.SampleRate : 0;
         var expectedSeconds = meta.Duration.TotalSeconds;
-        var truncated = expectedSeconds > 0 && expectedSeconds - decodedSeconds > TruncationToleranceSeconds;
+        // An estimated duration (no-Xing mp3 and friends) proves nothing about
+        // truncation: appended junk inflates the estimate on healthy files.
+        var truncated = !meta.DurationIsEstimated
+            && expectedSeconds > 0 && expectedSeconds - decodedSeconds > TruncationToleranceSeconds;
 
-        var status = decodeErrors > 0 || decodeFailed || truncated ? IntegrityStatus.Corrupt
-            : dropouts.Count > 0 ? IntegrityStatus.Suspect
+        var status = decodeFailed || truncated || decodeErrors >= CorruptErrorThreshold ? IntegrityStatus.Corrupt
+            : decodeErrors > 0 || dropouts.Count > 0 ? IntegrityStatus.Suspect
             : IntegrityStatus.Ok;
 
         return new IntegrityReport(status, decodeErrors, dropouts, decodedSeconds, expectedSeconds,
@@ -80,7 +88,7 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
         }
         var lead = status == IntegrityStatus.Corrupt
             ? "Likely corrupt or incomplete: "
-            : "Possible missing data: ";
+            : "Worth a listen: ";
         return lead + string.Join(", ", parts) + ".";
     }
 
@@ -98,10 +106,12 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
+        // No +bitstream: it flags spec deviations (mp3 "bits_left" padding
+        // quirks from sloppy encoders) that play fine, thousands per file.
         foreach (var a in new[]
                  {
                      "-hide_banner", "-nostdin", "-v", "error",
-                     "-err_detect", "+crccheck+bitstream+buffer",
+                     "-err_detect", "+crccheck+buffer",
                      "-i", path, "-f", "null", "-",
                  })
             psi.ArgumentList.Add(a);

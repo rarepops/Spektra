@@ -2,9 +2,12 @@ using System.Text;
 
 namespace Spektra.Core;
 
+/// `DurationIsEstimated`: the container carries no authoritative length and
+/// ffprobe guessed it from bitrate and file size (classic no-Xing mp3), so
+/// `Duration` cannot be trusted for truncation judgments.
 public sealed record AudioMetadata(
     string Codec, int SampleRate, int Channels, int? BitsPerSample,
-    long? BitRateBps, TimeSpan Duration)
+    long? BitRateBps, TimeSpan Duration, bool DurationIsEstimated = false)
 {
     public string ToDisplayLine(string fileName)
     {
