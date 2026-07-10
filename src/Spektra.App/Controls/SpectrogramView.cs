@@ -48,6 +48,7 @@ public sealed class SpectrogramView : Control
             _vm.DocumentUpdated -= OnDocumentUpdated;
             _vm.TileChanged -= OnTileChanged;
             _vm.Viewport.Changed -= OnViewportChanged;
+            _vm.PropertyChanged -= OnVmPropertyChanged;
         }
         _vm = vm;
         if (vm is not null)
@@ -56,6 +57,7 @@ public sealed class SpectrogramView : Control
             vm.DocumentUpdated += OnDocumentUpdated;
             vm.TileChanged += OnTileChanged;
             vm.Viewport.Changed += OnViewportChanged;
+            vm.PropertyChanged += OnVmPropertyChanged;
         }
         _pane.SetDocument(vm?.Document);
         _pane.SetTile(vm?.Tile);
@@ -64,6 +66,12 @@ public sealed class SpectrogramView : Control
     }
 
     private void OnViewportChanged() { InvalidateVisual(); ScheduleTile(); }
+
+    // The integrity lane appears the moment RunIntegrityCheckAsync lands.
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DocumentViewModel.Integrity)) InvalidateVisual();
+    }
 
     private void ScheduleTile()
     {
@@ -85,6 +93,9 @@ public sealed class SpectrogramView : Control
             var nyquist = doc.Metadata.SampleRate / 2.0;
             _pane.DrawInto(ctx, plot, vp.T0, vp.T1, vp.F0, vp.F1, vp.T0, vp.T1, _display.LogFrequency, nyquist);
             SpectrogramDraw.FrequencyRuler(ctx, plot, doc.Metadata.SampleRate, vp.F0, vp.F1, _display.LogFrequency);
+            if (_vm.Integrity is { } integrity)
+                SpectrogramDraw.IntegrityLane(ctx, plot,
+                    IntegrityStrip.Segments(integrity, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1));
             SpectrogramDraw.TimeRuler(ctx, plot, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1);
         }
         SpectrogramDraw.Legend(ctx, plot, _display);

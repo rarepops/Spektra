@@ -92,8 +92,13 @@ public sealed class FolderViewModel : ObservableObject, ITab
 
     public bool CanRescan => !IsScanning;
 
-    public event Action<string>? OpenFileRequested;
-    public void RequestOpen(FolderRow row) => OpenFileRequested?.Invoke(row.FullPath);
+    /// (path, checkIntegrity): the flag asks the opener to run the integrity
+    /// check immediately, so the lane under the spectrogram is populated on
+    /// arrival. True for Corrupt/Suspect rows; Error rows failed to decode
+    /// and would just fail again.
+    public event Action<string, bool>? OpenFileRequested;
+    public void RequestOpen(FolderRow row) =>
+        OpenFileRequested?.Invoke(row.FullPath, row.Integrity is "Corrupt" or "Suspect");
 
     public IReadOnlyList<AuditRow> ExportRows() => Rows.Select(r => r.Row).ToList();
 

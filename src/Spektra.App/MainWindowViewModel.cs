@@ -283,7 +283,12 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
         var folder = new FolderViewModel(_ffmpeg, path);
-        folder.OpenFileRequested += OpenFile;
+        folder.OpenFileRequested += (file, checkIntegrity) =>
+        {
+            OpenFile(file);
+            if (checkIntegrity && Selected is DocumentViewModel doc)
+                _ = doc.RunIntegrityCheckAsync();
+        };
         Tabs.Add(folder);
         Selected = folder;
         folder.StartScan(fresh: false);

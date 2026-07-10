@@ -36,7 +36,11 @@ View → Crosshair (Ctrl+H).
 ## Deeper checks (Analyze menu)
 
 - **Check Integrity (Ctrl+I):** decode errors, interior silent gaps, and
-  truncation: the classic partial-download failures.
+  truncation: the classic partial-download failures. Found problems are also
+  marked on a thin lane along the time axis: solid red for each silent gap,
+  translucent red for a truncated file's missing tail. The lane zooms and
+  pans with the spectrogram (decode errors carry no position, so they show
+  in the banner only).
 - **Measure Loudness (Ctrl+L):** integrated LUFS, loudness range, true peak
   (EBU R128 via ffmpeg), crest factor, and a clipping hint.
 
@@ -65,7 +69,9 @@ and stays neutral. Red bandwidth means the wall does not belong there:
 lossy content in a lossless format, or an mp3/aac far below its bitrate's
 expected cutoff. Check "Problems only" to hide clean files, double-click a
 row (or press Enter) to open that file as a normal tab, and use Export to
-save the grid as CSV or JSON.
+save the grid as CSV or JSON. Opening a row whose integrity is Corrupt or
+Suspect runs the integrity check on the new tab automatically, so the
+time-axis lane marks the damaged regions as soon as you arrive.
 
 Results are cached in `%APPDATA%\Spektra\audit-cache.db` keyed by file size
 and modified time, so rescanning a big library only analyzes new or changed
