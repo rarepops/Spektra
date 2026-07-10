@@ -142,3 +142,9 @@ schema the desktop app writes from **File → Export Report…**.
 
     # verify a purchase really is lossless before archiving it
     spektra report "purchase.flac" && cp "purchase.flac" archive/
+
+    # is the "remaster" the same recording as my old rip? (exit 0 = effectively identical)
+    spektra diff my-rip.flac remaster.flac
+
+    # spectrogram PNG next to every file in an album folder
+    for f in Album/*.flac; do spektra image "$f"; done
