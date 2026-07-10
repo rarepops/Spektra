@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>spektra</AssemblyName>
     <RootNamespace>Spektra.Cli</RootNamespace>
-    <Version>0.10.0</Version>
+    <Version>0.11.0</Version>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 

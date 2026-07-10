@@ -4,6 +4,28 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-07-10
+
+### Added
+- Folder audit grid: drop a folder on the window (or File > Open Folder..., Ctrl+Shift+O, or `spektra <folder>`) to triage a whole library in a live sortable grid with byte-weighted progress and a remaining-time estimate. A tiered severity filter (All files / Suspect + worse / Problems only) hides rows below the chosen bar, double-click opens a row as a normal tab, and Export saves the grid as CSV/JSON.
+- Persistent audit cache: results are cached per file (size + modified time) in `%APPDATA%\Spektra\audit-cache.db`, shared by the app and the CLI, so re-scans only analyze new or changed files. F5 rescans from cache, Shift+F5 or `--fresh` re-analyzes, cancelling keeps completed work.
+- Integrity lane: silent gaps (cyan, informational) and a truncated file's missing tail (red) are marked on a thin lane along the time axis that zooms and pans with the spectrogram. Opening a Corrupt/Suspect grid row runs the check automatically so the lane is populated on arrival.
+- Custom palettes: drop `{ "name", "anchors" }` JSON files in `%APPDATA%\Spektra\palettes` or a `palettes` folder next to the app. Anchors are hex colors spread evenly, or stops pinned to a position (`at`) or an absolute level (`db`); dB-pinned colors stay glued to their level when the display floor changes.
+- New built-in palettes: Plasma, Cividis, Turbo, and MonoGreen/MonoAmber phosphor ramps where saturation tracks intensity.
+- Tightness: a level-curve slider in Preferences (and `--gamma` on `spektra image`) controls how fast quiet detail brightens; higher keeps the low end darker so peaks read tighter, lower blooms.
+- `spektra image` follows the palette and tightness saved in the app settings; `--palette`/`--gamma` override.
+- Ctrl+I and Ctrl+L toggle their results once they exist: press again to hide the banner (and lane), again to bring them back without re-analyzing.
+- The audit report row gains a `channels` column.
+
+### Changed
+- A lossy verdict is a problem only when it should not be there: lossy content in a lossless container, or an mp3/aac far below its bitrate's expected cutoff. An honest MP3 is just an MP3; it stays neutral in the grid and `spektra audit` exits 0.
+- Integrity verdicts got harder to fool: mp3 `bits_left` spec-deviation noise no longer counts as decode errors, one or two stray errors mean Suspect ("worth a listen") instead of Corrupt, files whose header duration is only a bitrate estimate are never judged truncated, and interior silent gaps are reported without raising the verdict.
+- Turbo is the default palette, and every built-in now opens at true black so zero signal renders as nothing.
+- Avalonia updated to 12.1.0.
+
+### Fixed
+- A transitive dependency advisory (SQLitePCLRaw e_sqlite3) is resolved by pinning the patched bundle.
+
 ## [0.10.0] - 2026-07-10
 
 ### Added
