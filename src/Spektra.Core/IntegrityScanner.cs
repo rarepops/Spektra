@@ -64,8 +64,11 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
         var truncated = !meta.DurationIsEstimated
             && expectedSeconds > 0 && expectedSeconds - decodedSeconds > TruncationToleranceSeconds;
 
+        // Silent gaps are informational (shown in the summary, the report row,
+        // and the time-axis lane) but do not raise the status by themselves:
+        // interior silence is legal audio and cannot be proven to be damage.
         var status = decodeFailed || truncated || decodeErrors >= CorruptErrorThreshold ? IntegrityStatus.Corrupt
-            : decodeErrors > 0 || dropouts.Count > 0 ? IntegrityStatus.Suspect
+            : decodeErrors > 0 ? IntegrityStatus.Suspect
             : IntegrityStatus.Ok;
 
         return new IntegrityReport(status, decodeErrors, dropouts, decodedSeconds, expectedSeconds,
@@ -76,7 +79,11 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
         IntegrityStatus status, int errors, bool decodeFailed, IReadOnlyList<DropoutRegion> dropouts,
         double decoded, double expected, bool truncated)
     {
-        if (status == IntegrityStatus.Ok) return "No integrity problems detected.";
+        if (status == IntegrityStatus.Ok)
+            return dropouts.Count == 0
+                ? "No integrity problems detected."
+                : $"No damage detected; {dropouts.Count} silent gap(s) totaling "
+                  + $"{dropouts.Sum(d => d.DurationSeconds):0.0}s (first at {Time(dropouts[0].StartSeconds)}).";
         var parts = new List<string>();
         if (errors > 0) parts.Add($"{errors} decode error(s)");
         if (decodeFailed) parts.Add("decoding failed partway");

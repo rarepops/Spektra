@@ -36,14 +36,15 @@ View → Crosshair (Ctrl+H).
 ## Deeper checks (Analyze menu)
 
 - **Check Integrity (Ctrl+I):** decode errors, interior silent gaps, and
-  truncation: the classic partial-download failures. Found problems are also
-  marked on a thin lane along the time axis: solid red for each silent gap,
-  translucent red for a truncated file's missing tail. The lane zooms and
-  pans with the spectrogram (decode errors carry no position, so they show
-  in the banner only). Once results exist, Ctrl+I toggles them: press again
-  to hide the banner and lane, again to bring them back without re-analyzing.
-  One or two stray decode errors count as Suspect (worth a listen), not
-  Corrupt; Corrupt means provable damage (decode failure, three or more
+  truncation: the classic partial-download failures. Findings are also
+  marked on a thin lane along the time axis: cyan for each silent gap
+  (informational), red for a truncated file's missing tail (damage). The
+  lane zooms and pans with the spectrogram (decode errors carry no position,
+  so they show in the banner only). Once results exist, Ctrl+I toggles them:
+  press again to hide the banner and lane, again to bring them back without
+  re-analyzing. Silent gaps are reported but never raise the verdict (silence
+  is legal audio); one or two stray decode errors count as Suspect (worth a
+  listen); Corrupt means provable damage (decode failure, three or more
   errors, or a file shorter than its own header promises).
 - **Measure Loudness (Ctrl+L):** integrated LUFS, loudness range, true peak
   (EBU R128 via ffmpeg), crest factor, and a clipping hint. Like Ctrl+I,

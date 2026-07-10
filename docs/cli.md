@@ -56,10 +56,11 @@ be natural), **Lossy** (sharp codec cutoff, with a codec/bitrate guess),
 
     1 files: 0 ok, 0 suspect, 1 corrupt.
 
-Suspect means worth a listen: interior silent gaps, or one or two stray
-decode errors (an isolated damaged frame, or junk bytes appended by a bad
-tagger). Corrupt means provable damage: decode failure, three or more
-errors, or a file shorter than the length its own header declares. Files
+Suspect means worth a listen: one or two stray decode errors (an isolated
+damaged frame, or junk bytes appended by a bad tagger). Corrupt means
+provable damage: decode failure, three or more errors, or a file shorter
+than the length its own header declares. Interior silent gaps are reported
+in the summary but never raise the verdict (silence is legal audio). Files
 whose header duration is only a bitrate estimate (an mp3 without a Xing
 header) are never judged truncated, since the estimate proves nothing.
 

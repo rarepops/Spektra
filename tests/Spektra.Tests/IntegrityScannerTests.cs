@@ -55,4 +55,17 @@ public class IntegrityScannerTests
         Assert.False(Meta("chirp.wav").DurationIsEstimated);
         Assert.False(Meta("sine-1khz.flac").DurationIsEstimated);
     }
+
+    [Fact]
+    public void SilentGap_IsInformational_NotSuspect()
+    {
+        // Interior digital silence is reported (summary, row, lane) but is
+        // legal audio and cannot be proven to be damage, so the status stays Ok.
+        var r = new IntegrityScanner(Ff).Check(P("gap.wav"), Meta("gap.wav"), CancellationToken.None);
+
+        Assert.Equal(IntegrityStatus.Ok, r.Status);
+        var gap = Assert.Single(r.Dropouts);
+        Assert.InRange(gap.StartSeconds, 0.8, 1.2);
+        Assert.Contains("silent gap", r.Summary);
+    }
 }

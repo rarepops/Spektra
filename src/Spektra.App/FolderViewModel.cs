@@ -106,11 +106,13 @@ public sealed class FolderViewModel : ObservableObject, ITab
 
     /// (path, checkIntegrity): the flag asks the opener to run the integrity
     /// check immediately, so the lane under the spectrogram is populated on
-    /// arrival. True for Corrupt/Suspect rows; Error rows failed to decode
+    /// arrival. True for Corrupt/Suspect rows and rows with silent gaps
+    /// (informational, but worth seeing where); Error rows failed to decode
     /// and would just fail again.
     public event Action<string, bool>? OpenFileRequested;
     public void RequestOpen(FolderRow row) =>
-        OpenFileRequested?.Invoke(row.FullPath, row.Integrity is "Corrupt" or "Suspect");
+        OpenFileRequested?.Invoke(row.FullPath,
+            row.Integrity is "Corrupt" or "Suspect" || row.Dropouts > 0);
 
     public IReadOnlyList<AuditRow> ExportRows() => Rows.Select(r => r.Row).ToList();
 

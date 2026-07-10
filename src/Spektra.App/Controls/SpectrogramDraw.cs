@@ -99,13 +99,16 @@ static class SpectrogramDraw
         }
     }
 
-    private static readonly IBrush DropoutBrush = new SolidColorBrush(Color.Parse("#E08080"));
-    private static readonly IBrush MissingTailBrush = new SolidColorBrush(Color.FromArgb(96, 0xE0, 0x80, 0x80));
+    // Vivid, cool-vs-warm split so the lane never blends into the warm
+    // Magma/Inferno palettes right above it: cyan = informational silent gap,
+    // saturated red = damage (missing tail).
+    private static readonly IBrush DropoutBrush = new SolidColorBrush(Color.Parse("#4DD0E1"));
+    private static readonly IBrush MissingTailBrush = new SolidColorBrush(Color.Parse("#FF5252"));
 
-    /// 4 px integrity lane sitting on the time axis: solid red = silent gap,
-    /// translucent red = truncated tail. Call BEFORE TimeRuler so tick marks
-    /// stay visible on top. Segments narrower than 2 px are widened so a tiny
-    /// gap stays visible zoomed out.
+    /// 4 px integrity lane sitting on the time axis: cyan = silent gap
+    /// (informational), red = truncated tail (damage). Call BEFORE TimeRuler
+    /// so tick marks stay visible on top. Segments narrower than 2 px are
+    /// widened so a tiny gap stays visible zoomed out.
     public static void IntegrityLane(DrawingContext ctx, Rect plot, IReadOnlyList<StripSegment> segments)
     {
         foreach (var s in segments)

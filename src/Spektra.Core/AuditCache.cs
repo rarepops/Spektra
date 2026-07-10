@@ -13,7 +13,8 @@ public sealed class AuditCache : IDisposable
     /// 2: transcode-based problem semantics + the Channels row field.
     /// 3: integrity false-positive hardening (no bits_left counting, stray
     ///    errors are Suspect, no truncation verdict on estimated durations).
-    public const int AnalysisVersion = 3;
+    /// 4: silent gaps are informational and no longer raise Suspect.
+    public const int AnalysisVersion = 4;
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
