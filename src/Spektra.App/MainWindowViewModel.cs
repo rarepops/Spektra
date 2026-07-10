@@ -270,6 +270,25 @@ public sealed class MainWindowViewModel : ObservableObject
         _ = cmp.LoadAsync();
     }
 
+    /// Opens (or re-selects) a folder-audit tab. An existing tab for the same
+    /// folder is selected without rescanning; F5 rescans.
+    public void OpenFolder(string path)
+    {
+        if (_ffmpeg is null) return;
+        var existing = Tabs.OfType<FolderViewModel>().FirstOrDefault(
+            f => string.Equals(f.FolderPath, path, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            Selected = existing;
+            return;
+        }
+        var folder = new FolderViewModel(_ffmpeg, path);
+        folder.OpenFileRequested += OpenFile;
+        Tabs.Add(folder);
+        Selected = folder;
+        folder.StartScan(fresh: false);
+    }
+
     public IReadOnlyList<DocumentViewModel> OpenDocuments => Tabs.OfType<DocumentViewModel>().ToList();
 
     public void ClearRecent()

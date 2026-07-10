@@ -142,6 +142,10 @@ public partial class MainWindow : Window
         CompareSurfaceCtl.Attach(cmp);
         CompareSurfaceCtl.IsVisible = cmp is not null;
 
+        var folder = tab as FolderViewModel;
+        FolderViewCtl.Attach(folder);
+        FolderViewCtl.IsVisible = folder is not null;
+
         ApplyDisplay();
 
         Title = tab is null ? "Spektra" : $"{tab.TabTitle} — Spektra";
@@ -156,12 +160,19 @@ public partial class MainWindow : Window
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        var paths = e.DataTransfer.TryGetFiles()?.OfType<IStorageFile>()
+        var items = e.DataTransfer.TryGetFiles()?.ToList() ?? [];
+        var files = items.OfType<IStorageFile>()
             .Select(f => f.TryGetLocalPath())
             .Where(p => p is not null)
             .Cast<string>()
             .ToList();
-        if (paths is { Count: > 0 }) _vm.OpenFiles(paths);
+        var folders = items.OfType<IStorageFolder>()
+            .Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null)
+            .Cast<string>()
+            .ToList();
+        if (files.Count > 0) _vm.OpenFiles(files);
+        foreach (var folder in folders) _vm.OpenFolder(folder);
     }
 
     private bool _dialogOpen;
@@ -207,11 +218,19 @@ public partial class MainWindow : Window
             {
                 case DocumentViewModel rdoc: _ = rdoc.LoadOverviewAsync(); e.Handled = true; return;
                 case ComparisonViewModel rcmp: _ = rcmp.LoadAsync(); e.Handled = true; return;
+                case FolderViewModel rfold:
+                    rfold.StartScan(fresh: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                    e.Handled = true;
+                    return;
             }
         }
         if (e.Handled || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
         switch (e.Key)
         {
+            case Key.O when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                _ = OpenFolderViaDialogAsync();
+                e.Handled = true;
+                break;
             case Key.O:
                 _ = OpenViaDialogAsync();
                 e.Handled = true;
@@ -294,6 +313,29 @@ public partial class MainWindow : Window
 
     private async void OnOpenClicked(object? sender, RoutedEventArgs e) =>
         await OpenViaDialogAsync();
+
+    private async void OnOpenFolderClicked(object? sender, RoutedEventArgs e) =>
+        await OpenFolderViaDialogAsync();
+
+    private async Task OpenFolderViaDialogAsync()
+    {
+        if (_dialogOpen) return;
+        _dialogOpen = true;
+        try
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Open a folder to audit",
+                AllowMultiple = false,
+            });
+            if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } folder)
+                _vm.OpenFolder(folder);
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
 
     private async Task OpenViaDialogAsync()
     {

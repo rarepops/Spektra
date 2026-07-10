@@ -75,6 +75,7 @@
       <Menu>
         <MenuItem Header="_File">
           <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
+          <MenuItem Header="Open Fo_lder…" Click="OnOpenFolderClicked" InputGesture="Ctrl+Shift+O" />
           <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
           <MenuItem Header="_Compare…" Click="OnCompareClicked" InputGesture="Ctrl+D" />
           <Separator />
@@ -241,7 +242,8 @@
     <Panel>
       <controls:SpectrogramView x:Name="Spectro" />
       <controls:CompareSurface x:Name="CompareSurfaceCtl" IsVisible="False" />
-      <TextBlock Text="Drop audio files here — or File → Open"
+      <controls:FolderView x:Name="FolderViewCtl" IsVisible="False" />
+      <TextBlock Text="Drop audio files or a folder here — or File → Open"
                  IsVisible="{Binding ShowHint}" FontSize="16" Foreground="#666666"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Panel>
