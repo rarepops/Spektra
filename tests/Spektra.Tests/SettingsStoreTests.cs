@@ -36,14 +36,17 @@ public sealed class SettingsStoreTests : IDisposable
     [Fact]
     public void ShowCrosshair_DefaultsOn_AndRoundTrips()
     {
+        // Built-ins only: keep the test independent of the user's palette folder.
+        var palettes = PaletteRegistry.LoadWithCustom(Path.Combine(Path.GetTempPath(), "spektra-no-palettes"));
+
         Assert.True(SettingsStore.Load(SettingsPath).ShowCrosshair);
-        Assert.True(new AppSettings().ToDisplaySettings().ShowCrosshair);
+        Assert.True(new AppSettings().ToDisplaySettings(palettes).ShowCrosshair);
 
         var s = new AppSettings { ShowCrosshair = false };
         SettingsStore.Save(SettingsPath, s);
         var r = SettingsStore.Load(SettingsPath);
         Assert.False(r.ShowCrosshair);
-        Assert.False(r.ToDisplaySettings().ShowCrosshair);
+        Assert.False(r.ToDisplaySettings(palettes).ShowCrosshair);
     }
 
     [Fact]

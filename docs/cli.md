@@ -139,11 +139,31 @@ low frequencies at the bottom, colormapped exactly like the desktop app. The
 image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
 
 - `-o <out.png>` sets the output (default: the input name with `.png`).
-- `--palette magma|viridis|inferno|grayscale|plasma|cividis|turbo|monogreen|monoamber|monoice`,
-  `--floor <dB>` (default -120),
+- `--palette magma|viridis|inferno|grayscale|plasma|cividis|turbo|monogreen|monoamber|monoice`
+  or the name of a custom palette (below), `--floor <dB>` (default -120),
   `--fft <size>` (default 2048), `--channel <n>` (1-based; default mixdown),
   `--columns <n>` (width budget, default 2048; long files are peak-hold
   merged to fit, so any length stays whole-file).
+
+### Custom palettes
+
+Drop JSON files in `%APPDATA%\Spektra\palettes` and both the desktop app
+(Preferences) and `--palette <name>` pick them up. Anchors are either hex
+colors spread evenly across the display range:
+
+    { "name": "Nightfall", "anchors": ["#000000", "#3D2E6B", "#F5B7A5"] }
+
+or stops that pin a color to a position (`at`, 0..1 of the display range) or
+to an absolute level (`db`), one form per file:
+
+    { "name": "Pinned", "anchors": [
+        { "color": "#000000", "db": -120 },
+        { "color": "#00AAFF", "db": -40 },
+        { "color": "#FFFFFF", "db": 0 } ] }
+
+`db` stops stay glued to their level when the display floor changes. Invalid
+files are skipped (the app lists them in the status bar when Preferences
+opens); a name that collides with a built-in is ignored.
 
 ## Machine-readable reports
 

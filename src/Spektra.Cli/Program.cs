@@ -381,6 +381,7 @@ internal static class Program
         }
 
         string? outPath = null;
+        string? paletteName = null;
         var options = new ImageOptions();
         var files = new List<string>();
         for (var i = 0; i < args.Length; i++)
@@ -388,9 +389,7 @@ internal static class Program
             var a = args[i];
             var value = i + 1 < args.Length ? args[i + 1] : null;
             if (a is "-o" or "--out" && value is not null) { outPath = value; i++; }
-            else if (a is "--palette" && value is not null
-                     && Enum.TryParse<PaletteKind>(value, ignoreCase: true, out var palette))
-            { options = options with { Palette = palette }; i++; }
+            else if (a is "--palette" && value is not null) { paletteName = value; i++; }
             else if (a is "--floor" && value is not null && float.TryParse(
                          value, NumberStyles.Float, CultureInfo.InvariantCulture, out var floor))
             { options = options with { FloorDb = floor }; i++; }
@@ -409,6 +408,18 @@ internal static class Program
         {
             Console.Error.WriteLine("spektra image: give one audio file (folders are not supported).");
             return Usage(1);
+        }
+
+        if (paletteName is not null)
+        {
+            // Resolved after the loop so a later --floor still shapes db-pinned
+            // custom palettes correctly.
+            var palettes = PaletteRegistry.LoadWithCustom();
+            if (!palettes.Has(paletteName))
+                Console.Error.WriteLine(
+                    $"spektra image: unknown palette '{paletteName}'; using magma. " +
+                    $"Available: {string.Join(", ", palettes.Names)}.");
+            options = options with { PaletteLut = palettes.BakeLut(paletteName, options.FloorDb) };
         }
 
         var input = files[0];
@@ -475,6 +486,8 @@ internal static class Program
 
             image options: -o <out.png>, --palette <name>, --floor <dB>, --fft <size>,
             --channel <n>, --columns <max width> (defaults: magma, -120, 2048, mix, 2048).
+            --palette also accepts custom palettes: JSON files dropped in
+            %APPDATA%\Spektra\palettes (see docs/cli.md for the format).
 
             Exit code is 1 on findings (report/scan: lossy or upsampled; audit:
             a transcode, an upsample, or corruption - an honest lossy file is

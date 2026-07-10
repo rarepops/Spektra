@@ -3,7 +3,7 @@ namespace Spektra.Core;
 /// Options for a headless spectrogram render; defaults mirror the desktop
 /// app (Magma, -120 dB floor, FFT 2048 Hann, mono mixdown, 2048 columns).
 public sealed record ImageOptions(
-    PaletteKind Palette = PaletteKind.Magma,
+    uint[]? PaletteLut = null,    // baked via PaletteRegistry; null = Magma
     float FloorDb = -120f,
     int WindowSize = 2048,
     int? Channel = null,          // 0-based decode channel; null = mixdown
@@ -28,13 +28,13 @@ public sealed class SpectrogramImage(FfmpegPaths ffmpeg)
         if (columns.Count == 0)
             throw new AudioDecodeException(
                 "The file is shorter than one FFT window; nothing to render.");
-        return ToRgb(columns, options.Palette, options.FloorDb);
+        return ToRgb(columns, options.PaletteLut ?? Colormaps.DefaultLut, options.FloorDb);
     }
 
     /// Pure: columns to RGB, bin 0 (DC) on the bottom row. Requires a
     /// non-empty column list (Render throws on zero columns first).
     public static (int Width, int Height, byte[] Rgb) ToRgb(
-        IReadOnlyList<float[]> columns, PaletteKind palette, float floorDb)
+        IReadOnlyList<float[]> columns, uint[] paletteLut, float floorDb)
     {
         var width = columns.Count;
         var height = columns[0].Length;
@@ -44,7 +44,7 @@ public sealed class SpectrogramImage(FfmpegPaths ffmpeg)
             var col = columns[x];
             for (var bin = 0; bin < height; bin++)
             {
-                var v = Colormaps.ToBgra(palette, col[bin], floorDb);
+                var v = PaletteLut.Sample(paletteLut, col[bin], floorDb, 0f);
                 var p = ((height - 1 - bin) * width + x) * 3;
                 rgb[p] = (byte)(v >> 16);
                 rgb[p + 1] = (byte)(v >> 8);

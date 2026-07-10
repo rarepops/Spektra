@@ -159,6 +159,14 @@ public static class Colormaps
         return 0xFF000000u | (r << 16) | (g << 8) | b;
     }
 
+    internal static (byte R, byte G, byte B)[] AnchorsFor(PaletteKind kind) => Anchors(kind);
+
+    private static uint[]? _defaultLut;
+
+    /// Magma baked once; the fallback wherever no palette LUT was resolved.
+    public static uint[] DefaultLut => _defaultLut ??=
+        PaletteLut.Bake(PaletteLut.EvenStops(MagmaAnchors));
+
     private static (byte R, byte G, byte B)[] Anchors(PaletteKind kind) => kind switch
     {
         PaletteKind.Viridis => ViridisAnchors,

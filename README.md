@@ -40,8 +40,8 @@ side, and get an automated "is this really lossless?" verdict.
   (peak-hold + time-average)
 - Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris),
   color palette (Magma, Inferno, Plasma, Viridis, Cividis, Turbo, Grayscale,
-  plus mono phosphor ramps in green/amber/ice where saturation tracks
-  intensity), dynamic-range floor, and a
+  mono phosphor ramps in green/amber/ice, plus custom palettes as JSON files
+  with even anchors or stops pinned to a dB level), dynamic-range floor, and a
   linear or logarithmic frequency axis
 - Save the spectrogram to PNG (Ctrl+S) or copy it to the clipboard (Ctrl+Shift+C)
 - Tabs: open many files at once (dialog, drag-drop, or CLI args)

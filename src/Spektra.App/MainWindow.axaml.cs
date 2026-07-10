@@ -159,7 +159,7 @@ public partial class MainWindow : Window
 
     private void ApplyDisplay()
     {
-        var display = _vm.Settings.ToDisplaySettings();
+        var display = _vm.ToDisplaySettings();
         Spectro.SetDisplay(display);
         CompareSurfaceCtl.SetDisplay(display);
     }

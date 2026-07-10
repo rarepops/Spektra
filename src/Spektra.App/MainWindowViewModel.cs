@@ -60,7 +60,23 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public IReadOnlyList<WindowFunctionKind> WindowFunctions { get; } = Enum.GetValues<WindowFunctionKind>();
-    public IReadOnlyList<PaletteKind> Palettes { get; } = Enum.GetValues<PaletteKind>();
+
+    private PaletteRegistry _paletteRegistry = PaletteRegistry.LoadWithCustom();
+    private IReadOnlyList<string>? _palettes;
+    public IReadOnlyList<string> Palettes => _palettes ??= _paletteRegistry.Names;
+
+    /// Re-reads %APPDATA%\Spektra\palettes (called when Preferences opens, so
+    /// newly dropped JSON files show up without a restart).
+    public void ReloadPalettes()
+    {
+        _paletteRegistry = PaletteRegistry.LoadWithCustom();
+        _palettes = _paletteRegistry.Names;
+        RaisePropertyChanged(nameof(Palettes));
+        if (_paletteRegistry.Skipped.Count > 0)
+            StatusText = $"Skipped palette file(s): {string.Join("; ", _paletteRegistry.Skipped)}";
+    }
+
+    public DisplaySettings ToDisplaySettings() => Settings.ToDisplaySettings(_paletteRegistry);
 
     /// FFT window shape. Like FftSize this is an analysis setting, so changing it
     /// re-analyzes every open tab.
@@ -85,7 +101,7 @@ public sealed class MainWindowViewModel : ObservableObject
     // re-analyzing.
     public event Action? DisplayChanged;
 
-    public PaletteKind Palette
+    public string Palette
     {
         get => Settings.Palette;
         set { if (SetDisplay(v => Settings.Palette = v, Settings.Palette, value)) RaisePropertyChanged(nameof(Palette)); }

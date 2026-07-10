@@ -138,7 +138,7 @@ static class SpectrogramDraw
         for (var i = 0; i < steps; i++)
         {
             var db = floor + (ceil - floor) * (steps - 1 - i) / (steps - 1);
-            var brush = new SolidColorBrush(Color.FromUInt32(Colormaps.ToBgra(display.Palette, db, floor, ceil)));
+            var brush = new SolidColorBrush(Color.FromUInt32(PaletteLut.Sample(display.Lut, db, floor, ceil)));
             var h = plot.Height / steps;
             ctx.FillRectangle(brush, new Rect(x, plot.Top + i * h, w, h + 1));
         }

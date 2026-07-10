@@ -59,7 +59,7 @@ sealed class PaneRenderer : IDisposable
             {
                 var row = _doc.Bins - 1 - bin;
                 Marshal.WriteInt32(fb.Address + row * fb.RowBytes + col * 4,
-                    unchecked((int)Colormaps.ToBgra(_display.Palette, data[bin], _display.DbFloor, _display.DbCeil)));
+                    unchecked((int)PaletteLut.Sample(_display.Lut, data[bin], _display.DbFloor, _display.DbCeil)));
             }
         }
         _written = count;
@@ -81,7 +81,7 @@ sealed class PaneRenderer : IDisposable
             {
                 var row = tile.Bins - 1 - bin;
                 Marshal.WriteInt32(fb.Address + row * fb.RowBytes + col * 4,
-                    unchecked((int)Colormaps.ToBgra(_display.Palette, data[bin], _display.DbFloor, _display.DbCeil)));
+                    unchecked((int)PaletteLut.Sample(_display.Lut, data[bin], _display.DbFloor, _display.DbCeil)));
             }
         }
         _tileShown = tile;
@@ -143,7 +143,7 @@ sealed class PaneRenderer : IDisposable
     private void Clear(WriteableBitmap bmp)
     {
         using var fb = bmp.Lock();
-        var black = unchecked((int)Colormaps.ToBgra(_display.Palette, Db.Floor, _display.DbFloor, _display.DbCeil));
+        var black = unchecked((int)PaletteLut.Sample(_display.Lut, Db.Floor, _display.DbFloor, _display.DbCeil));
         var px = fb.Size.Width * fb.Size.Height;
         for (var i = 0; i < px; i++) Marshal.WriteInt32(fb.Address + i * 4, black);
     }

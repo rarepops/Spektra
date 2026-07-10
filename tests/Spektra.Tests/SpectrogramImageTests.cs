@@ -14,7 +14,7 @@ public sealed class SpectrogramImageTests
         const float floor = -120f;
         float[] loudAtDc = [0f, floor, floor];    // bin 0 loud, upper bins at the floor
         float[] quiet = [floor, floor, floor];
-        var (w, h, rgb) = SpectrogramImage.ToRgb([loudAtDc, quiet], PaletteKind.Magma, floor);
+        var (w, h, rgb) = SpectrogramImage.ToRgb([loudAtDc, quiet], Colormaps.DefaultLut, floor);
 
         Assert.Equal(2, w);
         Assert.Equal(3, h);
@@ -34,8 +34,9 @@ public sealed class SpectrogramImageTests
     {
         const float floor = -120f;
         float[] col = [0f];
-        var (_, _, magma) = SpectrogramImage.ToRgb([col], PaletteKind.Magma, floor);
-        var (_, _, gray) = SpectrogramImage.ToRgb([col], PaletteKind.Grayscale, floor);
+        var palettes = PaletteRegistry.LoadWithCustom(Path.Combine(Path.GetTempPath(), "spektra-no-palettes"));
+        var (_, _, magma) = SpectrogramImage.ToRgb([col], palettes.BakeLut("Magma", floor), floor);
+        var (_, _, gray) = SpectrogramImage.ToRgb([col], palettes.BakeLut("Grayscale", floor), floor);
         Assert.NotEqual(magma, gray);
         Assert.Equal(255, gray[0]); // grayscale at 0 dB is white
         Assert.Equal(255, gray[1]);
