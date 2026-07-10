@@ -458,7 +458,7 @@ public partial class MainWindow : Window
         });
         if (file is null) return;
         await using var stream = await file.OpenWriteAsync();
-        rtb.Save(stream);
+        rtb.Save(stream, PngBitmapEncoderOptions.Default);
         _vm.StatusText = $"Saved {file.Name}";
     }
 
