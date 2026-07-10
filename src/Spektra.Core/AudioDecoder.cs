@@ -67,6 +67,7 @@ public sealed class AudioDecoder(string ffmpegPath)
         var bytes = new byte[ChunkBytes];
         var carry = 0;            // bytes of a partial float carried between reads
         long totalSamples = 0;
+        var sawEof = false;
 
         try
         {
@@ -79,7 +80,11 @@ public sealed class AudioDecoder(string ffmpegPath)
                 }
 
                 var read = stream.Read(bytes, carry, bytes.Length - carry);
-                if (read == 0) break;
+                if (read == 0)
+                {
+                    sawEof = true;
+                    break;
+                }
 
                 var available = carry + read;
                 var usable = available - available % 4;
@@ -96,7 +101,11 @@ public sealed class AudioDecoder(string ffmpegPath)
         }
         finally
         {
-            if (!p.HasExited)
+            // Kill only when the consumer abandoned the stream (early break,
+            // exception, cancel). After a clean EOF ffmpeg is exiting on its
+            // own; killing it here races into a bogus nonzero ExitCode that
+            // reads as "failed to decode" on a healthy file.
+            if (!sawEof && !p.HasExited)
             {
                 try { p.Kill(entireProcessTree: true); } catch { /* already exited */ }
             }
