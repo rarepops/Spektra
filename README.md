@@ -13,9 +13,9 @@
 
 # Spektra
 
-A desktop audio spectrum analyzer: drop in an audio file, see its spectrogram,
-compare encodes side by side, and get an automated "is this really lossless?"
-verdict.
+A desktop audio spectrum analyzer: drop in a file or a whole folder, see
+spectrograms, triage a library in a live audit grid, compare encodes side by
+side, and get an automated "is this really lossless?" verdict.
 
 ## Features
 
@@ -25,11 +25,15 @@ verdict.
 - Upsampling detection: a hi-res file whose real bandwidth stops at a lower
   standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged
   Upsampled, naming the likely true source rate
+- Transcode-aware problems: an honest lossy file is not a problem; the audit
+  flags lossy content hiding in a lossless container, or an mp3/aac whose
+  cutoff sits far below what its bitrate should deliver
 - Export report: save the bandwidth + integrity audit for the current file or
   a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
-- Folder audit grid: drop a folder to triage a whole library live (sortable,
-  problems-only filter), with a persistent cache so re-scans only analyze
-  what changed
+- Folder audit grid: drop a folder (or pass it on the command line) to triage
+  a whole library live in a sortable grid, with byte-weighted progress and a
+  remaining-time estimate, a tiered severity filter (all / suspect + worse /
+  problems only), and a persistent cache so re-scans only analyze what changed
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan,
   double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay
@@ -46,7 +50,8 @@ verdict.
   A−B difference view (diverging colormap) with a numeric diff score
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
 - Integrity check: flags corrupt frames, missing data (interior digital silence),
-  and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI
+  and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI;
+  silent gaps and the missing tail are marked on a lane along the time axis
 - Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor,
   and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
@@ -54,17 +59,17 @@ verdict.
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl+O` | Open audio files |
+| `Ctrl+O` · `Ctrl+Shift+O` | Open audio files · open a folder to audit |
 | `Ctrl+W` · `Ctrl+Tab` | Close tab · switch tabs (Shift to reverse) |
 | `Ctrl+S` · `Ctrl+Shift+C` | Save the spectrogram to PNG · copy it to the clipboard |
 | `Ctrl+E` · `Ctrl+R` | Preferences · toggle the average-spectrum overlay |
-| `Ctrl+I` · `Ctrl+L` | Check integrity · measure loudness (LUFS) |
+| `Ctrl+I` · `Ctrl+L` | Check integrity · measure loudness (press again to hide/show) |
 | Wheel · `Shift`+Wheel | Zoom time · zoom frequency |
 | Drag · Double-click | Pan · reset the view |
 | `T` · `D` · `A` · `Esc` | Compare view: flip A/B · difference · auto-align · back to both |
 | `Ctrl+D` · `Ctrl+Shift+S` | Compare two files · export the current file's report |
 | `Ctrl+0` · `Ctrl+1`..`Ctrl+9` | Reset the view · jump to tab N |
-| `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file |
+| `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file or rescan the folder (`Shift+F5` = ignore the cache) |
 | `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
 
 Check for a newer release any time from **Help → Check for Updates**. Spektra
@@ -117,12 +122,13 @@ Compare two files directly (also available in-app via File → Compare…):
 ## Command line
 
 Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the
-analysis engine. It writes to stdout and exits 1 when anything looks lossy or corrupt:
+analysis engine. It writes to stdout and exits 1 on findings (for `audit`:
+a transcode, an upsample, or corruption; an honest lossy file is fine):
 
     spektra report <file|folder> ...   Bandwidth verdict per file.
     spektra scan <folder>              Compact bandwidth scan of a library.
     spektra check <file|folder> ...    Integrity check (corruption / missing data).
-    spektra audit <file|folder> ...    Bandwidth + integrity together.
+    spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
     spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
     spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
     spektra image <file>               Render the spectrogram to a PNG (no window).
