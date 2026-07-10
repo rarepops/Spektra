@@ -20,10 +20,7 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
         || Integrity?.Status == IntegrityStatus.Corrupt;
 }
 
-/// Runs the combined bandwidth + integrity audit over many files in parallel
-/// (bounded by `jobs`), returning results in input order. `progress` receives
-/// the completed-file count. Cancellation throws OperationCanceledException.
-/// Shared by the CLI `audit` verb and the GUI report export.
+/// The combined bandwidth + integrity audit over a folder's files (see Run).
 public static class FolderAudit
 {
     /// Enumerates a folder's audio files with the size/mtime identity the
@@ -50,19 +47,48 @@ public static class FolderAudit
         return new AuditResult(report, integrity, integrityError);
     }
 
-    public static AuditResult[] Run(
-        FfmpegPaths ffmpeg, IReadOnlyList<string> files, int jobs,
-        IProgress<int>? progress = null, CancellationToken ct = default)
+    /// Runs the combined bandwidth + integrity audit over the targets, in
+    /// parallel (bounded by `jobs`), returning entries in input order.
+    /// Cache hits (unless `fresh`) replay first, in input order, without
+    /// touching ffmpeg; misses are analyzed and upserted into the cache the
+    /// moment each finishes, so cancel/crash keeps completed work. Error
+    /// rows are never cached (a transient failure must not stick).
+    /// `progress` receives every entry once. Cancellation throws
+    /// OperationCanceledException. Shared by the CLI `audit` verb, the GUI
+    /// report export, and the GUI folder tab.
+    public static AuditEntry[] Run(
+        FfmpegPaths ffmpeg, IReadOnlyList<AuditTarget> targets, int jobs,
+        AuditCache? cache = null, bool fresh = false,
+        IProgress<AuditEntry>? progress = null, CancellationToken ct = default)
     {
-        var results = new AuditResult[files.Count];
-        var done = 0;
-        Parallel.For(0, files.Count,
-            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, jobs), CancellationToken = ct },
-            i =>
+        var entries = new AuditEntry?[targets.Count];
+        var missing = new List<int>();
+        for (var i = 0; i < targets.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var hit = fresh ? null : cache?.TryGet(targets[i]);
+            if (hit is not null)
             {
-                results[i] = AnalyzeFile(ffmpeg, files[i], ct);
-                progress?.Report(Interlocked.Increment(ref done));
+                entries[i] = hit;
+                progress?.Report(hit);
+            }
+            else missing.Add(i);
+        }
+
+        Parallel.For(0, missing.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, jobs), CancellationToken = ct },
+            k =>
+            {
+                var i = missing[k];
+                var target = targets[i];
+                var result = AnalyzeFile(ffmpeg, target.Path, ct);
+                var entry = new AuditEntry(target, result.ToRow(), result.HasProblem, FromCache: false);
+                if (result.Report.Error is null && result.IntegrityError is null)
+                    cache?.Put(target, entry.Row, entry.HasProblem);
+                entries[i] = entry;
+                progress?.Report(entry);
             });
-        return results;
+
+        return entries.Select(e => e!).ToArray();
     }
 }

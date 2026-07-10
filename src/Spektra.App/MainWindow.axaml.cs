@@ -487,14 +487,14 @@ public partial class MainWindow : Window
         });
         if (folders.Count == 0 || folders[0].TryGetLocalPath() is not { } folder) return;
 
-        var files = BandwidthReport.FindAudioFiles(folder).ToList();
-        if (files.Count == 0)
+        var targets = FolderAudit.CollectTargets(folder);
+        if (targets.Length == 0)
         {
             _vm.SetErrorStatus("No audio files found in that folder.");
             return;
         }
 
-        var dialog = new ExportProgressDialog(ffmpeg, files);
+        var dialog = new ExportProgressDialog(ffmpeg, targets, folder);
         await dialog.ShowDialog(this);
         if (dialog.Results is not { } results) return; // cancelled: write nothing
 
@@ -512,7 +512,7 @@ public partial class MainWindow : Window
             ],
         });
         if (file is null) return;
-        await WriteReportAsync(file, results.Select(r => r.ToRow()).ToList());
+        await WriteReportAsync(file, results.Select(r => r.Row).ToList());
         _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
     }
 

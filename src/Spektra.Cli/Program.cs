@@ -220,29 +220,53 @@ internal static class Program
 
     private static int Audit(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
-        var files = ResolveInputs(paths);
-        if (files.Count == 0)
+        var fresh = paths.Contains("--fresh");
+        paths = paths.Where(p => p != "--fresh").ToArray();
+        var folder = paths.Length == 1 && Directory.Exists(paths[0]) ? paths[0] : null;
+        var targets = folder is not null
+            ? FolderAudit.CollectTargets(folder)
+            : paths.Select(p =>
+            {
+                var info = new FileInfo(p);
+                return new AuditTarget(p, info.Exists ? info.Length : 0, info.Exists ? info.LastWriteTimeUtc.Ticks : 0);
+            }).ToArray();
+        if (targets.Length == 0)
         {
             Console.Error.WriteLine("spektra audit: give one or more audio files or a folder.");
             return Usage(1);
         }
-        var results = FolderAudit.Run(ffmpeg, files, jobs);
+
+        AuditCache? cache = null;
+        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Console.Error.WriteLine($"spektra audit: cache unavailable ({ex.Message}); analyzing everything.");
+        }
+
+        AuditEntry[] results;
+        try
+        {
+            results = FolderAudit.Run(ffmpeg, targets, jobs, cache, fresh);
+            if (folder is not null)
+                cache?.PruneFolder(folder, targets.Select(t => t.Path).ToList());
+        }
+        finally { cache?.Dispose(); }
 
         if (fmt != OutFormat.Text)
         {
-            Emit(results.Select(r => r.ToRow()).ToList(), fmt);
+            Emit(results.Select(r => r.Row).ToList(), fmt);
             return results.Any(r => r.HasProblem) ? 1 : 0;
         }
 
         foreach (var r in results)
         {
-            var report = r.Report;
-            var bw = report.Error is not null ? "error"
-                : $"{report.Verdict!.Kind}{(report.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
-            var integ = r.IntegrityError is not null ? "ERROR" : r.Integrity?.Status.ToString() ?? "-";
-            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {Path.GetFileName(report.Path)}");
+            var row = r.Row;
+            var bw = row.Error is not null ? "error"
+                : $"{row.Bandwidth}{(row.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
+            var integ = row.Error is not null ? "ERROR" : row.Integrity;
+            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}");
         }
-        Console.WriteLine($"{Environment.NewLine}{files.Count} files, {results.Count(r => r.HasProblem)} with problems.");
+        Console.WriteLine($"{Environment.NewLine}{targets.Length} files, {results.Count(r => r.HasProblem)} with problems.");
         return results.Any(r => r.HasProblem) ? 1 : 0;
     }
 
