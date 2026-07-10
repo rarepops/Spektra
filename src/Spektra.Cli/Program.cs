@@ -453,7 +453,7 @@ internal static class Program
               spektra report <file|folder> ...   Bandwidth verdict per file.
               spektra scan <folder>              Compact bandwidth scan of a library.
               spektra check <file|folder> ...    Integrity check (corruption / missing data).
-              spektra audit <file|folder> ...    Bandwidth + integrity together.
+              spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
               spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
               spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
               spektra image <file>               Render the spectrogram to a PNG (no window).
@@ -465,6 +465,9 @@ internal static class Program
 
             Folders are analyzed in parallel. By default Spektra uses about 80% of
             the CPU cores; cap it with --jobs N (or -j N), e.g. spektra scan Music -j 4
+
+            audit caches results per file (keyed by size + mtime) in the app data
+            folder, so repeat runs only analyze new or changed files; --fresh re-analyzes.
 
             diff aligns the files automatically; pin an offset with --offset <ms>
             (positive = B later than A) and tune the verdict with --threshold-db <N>

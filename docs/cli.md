@@ -63,6 +63,12 @@ be natural), **Lossy** (sharp codec cutoff, with a codec/bitrate guess),
 
     3 files, 2 with problems.
 
+Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db`
+(keyed by size and modified time), so repeat runs of the same library only
+analyze new or changed files. Pass `--fresh` to ignore the cache and
+re-analyze everything; results are written back either way. The cache is
+disposable: deleting the file just means the next audit starts cold.
+
 ## loudness: LUFS, true peak, dynamics
 
     $ spektra loudness master.flac
