@@ -13,50 +13,27 @@
 
 # Spektra
 
-A desktop audio spectrum analyzer: drop in a file or a whole folder, see
-spectrograms, triage a library in a live audit grid, compare encodes side by
-side, and get an automated "is this really lossless?" verdict.
+A desktop audio spectrum analyzer: drop in a file or a whole folder, see spectrograms, triage a library in a live audit grid, compare encodes side by side, and get an automated "is this really lossless?" verdict.
 
 ## Features
 
 - Progressive spectrogram with time/frequency rulers and dB legend
-- Automated bandwidth verdict: detects a lossy low-pass cutoff and reports
-  Lossless / Suspicious / Lossy with a likely codec/bitrate guess
-- Upsampling detection: a hi-res file whose real bandwidth stops at a lower
-  standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged
-  Upsampled, naming the likely true source rate
-- Transcode-aware problems: an honest lossy file is not a problem; the audit
-  flags lossy content hiding in a lossless container, or an mp3/aac whose
-  cutoff sits far below what its bitrate should deliver
-- Export report: save the bandwidth + integrity audit for the current file or
-  a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
-- Folder audit grid: drop a folder (or pass it on the command line) to triage
-  a whole library live in a sortable grid, with byte-weighted progress and a
-  remaining-time estimate, a tiered severity filter (all / suspect + worse /
-  problems only), and a persistent cache so re-scans only analyze what changed
-- Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan,
-  double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
-- Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay
-  (peak-hold + time-average)
-- Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris),
-  color palette (Turbo by default, plus Magma/Inferno/Plasma/Viridis/Cividis/
-  Grayscale, mono phosphor ramps, and custom palettes as JSON files with even
-  anchors or stops pinned to a dB level), a tightness curve for how fast
-  quiet detail fades to black, dynamic-range floor, and a
-  linear or logarithmic frequency axis
+- Automated bandwidth verdict: detects a lossy low-pass cutoff and reports Lossless / Suspicious / Lossy with a likely codec/bitrate guess
+- Upsampling detection: a hi-res file whose real bandwidth stops at a lower standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged Upsampled, naming the likely true source rate
+- Transcode-aware problems: an honest lossy file is not a problem; the audit flags lossy content hiding in a lossless container, or an mp3/aac whose cutoff sits far below what its bitrate should deliver
+- Export report: save the bandwidth + integrity audit for the current file or a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
+- Folder audit grid: drop a folder (or pass it on the command line) to triage a whole library live in a sortable grid, with byte-weighted progress and a remaining-time estimate, a tiered severity filter (all / suspect + worse / problems only), and a persistent cache so re-scans only analyze what changed
+- Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan, double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
+- Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay (peak-hold + time-average)
+- Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris), color palette (Turbo by default, plus Magma/Inferno/Plasma/Viridis/Cividis/Grayscale, mono phosphor ramps, and custom palettes as JSON files with even anchors or stops pinned to a dB level), a tightness curve for how fast quiet detail fades to black, dynamic-range floor, and a linear or logarithmic frequency axis
 - Save the spectrogram to PNG (Ctrl+S) or copy it to the clipboard (Ctrl+Shift+C)
 - Tabs: open many files at once (dialog, drag-drop, or CLI args)
 - Per-channel or mixdown analysis for multichannel files
 - Recent files + window placement remembered across runs
-- Compare two files: stacked spectrograms on a shared time axis, synced zoom/pan,
-  manual + automatic (cross-correlation) time alignment, A/B flip, and a signed
-  A−B difference view (diverging colormap) with a numeric diff score
+- Compare two files: stacked spectrograms on a shared time axis, synced zoom/pan, manual + automatic (cross-correlation) time alignment, A/B flip, and a signed A−B difference view (diverging colormap) with a numeric diff score
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
-- Integrity check: flags corrupt frames, missing data (interior digital silence),
-  and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI;
-  silent gaps and the missing tail are marked on a lane along the time axis
-- Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor,
-  and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
+- Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files, in the app (Ctrl+I) or the CLI; silent gaps and the missing tail are marked on a lane along the time axis
+- Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor, and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
 ## Keyboard shortcuts
 
@@ -75,16 +52,12 @@ side, and get an automated "is this really lossless?" verdict.
 | `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file or rescan the folder (`Shift+F5` = ignore the cache) |
 | `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
 
-Check for a newer release any time from **Help → Check for Updates**. Spektra
-never updates itself; it only tells you when a newer release exists and links to
-it. You can also enable a quiet once-a-day check on startup in Preferences.
+Check for a newer release any time from **Help → Check for Updates**. Spektra never updates itself; it only tells you when a newer release exists and links to it. You can also enable a quiet once-a-day check on startup in Preferences.
 
 ## Documentation
 
-- **[GUI guide](docs/gui.md)**: inspecting files, verdict banners, compare
-  workflows, integrity/loudness checks, report export.
-- **[CLI guide](docs/cli.md)**: every command with sample output, JSON/CSV
-  reports, exit codes, and scripting examples.
+- **[GUI guide](docs/gui.md)**: inspecting files, verdict banners, compare workflows, integrity/loudness checks, report export.
+- **[CLI guide](docs/cli.md)**: every command with sample output, JSON/CSV reports, exit codes, and scripting examples.
 
 ## Download
 
@@ -94,11 +67,7 @@ Grab the latest build from the **[releases page](https://github.com/rarepops/Spe
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
 - `spektra-cli-<version>-<os>.zip`: the command-line tool (Windows, Linux, macOS).
 
-Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows
-protected your PC"** or an **Unknown Publisher** prompt. That's expected for an
-unsigned open-source build, not a sign of a problem: choose **More info → Run
-anyway** to continue. To verify a download first, check it against the
-`SHA256SUMS.txt` published with each release:
+Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protected your PC"** or an **Unknown Publisher** prompt. That's expected for an unsigned open-source build, not a sign of a problem: choose **More info → Run anyway** to continue. To verify a download first, check it against the `SHA256SUMS.txt` published with each release:
 
     # Windows (PowerShell)
     (Get-FileHash .\Spektra-<version>-Setup.msi -Algorithm SHA256).Hash
@@ -109,10 +78,7 @@ anyway** to continue. To verify a download first, check it against the
 ## Requirements
 
 - Windows (primary target; Avalonia keeps Linux/macOS possible)
-- [ffmpeg + ffprobe](https://ffmpeg.org/), found via the app folder,
-  `%LOCALAPPDATA%\Spektra\ffmpeg`, or `PATH`. If missing, Spektra offers a
-  one-click download. ffmpeg is invoked as a separate process and is not
-  linked or bundled.
+- [ffmpeg + ffprobe](https://ffmpeg.org/), found via the app folder, `%LOCALAPPDATA%\Spektra\ffmpeg`, or `PATH`. If missing, Spektra offers a one-click download. ffmpeg is invoked as a separate process and is not linked or bundled.
 
 ## Build & run
 
@@ -124,9 +90,7 @@ Compare two files directly (also available in-app via File → Compare…):
 
 ## Command line
 
-Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the
-analysis engine. It writes to stdout and exits 1 on findings (for `audit`:
-a transcode, an upsample, or corruption; an honest lossy file is fine):
+Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the analysis engine. It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
 
     spektra report <file|folder> ...   Bandwidth verdict per file.
     spektra scan <folder>              Compact bandwidth scan of a library.
@@ -140,15 +104,11 @@ Add `--json` or `--csv` to any command for a machine-readable report:
 
     spektra scan Music --csv > library.csv
 
-`spektra diff` exits 0 when two files are effectively identical (verify a rip
-or transcode is transparent) and 1 when they differ; `spektra --version`
-prints the version.
+`spektra diff` exits 0 when two files are effectively identical (verify a rip or transcode is transparent) and 1 when they differ; `spektra --version` prints the version.
 
-Full command reference with sample output and scripting recipes:
-**[docs/cli.md](docs/cli.md)**.
+Full command reference with sample output and scripting recipes: **[docs/cli.md](docs/cli.md)**.
 
-(`--report` / `--scan` are accepted too.) Build it with
-`dotnet publish src/Spektra.Cli -c Release`.
+(`--report` / `--scan` are accepted too.) Build it with `dotnet publish src/Spektra.Cli -c Release`.
 
 ## Test
 
