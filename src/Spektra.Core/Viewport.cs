@@ -1,6 +1,6 @@
 namespace Spektra.Core;
 
-/// Normalized visible ranges of a spectrogram — time [T0,T1] and frequency
+/// Normalized visible ranges of a spectrogram: time [T0,T1] and frequency
 /// [F0,F1], both within [0,1]. Mutations clamp to bounds and minimum spans;
 /// Changed fires only when a value actually moved.
 public sealed class Viewport

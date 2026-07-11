@@ -53,7 +53,7 @@ public sealed class CompareSurface : Control
         };
         _spinTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
         _spinTimer.Tick += (_, _) => { _spinPhase++; InvalidateVisual(); };
-        // Crisp, cell-accurate spectrograms/diff — no bilinear halo ("bloom").
+        // Crisp, cell-accurate spectrograms/diff, no bilinear halo ("bloom").
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
         _interaction = new PlotInteraction(this, () => _vm?.Viewport, () => SpectrogramDraw.PlotRect(Bounds));
     }

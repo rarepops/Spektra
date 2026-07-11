@@ -70,7 +70,7 @@
         <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#888888" FontSize="12" />
         <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}"
                   MinWidth="84" MinHeight="24" Padding="8,2" FontSize="12" VerticalAlignment="Center"
-                  ToolTip.Tip="FFT window size — frequency buckets = size / 2 + 1. Re-analyzes on change." />
+                  ToolTip.Tip="FFT window size: frequency buckets = size / 2 + 1. Re-analyzes on change." />
       </StackPanel>
       <Menu>
         <MenuItem Header="_File">
@@ -243,7 +243,7 @@
       <controls:SpectrogramView x:Name="Spectro" />
       <controls:CompareSurface x:Name="CompareSurfaceCtl" IsVisible="False" />
       <controls:FolderView x:Name="FolderViewCtl" IsVisible="False" />
-      <TextBlock Text="Drop audio files or a folder here — or File → Open"
+      <TextBlock Text="Drop audio files or a folder here, or File → Open"
                  IsVisible="{Binding ShowHint}" FontSize="16" Foreground="#666666"
                  HorizontalAlignment="Center" VerticalAlignment="Center" />
     </Panel>

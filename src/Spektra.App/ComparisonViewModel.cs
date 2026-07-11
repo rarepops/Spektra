@@ -202,7 +202,7 @@ public sealed class ComparisonViewModel : TabViewModelBase
             if (cts.Token.IsCancellationRequested) return;
             if (res.Confidence < 0.3)
             {
-                AlignHint = $"Auto-align uncertain (confidence {res.Confidence:0.00}) — dial manually.";
+                AlignHint = $"Auto-align uncertain (confidence {res.Confidence:0.00}); dial manually.";
                 StatusText = "";
                 return;
             }

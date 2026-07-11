@@ -82,7 +82,7 @@ public partial class MainWindow : Window
     private void RestoreWindowPlacement()
     {
         if (_vm.Settings.Window is not { } w) return;
-        // Position is physical px, Width/Height logical — the intersect test
+        // Position is physical px, Width/Height logical; the intersect test
         // is approximate across DPI scales, which is fine for "is it on-screen".
         var target = new PixelRect(w.X, w.Y, Math.Max(400, w.Width), Math.Max(300, w.Height));
         if (!Screens.All.Any(s => s.Bounds.Intersects(target))) return;
