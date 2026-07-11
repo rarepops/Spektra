@@ -31,23 +31,62 @@ internal static class Program
             return 2;
         }
 
-        var (fmt, jobs, rest) = TakeOptions(args[1..]);
-        return args[0] switch
+        try
         {
-            "--report" or "report" => Report(ffmpeg, rest, fmt, jobs),
-            "--scan" or "scan" => Scan(ffmpeg, rest, fmt, jobs),
-            "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
-            "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
-            "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
-            "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
-            "--image" or "image" => Image(ffmpeg, rest, fmt),
-            _ => Usage(1),
-        };
+            var (fmt, jobs, rest) = TakeOptions(args[1..]);
+            return args[0] switch
+            {
+                "--report" or "report" => Report(ffmpeg, rest, fmt, jobs),
+                "--scan" or "scan" => Scan(ffmpeg, rest, fmt, jobs),
+                "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
+                "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
+                "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
+                "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
+                "--image" or "image" => Image(ffmpeg, rest, fmt),
+                _ => Usage(1),
+            };
+        }
+        catch (OptionException ex)
+        {
+            Console.Error.WriteLine($"spektra: {ex.Message}");
+            return 2;
+        }
     }
 
     // Default worker count: about 80% of the logical cores, leaving headroom for
     // the OS and for ffmpeg's own decode threads. Override with --jobs / -j.
     private static readonly int DefaultJobs = Math.Max(1, (int)(Environment.ProcessorCount * 0.8));
+
+    // A recognized option flag was given a missing or invalid value. Carried out
+    // to Main, which prints it and exits 2, instead of letting the flag and its
+    // value fall through and be misread as file arguments (which produced a
+    // baffling "give one audio file" error).
+    private sealed class OptionException(string message) : Exception(message);
+
+    // Consume the value following a recognized flag, or fail with a clear message.
+    private static string OptionValue(string flag, string[] args, ref int i) =>
+        i + 1 < args.Length ? args[++i] : throw new OptionException($"{flag} needs a value.");
+
+    private static int IntOption(string flag, string[] args, ref int i, int min)
+    {
+        var v = OptionValue(flag, args, ref i);
+        return int.TryParse(v, out var n) && n >= min ? n
+            : throw new OptionException($"{flag} must be a whole number >= {min}, got '{v}'.");
+    }
+
+    private static double DoubleOption(string flag, string[] args, ref int i)
+    {
+        var v = OptionValue(flag, args, ref i);
+        return double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? n
+            : throw new OptionException($"{flag} must be a number, got '{v}'.");
+    }
+
+    private static float FloatOption(string flag, string[] args, ref int i)
+    {
+        var v = OptionValue(flag, args, ref i);
+        return float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? n
+            : throw new OptionException($"{flag} must be a number, got '{v}'.");
+    }
 
     private static (OutFormat fmt, int jobs, string[] rest) TakeOptions(string[] args)
     {
@@ -59,12 +98,7 @@ internal static class Program
             var a = args[i];
             if (a is "--json") fmt = OutFormat.Json;
             else if (a is "--csv") fmt = OutFormat.Csv;
-            else if ((a is "--jobs" or "-j") && i + 1 < args.Length
-                     && int.TryParse(args[i + 1], out var j) && j > 0)
-            {
-                jobs = j;
-                i++;
-            }
+            else if (a is "--jobs" or "-j") jobs = IntOption(a, args, ref i, min: 1);
             else rest.Add(a);
         }
         return (fmt, jobs, rest.ToArray());
@@ -141,11 +175,14 @@ internal static class Program
         var root = args[0];
         var files = BandwidthReport.FindAudioFiles(root).ToList();
         var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
+        // One exit-code rule for both output paths: 1 when any file is likely
+        // lossy or upsampled (computed once so the two branches can't drift).
+        var findings = reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
 
         if (fmt != OutFormat.Text)
         {
             Emit(reports.Select(Reporting.ToBandwidthRow).ToList(), fmt);
-            return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
+            return findings;
         }
 
         Console.WriteLine($"Scanning {files.Count} audio file(s) under {root} ...");
@@ -165,7 +202,7 @@ internal static class Program
         Console.WriteLine(
             $"{Environment.NewLine}{files.Count} files: {lossless} lossless, {suspect} suspect, " +
             $"{lossy} likely lossy, {upsampled} upsampled, {unknown} unknown, {errors} errors.");
-        return lossy > 0 || upsampled > 0 ? 1 : 0;
+        return findings;
     }
 
     private static int Check(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
@@ -297,7 +334,9 @@ internal static class Program
             }
         }
         if (fmt != OutFormat.Text) Emit(rows, fmt);
-        return 0;
+        // Loudness has no "problem" verdict; the only failure signal is a file
+        // that could not be measured (mirrors check/audit: any error -> 1).
+        return computed.Any(c => c.err is not null) ? 1 : 0;
     }
 
     private static int Diff(FfmpegPaths ffmpeg, string[] args, OutFormat fmt)
@@ -308,18 +347,8 @@ internal static class Program
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
-            if (a is "--offset" && i + 1 < args.Length && double.TryParse(
-                    args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var ms))
-            {
-                offsetMs = ms;
-                i++;
-            }
-            else if (a is "--threshold-db" && i + 1 < args.Length && float.TryParse(
-                    args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out var t))
-            {
-                thresholdDb = t;
-                i++;
-            }
+            if (a is "--offset") offsetMs = DoubleOption(a, args, ref i);
+            else if (a is "--threshold-db") thresholdDb = FloatOption(a, args, ref i);
             else files.Add(a);
         }
         if (files.Count != 2)
@@ -388,24 +417,17 @@ internal static class Program
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
-            var value = i + 1 < args.Length ? args[i + 1] : null;
-            if (a is "-o" or "--out" && value is not null) { outPath = value; i++; }
-            else if (a is "--palette" && value is not null) { paletteName = value; i++; }
-            else if (a is "--gamma" && value is not null && double.TryParse(
-                         value, NumberStyles.Float, CultureInfo.InvariantCulture, out var g) && g > 0)
-            { gamma = g; i++; }
-            else if (a is "--floor" && value is not null && float.TryParse(
-                         value, NumberStyles.Float, CultureInfo.InvariantCulture, out var floor))
-            { options = options with { FloorDb = floor }; i++; }
-            else if (a is "--fft" && value is not null
-                     && int.TryParse(value, out var fft) && fft >= 16)
-            { options = options with { WindowSize = fft }; i++; }
-            else if (a is "--channel" && value is not null
-                     && int.TryParse(value, out var ch) && ch >= 1)
-            { options = options with { Channel = ch - 1 }; i++; }
-            else if (a is "--columns" && value is not null
-                     && int.TryParse(value, out var cols) && cols >= 1)
-            { options = options with { MaxColumns = cols }; i++; }
+            if (a is "-o" or "--out") outPath = OptionValue(a, args, ref i);
+            else if (a is "--palette") paletteName = OptionValue(a, args, ref i);
+            else if (a is "--gamma")
+            {
+                var g = DoubleOption(a, args, ref i);
+                gamma = g > 0 ? g : throw new OptionException($"--gamma must be greater than 0, got '{g}'.");
+            }
+            else if (a is "--floor") options = options with { FloorDb = FloatOption(a, args, ref i) };
+            else if (a is "--fft") options = options with { WindowSize = IntOption(a, args, ref i, min: 16) };
+            else if (a is "--channel") options = options with { Channel = IntOption(a, args, ref i, min: 1) - 1 };
+            else if (a is "--columns") options = options with { MaxColumns = IntOption(a, args, ref i, min: 1) };
             else files.Add(a);
         }
         if (files.Count != 1 || Directory.Exists(files[0]))
@@ -498,9 +520,11 @@ internal static class Program
             files dropped in %APPDATA%\Spektra\palettes or a palettes folder next
             to the app (see docs/cli.md for the format).
 
-            Exit code is 1 on findings (report/scan: lossy or upsampled; audit:
-            a transcode, an upsample, or corruption - an honest lossy file is
-            not a problem; diff: the files differ), 2 on setup errors.
+            Exit code is 1 on findings (report/scan: lossy or upsampled; check:
+            corrupt files; audit: a transcode, an upsample, or corruption - an
+            honest lossy file is not a problem; loudness: a file could not be
+            measured; diff: the files differ), 2 on setup errors (including an
+            unknown or malformed option).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
