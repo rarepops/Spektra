@@ -4,6 +4,16 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2026-07-11
+
+### Fixed
+- The built-in ffmpeg download works again: the pinned build URL had gone stale (a 404), so first-run setup and `tools/get-ffmpeg.ps1` both failed. They now install a current ffmpeg build with its SHA-256 verified against the source, and fall back to the latest build automatically if the pinned one is ever removed.
+- Reading a file's metadata no longer risks hanging when ffprobe emits many warnings about it: its output and error streams are now drained together instead of one after the other.
+- A malformed custom-palette JSON (for example a non-numeric `at` or `db` position) is skipped with a reason instead of crashing the app on startup, when opening Preferences, or in `spektra image`.
+
+### Changed
+- The spectrogram surfaces allocate less while drawing (the legend ramps and axis labels are cached), for smoother interaction and lower memory churn.
+
 ## [0.11.1] - 2026-07-11
 
 ### Changed
@@ -225,7 +235,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/rarepops/Spektra/releases/tag/v0.11.2
 [0.11.1]: https://github.com/rarepops/Spektra/releases/tag/v0.11.1
 [0.8.2]: https://github.com/rarepops/Spektra/releases/tag/v0.8.2
 [0.8.1]: https://github.com/rarepops/Spektra/releases/tag/v0.8.1
