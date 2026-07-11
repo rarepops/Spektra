@@ -3,7 +3,7 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-public sealed class DocumentViewModel : ObservableObject, ITab
+public sealed class DocumentViewModel : TabViewModelBase
 {
     /// Mix + both channels of a stereo file fit; surround files stay bounded
     /// and fall back to lazy recompute past this.
@@ -21,16 +21,14 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     private int _computingIndex = -1;
 
     private string _headerText;
-    private string _statusText = "";
     private string? _errorText;
-    private bool _isSelected;
     private int _selectedChannelIndex;
     private int _windowSize = 2048;
     private WindowFunctionKind _window = WindowFunctionKind.Hann;
     private List<string> _channelOptions = ["Mix"];
 
     public string FilePath { get; }
-    public string TabTitle => Path.GetFileName(FilePath);
+    public override string TabTitle => Path.GetFileName(FilePath);
 
     /// Background-compute the remaining channel variants after the visible
     /// overview finishes. Comparison documents turn this off: they never
@@ -38,17 +36,6 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     public bool PrefetchChannels { get; init; } = true;
 
     public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
-    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
-    public string StatusText
-    {
-        get => _statusText;
-        private set { _ = Set(ref _statusText, value); StatusIsError = false; }
-    }
-
-    private bool _statusIsError;
-    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
-
-    private void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
 
     public string? ErrorText
     {
@@ -57,7 +44,6 @@ public sealed class DocumentViewModel : ObservableObject, ITab
     }
 
     public bool HasError => _errorText is not null;
-    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
 
     private LosslessVerdict? _verdict;
 
@@ -434,7 +420,7 @@ public sealed class DocumentViewModel : ObservableObject, ITab
         catch (AudioDecodeException) { /* tile is best-effort; overview stays */ }
     }
 
-    public void Cancel()
+    public override void Cancel()
     {
         _loadCts?.Cancel();
         _tileCts?.Cancel();

@@ -47,7 +47,7 @@ public sealed class FolderRow(AuditEntry entry)
 
 /// A folder-audit tab: streams FolderAudit entries into a sortable grid with
 /// byte-weighted progress, an ETA, and the persistent cache.
-public sealed class FolderViewModel : ObservableObject, ITab
+public sealed class FolderViewModel : TabViewModelBase
 {
     private readonly FfmpegPaths _ffmpeg;
     private CancellationTokenSource _cts = new();
@@ -72,26 +72,9 @@ public sealed class FolderViewModel : ObservableObject, ITab
         _flushTimer.Tick += (_, _) => Flush();
     }
 
-    public string TabTitle { get; }
+    public override string TabTitle { get; }
 
-    private bool _isSelected;
-    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
-
-    private string _statusText = "";
-    public string StatusText { get => _statusText; private set => Set(ref _statusText, value); }
-
-    private bool _statusIsError;
-    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
-
-    /// Red status for failures reported from the view (mirrors the helper the
-    /// other tab view models expose).
-    public void SetErrorStatus(string message)
-    {
-        StatusText = message;
-        StatusIsError = true;
-    }
-
-    public void Cancel() => _cts.Cancel();
+    public override void Cancel() => _cts.Cancel();
 
     public IReadOnlyList<string> FilterOptions { get; } = ["All files", "Suspect + worse", "Problems only"];
 
@@ -130,7 +113,6 @@ public sealed class FolderViewModel : ObservableObject, ITab
     {
         if (IsScanning) return;
         IsScanning = true;
-        StatusIsError = false;
         _cts = new CancellationTokenSource();
         Rows.Clear();
         _pending.Clear();
@@ -174,8 +156,7 @@ public sealed class FolderViewModel : ObservableObject, ITab
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            StatusText = ex.Message;
-            StatusIsError = true;
+            SetErrorStatus(ex.Message);
         }
         finally
         {

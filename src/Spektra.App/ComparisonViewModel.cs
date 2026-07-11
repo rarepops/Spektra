@@ -4,20 +4,18 @@ namespace Spektra.App;
 
 public enum CompareMode { Both, A, B, Diff }
 
-public sealed class ComparisonViewModel : ObservableObject, ITab
+public sealed class ComparisonViewModel : TabViewModelBase
 {
     private readonly FfmpegPaths _ffmpeg;
     private CancellationTokenSource? _diffCts;
     private CancellationTokenSource? _alignCts;
     private CancellationTokenSource? _nullCts;
 
-    private bool _isSelected;
     private CompareMode _mode = CompareMode.Both;
     private double _offsetSeconds;
     private int _coarseMs;
     private int _fineMs;
     private bool _syncingSliders;
-    private string _statusText = "";
     private string? _alignHint;
     private string? _busyText;
     private int _windowSize = 2048;
@@ -27,19 +25,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
     public DocumentViewModel B { get; }
     public Viewport Viewport { get; } = new();
 
-    public string TabTitle { get; }
-    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
-    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
-    public string StatusText
-    {
-        get => _statusText;
-        private set { _ = Set(ref _statusText, value); StatusIsError = false; }
-    }
-
-    private bool _statusIsError;
-    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
-
-    private void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
+    public override string TabTitle { get; }
 
     public IReadOnlyList<float[]>? Diff { get; private set; }
     public double DiffT0 { get; private set; }
@@ -291,7 +277,7 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
         finally { if (ReferenceEquals(_diffCts, cts)) BusyText = null; }
     }
 
-    public void Cancel()
+    public override void Cancel()
     {
         _diffCts?.Cancel();
         _alignCts?.Cancel();

@@ -4,30 +4,17 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-public sealed class MainWindowViewModel : ObservableObject
+public sealed class MainWindowViewModel : StatusViewModel
 {
     private FfmpegPaths? _ffmpeg;
     private ITab? _selected;
 
-    private string _statusText = "";
     private string? _shellErrorText;
     private bool _ffmpegMissing;
 
     public ObservableCollection<ITab> Tabs { get; } = [];
 
     public FfmpegPaths? Ffmpeg => _ffmpeg;
-
-    /// Normal assignment resets the error flag; SetErrorStatus keeps it red.
-    public string StatusText
-    {
-        get => _statusText;
-        set { _ = Set(ref _statusText, value); StatusIsError = false; }
-    }
-
-    private bool _statusIsError;
-    public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
-
-    public void SetErrorStatus(string text) { StatusText = text; StatusIsError = true; }
 
     public string? ShellErrorText
     {
