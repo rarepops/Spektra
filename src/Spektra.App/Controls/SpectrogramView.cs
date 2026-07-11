@@ -11,9 +11,7 @@ public sealed class SpectrogramView : Control
 {
     private DocumentViewModel? _vm;
     private readonly PaneRenderer _pane = new();
-    private bool _panning;
-    private Point _lastPointer;
-    private Point? _cursor;
+    private readonly PlotInteraction _interaction;
     private readonly DispatcherTimer _tileTimer;
     private DisplaySettings _display = new();
     private float[]? _avgProfile;
@@ -39,6 +37,9 @@ public sealed class SpectrogramView : Control
             var columns = Math.Clamp((int)SpectrogramDraw.PlotRect(Bounds).Width, 64, 4096);
             _ = _vm.RenderTileAsync(columns);
         };
+        _interaction = new PlotInteraction(this,
+            () => _vm?.Document is null ? null : _vm.Viewport,
+            () => SpectrogramDraw.PlotRect(Bounds));
     }
 
     public void Attach(DocumentViewModel? vm)
@@ -191,7 +192,7 @@ public sealed class SpectrogramView : Control
     private void DrawCursorReadout(DrawingContext ctx, Rect plot)
     {
         if (!_display.ShowCrosshair) return;
-        if (_cursor is not { } p || _vm?.Document is not { } doc || _vm.Metadata is not { } meta) return;
+        if (_interaction.Cursor is not { } p || _vm?.Document is not { } doc || _vm.Metadata is not { } meta) return;
         if (!plot.Contains(p)) return;
         var vp = _vm.Viewport;
 
@@ -233,64 +234,30 @@ public sealed class SpectrogramView : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
-        if (_vm?.Document is null) return;
-        var plot = SpectrogramDraw.PlotRect(Bounds);
-        var p = e.GetPosition(this);
-        if (!plot.Contains(p)) return;
-        var delta = Math.Abs(e.Delta.Y) >= Math.Abs(e.Delta.X) ? e.Delta.Y : e.Delta.X;
-        if (delta == 0) return;
-        var factor = delta > 0 ? 0.8 : 1.25;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            _vm.Viewport.ZoomFrequency(1 - (p.Y - plot.Top) / plot.Height, factor);
-        else
-            _vm.Viewport.ZoomTime((p.X - plot.Left) / plot.Width, factor);
-        e.Handled = true;
+        _interaction.WheelChanged(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (_vm?.Document is null) return;
-        var plot = SpectrogramDraw.PlotRect(Bounds);
-        var p = e.GetPosition(this);
-        if (!plot.Contains(p)) return;
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        if (e.ClickCount == 2) { _vm.Viewport.Reset(); e.Handled = true; return; }
-        _panning = true;
-        _lastPointer = p;
-        e.Pointer.Capture(this);
-        e.Handled = true;
+        _interaction.Pressed(e);
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (_vm is null) return;
-        var plot = SpectrogramDraw.PlotRect(Bounds);
-        var p = e.GetPosition(this);
-        _cursor = p;
-        if (_panning)
-        {
-            var vp = _vm.Viewport;
-            vp.PanTime(-(p.X - _lastPointer.X) / plot.Width * vp.TimeSpanN);
-            vp.PanFrequency((p.Y - _lastPointer.Y) / plot.Height * vp.FreqSpanN);
-            _lastPointer = p;
-        }
-        else InvalidateVisual();
+        _interaction.Moved(e);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
-        _cursor = null;
-        InvalidateVisual();
+        _interaction.Exited();
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (!_panning) return;
-        _panning = false;
-        e.Pointer.Capture(null);
+        _interaction.Released(e);
     }
 }
