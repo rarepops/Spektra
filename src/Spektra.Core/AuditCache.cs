@@ -96,7 +96,15 @@ public sealed class AuditCache : IDisposable
                 || r.GetInt64(1) != target.MtimeTicks
                 || r.GetInt32(2) != AnalysisVersion)
                 return null;
-            var row = JsonSerializer.Deserialize<AuditRow>(r.GetString(4));
+            AuditRow? row;
+            try
+            {
+                row = JsonSerializer.Deserialize<AuditRow>(r.GetString(4));
+            }
+            catch (JsonException)
+            {
+                return null; // corrupt row_json: treat as a miss so the file re-analyzes
+            }
             return row is null ? null : new AuditEntry(target, row, r.GetInt64(3) != 0, FromCache: true);
         }
     }

@@ -67,6 +67,26 @@ public sealed class AuditCacheTests : IDisposable
     }
 
     [Test]
+    public async Task TryGet_OnCorruptRowJson_ReturnsNull()
+    {
+        using (var cache = AuditCache.Open(DbPath))
+            cache.Put(Target(), Row(), hasProblem: false);
+
+        // A partially written / corrupt row (not a corrupt DB file): the row
+        // identity still matches, but its JSON no longer parses.
+        using (var db = new SqliteConnection($"Data Source={DbPath};Pooling=False"))
+        {
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "UPDATE files SET row_json = 'not valid json'";
+            cmd.ExecuteNonQuery();
+        }
+
+        using var reopened = AuditCache.Open(DbPath);
+        await Assert.That(reopened.TryGet(Target())).IsNull();
+    }
+
+    [Test]
     public async Task PruneFolder_DeletesOnlyStaleRowsUnderTheFolder()
     {
         using var cache = AuditCache.Open(DbPath);
