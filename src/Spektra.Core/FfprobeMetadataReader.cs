@@ -18,8 +18,14 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         ]);
 
         using var p = FfmpegProcess.Start(psi, "ffprobe");
+        // Drain stderr concurrently with stdout. Reading stdout to EOF blocks
+        // until ffprobe exits, and with -v warning a bad file can emit enough
+        // stderr to fill the OS pipe buffer and block ffprobe writing it, which
+        // deadlocks a sequential read (the decode and metering readers drain
+        // both pipes at once for the same reason).
+        var stderrTask = p.StandardError.ReadToEndAsync();
         var stdout = p.StandardOutput.ReadToEnd();
-        var stderr = p.StandardError.ReadToEnd();
+        var stderr = stderrTask.GetAwaiter().GetResult();
         p.WaitForExit();
 
         if (p.ExitCode != 0)

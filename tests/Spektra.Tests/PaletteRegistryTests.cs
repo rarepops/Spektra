@@ -100,6 +100,8 @@ public sealed class PaletteRegistryTests : IDisposable
     [Arguments("""{ "name": "Mix", "anchors": [ { "color": "#000000", "at": 0 }, { "color": "#FFFFFF", "db": 0 } ] }""")]
     [Arguments("""{ "name": "MixForms", "anchors": [ "#000000", { "color": "#FFFFFF", "at": 1 } ] }""")]
     [Arguments("""{ "name": "BadHex", "anchors": ["#000000", "notacolor"] }""")]
+    [Arguments("""{ "name": "StrAt", "anchors": [ { "color": "#000000", "at": 0 }, { "color": "#FFFFFF", "at": "1" } ] }""")]
+    [Arguments("""{ "name": "BoolDb", "anchors": [ { "color": "#000000", "db": -60 }, { "color": "#FFFFFF", "db": true } ] }""")]
     [Arguments("""{ "name": "Single", "anchors": ["#000000"] }""")]
     [Arguments("""not json at all""")]
     public async Task InvalidFiles_AreSkippedWithAReason(string json)

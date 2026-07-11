@@ -36,9 +36,9 @@ public static class PaletteLut
             var f = b.Position <= a.Position
                 ? (t >= b.Position ? 1.0 : 0.0)
                 : Math.Clamp((t - a.Position) / (b.Position - a.Position), 0, 1);
-            var r = (uint)(a.R + (b.R - a.R) * f);
-            var g = (uint)(a.G + (b.G - a.G) * f);
-            var bl = (uint)(a.B + (b.B - a.B) * f);
+            var r = (uint)Math.Clamp((int)(a.R + (b.R - a.R) * f), 0, 255);
+            var g = (uint)Math.Clamp((int)(a.G + (b.G - a.G) * f), 0, 255);
+            var bl = (uint)Math.Clamp((int)(a.B + (b.B - a.B) * f), 0, 255);
             lut[i] = 0xFF000000u | (r << 16) | (g << 8) | bl;
         }
         return lut;
@@ -184,8 +184,11 @@ public sealed class PaletteRegistry
             {
                 if (!i.TryGetProperty("color", out var c) || c.ValueKind != JsonValueKind.String)
                     throw new FormatException("every stop needs a 'color'");
-                var raw = i.GetProperty(dbPinned ? "db" : "at").GetDouble();
-                return WithColor(c.GetString()!, raw);
+                var key = dbPinned ? "db" : "at";
+                var value = i.GetProperty(key);
+                if (value.ValueKind != JsonValueKind.Number)
+                    throw new FormatException($"stop '{key}' must be a number");
+                return WithColor(c.GetString()!, value.GetDouble());
             }).ToList();
             return (name, new CustomEntry(stops, dbPinned));
         }
