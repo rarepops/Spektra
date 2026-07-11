@@ -83,6 +83,14 @@ public sealed class FolderViewModel : ObservableObject, ITab
     private bool _statusIsError;
     public bool StatusIsError { get => _statusIsError; private set => Set(ref _statusIsError, value); }
 
+    /// Red status for failures reported from the view (mirrors the helper the
+    /// other tab view models expose).
+    public void SetErrorStatus(string message)
+    {
+        StatusText = message;
+        StatusIsError = true;
+    }
+
     public void Cancel() => _cts.Cancel();
 
     public IReadOnlyList<string> FilterOptions { get; } = ["All files", "Suspect + worse", "Problems only"];

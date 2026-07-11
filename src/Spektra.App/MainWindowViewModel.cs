@@ -289,13 +289,14 @@ public sealed class MainWindowViewModel : ObservableObject
         _ = doc.LoadOverviewAsync();
     }
 
-    public void OpenComparison(string pathA, string pathB)
+    public ComparisonViewModel? OpenComparison(string pathA, string pathB)
     {
-        if (_ffmpeg is null) return;
+        if (_ffmpeg is null) return null;
         var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
         Tabs.Add(cmp);
         Selected = cmp;
-        _ = cmp.LoadAsync();
+        cmp.BeginLoad();
+        return cmp;
     }
 
     /// Opens (or re-selects) a folder-audit tab. An existing tab for the same

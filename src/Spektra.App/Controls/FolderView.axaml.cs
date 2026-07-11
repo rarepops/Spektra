@@ -102,6 +102,15 @@ public partial class FolderView : UserControl
             ],
         });
         if (file is null) return;
-        await ReportWriter.WriteAsync(file, rows);
+        try
+        {
+            await ReportWriter.WriteAsync(file, rows);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // This handler is async void (event wiring): an unguarded write
+            // failure here would crash the app instead of reporting.
+            _vm.SetErrorStatus($"Could not export the report: {ex.Message}");
+        }
     }
 }

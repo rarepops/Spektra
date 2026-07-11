@@ -181,6 +181,14 @@ public sealed class ComparisonViewModel : ObservableObject, ITab
 
     public void FlipAB() => Mode = _mode == CompareMode.A ? CompareMode.B : CompareMode.A;
 
+    /// The in-flight (or completed) initial load started by BeginLoad. The CLI
+    /// --compare path awaits this before auto-aligning, rather than guessing a
+    /// fixed delay.
+    public Task Loaded { get; private set; } = Task.CompletedTask;
+
+    /// Starts the initial overview load once and records it as Loaded.
+    public void BeginLoad() => Loaded = LoadAsync();
+
     public async Task LoadAsync()
     {
         await A.LoadOverviewAsync();

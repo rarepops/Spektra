@@ -58,9 +58,8 @@ public partial class MainWindow : Window
                 : null;
             Opened += async (_, _) =>
             {
-                _vm.OpenComparison(pathA, pathB);
-                if (_vm.Selected is not ComparisonViewModel cmp) return;
-                await Task.Delay(1500); // let metadata/overviews load
+                if (_vm.OpenComparison(pathA, pathB) is not { } cmp) return;
+                await cmp.Loaded; // real load completion, not a fixed delay
                 if (autoAlign) await cmp.AlignAsync();
                 if (startMode is { } m) cmp.Mode = m;
             };
@@ -457,9 +456,16 @@ public partial class MainWindow : Window
             FileTypeChoices = [new FilePickerFileType("PNG image") { Patterns = ["*.png"] }],
         });
         if (file is null) return;
-        await using var stream = await file.OpenWriteAsync();
-        rtb.Save(stream, PngBitmapEncoderOptions.Default);
-        _vm.StatusText = $"Saved {file.Name}";
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            rtb.Save(stream, PngBitmapEncoderOptions.Default);
+            _vm.StatusText = $"Saved {file.Name}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _vm.SetErrorStatus($"Could not save the image: {ex.Message}");
+        }
     }
 
     private async void OnCopyImageClicked(object? sender, RoutedEventArgs e) => await CopyImageAsync();
@@ -469,10 +475,17 @@ public partial class MainWindow : Window
         using var rtb = RenderSurface();
         if (rtb is null) { _vm.SetErrorStatus("Open a file first to copy its spectrogram."); return; }
         if (Clipboard is null) return;
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(DataFormat.Bitmap, (Bitmap)rtb));
-        await Clipboard.SetDataAsync(data);
-        _vm.StatusText = "Copied spectrogram to clipboard.";
+        try
+        {
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.Create(DataFormat.Bitmap, (Bitmap)rtb));
+            await Clipboard.SetDataAsync(data);
+            _vm.StatusText = "Copied spectrogram to clipboard.";
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            _vm.SetErrorStatus($"Could not copy the image: {ex.Message}");
+        }
     }
 
     private static string SanitizeFileName(string name)
@@ -514,8 +527,15 @@ public partial class MainWindow : Window
         if (file is null) return;
 
         var report = new FileReport(doc.FilePath, doc.Metadata, doc.Verdict, null);
-        await ReportWriter.WriteAsync(file, [Reporting.ToAuditRow(report, doc.Integrity, null)]);
-        _vm.StatusText = $"Exported {file.Name}";
+        try
+        {
+            await ReportWriter.WriteAsync(file, [Reporting.ToAuditRow(report, doc.Integrity, null)]);
+            _vm.StatusText = $"Exported {file.Name}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _vm.SetErrorStatus($"Could not export the report: {ex.Message}");
+        }
     }
 
     private async void OnExportFolderReportClicked(object? sender, RoutedEventArgs e) =>
@@ -560,8 +580,15 @@ public partial class MainWindow : Window
             ],
         });
         if (file is null) return;
-        await ReportWriter.WriteAsync(file, results.Select(r => r.Row).ToList());
-        _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
+        try
+        {
+            await ReportWriter.WriteAsync(file, results.Select(r => r.Row).ToList());
+            _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _vm.SetErrorStatus($"Could not export the report: {ex.Message}");
+        }
     }
 
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
