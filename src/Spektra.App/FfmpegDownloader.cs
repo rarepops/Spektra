@@ -72,11 +72,36 @@ public static class FfmpegDownloader
         return false;
     }
 
+    // No progress for this long reads as a dead connection: abort so the caller
+    // can fall back (or fail cleanly) instead of hanging. HttpClient.Timeout only
+    // covers the initial response, not a stalled body stream, so we time each read.
+    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
+
     private static async Task DownloadAsync(HttpClient http, string url, string zipPath, CancellationToken ct)
     {
-        await using var input = await http.GetStreamAsync(url, ct);
+        using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        resp.EnsureSuccessStatusCode();
+        await using var input = await resp.Content.ReadAsStreamAsync(ct);
         await using var output = File.Create(zipPath);
-        await input.CopyToAsync(output, ct);
+        var buffer = new byte[81920];
+        while (true)
+        {
+            using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            stall.CancelAfter(StallTimeout);
+            int read;
+            try
+            {
+                read = await input.ReadAsync(buffer, stall.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // A stall, not a user cancel: surface as a network failure so the
+                // pinned path falls back to the current build instead of hanging.
+                throw new HttpRequestException($"Download stalled (no data for {StallTimeout.TotalSeconds:0}s).");
+            }
+            if (read == 0) break;
+            await output.WriteAsync(buffer.AsMemory(0, read), ct);
+        }
     }
 
     private static async Task<string> HashAsync(string zipPath, CancellationToken ct)
