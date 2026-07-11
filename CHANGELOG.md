@@ -4,6 +4,27 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-07-11
+
+### Changed
+- Folder audits are faster: each file is decoded twice instead of three times, with the bandwidth and silent-gap scans sharing one decode.
+- When ffmpeg is auto-downloaded and no integrity pin is configured, the downloaded SHA-256 is reported instead of the check being skipped silently.
+
+### Fixed
+- Sorting a folder-audit column no longer opens the selected file: opening a row requires a double-click that lands on a row, not two quick clicks on a column header.
+- Check for Updates reports connection and parse failures honestly instead of silently reading as up to date.
+- Healthy files no longer show a spurious "failed to decode" error from a race that killed ffmpeg at a clean end-of-stream.
+- Malformed ffprobe output is read as a per-file decode error instead of derailing a whole folder audit.
+- The audit cache is rebuilt only on genuine database corruption, not on any transient SQLite error.
+- The integrity and loudness passes cancel promptly instead of running on after you close or switch away from a file.
+- The log-frequency axis now applies in the compare view (A / B / Diff), matching the single-file view.
+- The average-spectrum overlay refreshes on a channel switch or reload instead of lingering from the previous document.
+- Saving or copying the spectrogram, and exporting a report, surface write failures in the status bar instead of crashing.
+- Settings saving fails soft on an unwritable location instead of taking the app down.
+- The CLI rejects malformed options (missing or non-numeric values) with a clear message and exit code 2.
+- Closing a comparison tab releases its bitmaps instead of holding them in memory.
+- Two-part version numbers display as 1.2.0 rather than 1.2.-1.
+
 ## [0.11.0] - 2026-07-10
 
 ### Added
@@ -204,7 +225,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/rarepops/Spektra/releases/tag/v0.11.1
 [0.8.2]: https://github.com/rarepops/Spektra/releases/tag/v0.8.2
 [0.8.1]: https://github.com/rarepops/Spektra/releases/tag/v0.8.1
 [0.8.0]: https://github.com/rarepops/Spektra/releases/tag/v0.8.0
