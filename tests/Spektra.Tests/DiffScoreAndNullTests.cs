@@ -1,35 +1,34 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
 public class DiffScoreTests
 {
-    [Fact]
-    public void AllZero_IsPerfectScore()
+    [Test]
+    public async Task AllZero_IsPerfectScore()
     {
         var m = DiffScore.Compute([[0f, 0f, 0f], [0f, 0f, 0f]]);
-        Assert.Equal(0f, m.MeanAbsDb, 3);
-        Assert.Equal(0f, m.RmsDb, 3);
-        Assert.Equal(0f, m.MaxAbsDb, 3);
-        Assert.Equal(1.0, m.FractionWithinTolerance, 3);
+        await Assert.That(m.MeanAbsDb).IsCloseTo(0f, 0.001f);
+        await Assert.That(m.RmsDb).IsCloseTo(0f, 0.001f);
+        await Assert.That(m.MaxAbsDb).IsCloseTo(0f, 0.001f);
+        await Assert.That(m.FractionWithinTolerance).IsCloseTo(1.0, 0.001);
     }
 
-    [Fact]
-    public void MixedValues_AggregateCorrectly()
+    [Test]
+    public async Task MixedValues_AggregateCorrectly()
     {
         var m = DiffScore.Compute([[3f, -3f], [6f, 0f]], toleranceDb: 3f);
-        Assert.Equal(3f, m.MeanAbsDb, 3);          // (3+3+6+0)/4
-        Assert.Equal(6f, m.MaxAbsDb, 3);
-        Assert.Equal(0.75, m.FractionWithinTolerance, 3); // 3 of 4 have |d| <= 3
+        await Assert.That(m.MeanAbsDb).IsCloseTo(3f, 0.001f);          // (3+3+6+0)/4
+        await Assert.That(m.MaxAbsDb).IsCloseTo(6f, 0.001f);
+        await Assert.That(m.FractionWithinTolerance).IsCloseTo(0.75, 0.001); // 3 of 4 have |d| <= 3
     }
 
-    [Fact]
-    public void Empty_IsIdentity()
+    [Test]
+    public async Task Empty_IsIdentity()
     {
         var m = DiffScore.Compute([]);
-        Assert.Equal(1.0, m.FractionWithinTolerance, 3);
-        Assert.Equal(0f, m.RmsDb, 3);
+        await Assert.That(m.FractionWithinTolerance).IsCloseTo(1.0, 0.001);
+        await Assert.That(m.RmsDb).IsCloseTo(0f, 0.001f);
     }
 }
 
@@ -39,31 +38,30 @@ public class NullTestTests
     private static readonly FfmpegPaths Ff = FfmpegLocator.Locate([])!;
     private static string P(string file) => Path.Combine(Fixtures, file);
 
-    [Fact]
-    public void IdenticalFiles_NullToSilence()
+    [Test]
+    public async Task IdenticalFiles_NullToSilence()
     {
         var r = new NullTest(Ff).Compute(
             P("chirp.wav"), null, P("chirp.wav"), null, 0, 3, 0, 44100, CancellationToken.None);
-        Assert.True(r.ResidualRmsDb < -80f, $"residual should be near silent, was {r.ResidualRmsDb}");
+        await Assert.That(r.ResidualRmsDb < -80f).IsTrue(); // residual should be near silent
     }
 
-    [Fact]
-    public void DifferentContent_LeavesResidual()
+    [Test]
+    public async Task DifferentContent_LeavesResidual()
     {
         var r = new NullTest(Ff).Compute(
             P("chirp.wav"), null, P("chirp-lp16k.wav"), null, 0, 3, 0, 44100, CancellationToken.None);
-        Assert.True(r.ResidualRmsDb > -60f, $"a real difference should leave audible residual, was {r.ResidualRmsDb}");
-        Assert.True(r.NullDepthDb < r.ReferenceRmsDb - r.ResidualRmsDb + 1f);
+        await Assert.That(r.ResidualRmsDb > -60f).IsTrue(); // a real difference should leave audible residual
+        await Assert.That(r.NullDepthDb < r.ReferenceRmsDb - r.ResidualRmsDb + 1f).IsTrue();
     }
 
-    [Fact]
-    public void CorrectOffset_NullsBetterThanZero()
+    [Test]
+    public async Task CorrectOffset_NullsBetterThanZero()
     {
         var misaligned = new NullTest(Ff).Compute(
             P("chirp.wav"), null, P("chirp-delay50ms.wav"), null, 0, 2.5, 0, 44100, CancellationToken.None);
         var aligned = new NullTest(Ff).Compute(
             P("chirp.wav"), null, P("chirp-delay50ms.wav"), null, 0, 2.5, 0.05, 44100, CancellationToken.None);
-        Assert.True(aligned.ResidualRmsDb < misaligned.ResidualRmsDb - 6f,
-            $"aligning should reduce the residual (aligned {aligned.ResidualRmsDb}, misaligned {misaligned.ResidualRmsDb})");
+        await Assert.That(aligned.ResidualRmsDb < misaligned.ResidualRmsDb - 6f).IsTrue(); // aligning should reduce the residual
     }
 }

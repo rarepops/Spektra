@@ -5,18 +5,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- TUnit runs on Microsoft.Testing.Platform; the Exe output is the MTP
+         test host. `dotnet test` uses MTP mode via the test.runner block in
+         global.json (needs the .NET 10 SDK). -->
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="10.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Spektra.Core\Spektra.Core.csproj" />
@@ -24,6 +17,10 @@
 
   <ItemGroup>
     <None Include="..\fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="fixtures" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.58.0" />
   </ItemGroup>
 
 </Project>

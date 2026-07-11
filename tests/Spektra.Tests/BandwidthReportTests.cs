@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -9,36 +8,36 @@ public class BandwidthReportTests
     private static readonly FfmpegPaths Ff = FfmpegLocator.Locate([])!;
     private static string P(string file) => Path.Combine(Fixtures, file);
 
-    [Fact]
-    public void Analyze_FullBandFile_IsLossless()
+    [Test]
+    public async Task Analyze_FullBandFile_IsLossless()
     {
         var r = BandwidthReport.Analyze(Ff, P("chirp.wav"));
-        Assert.Null(r.Error);
-        Assert.NotNull(r.Metadata);
-        Assert.Equal(VerdictKind.Lossless, r.Verdict!.Kind);
+        await Assert.That(r.Error).IsNull();
+        await Assert.That(r.Metadata).IsNotNull();
+        await Assert.That(r.Verdict!.Kind).IsEqualTo(VerdictKind.Lossless);
     }
 
-    [Fact]
-    public void Analyze_LowBitrateMp3_IsLossy()
+    [Test]
+    public async Task Analyze_LowBitrateMp3_IsLossy()
     {
         var r = BandwidthReport.Analyze(Ff, P("chirp-mp3-64.mp3"));
-        Assert.Equal(VerdictKind.Lossy, r.Verdict!.Kind);
+        await Assert.That(r.Verdict!.Kind).IsEqualTo(VerdictKind.Lossy);
     }
 
-    [Fact]
-    public void Analyze_MissingFile_ReturnsError()
+    [Test]
+    public async Task Analyze_MissingFile_ReturnsError()
     {
         var r = BandwidthReport.Analyze(Ff, P("does-not-exist.wav"));
-        Assert.NotNull(r.Error);
-        Assert.Null(r.Verdict);
+        await Assert.That(r.Error).IsNotNull();
+        await Assert.That(r.Verdict).IsNull();
     }
 
-    [Fact]
-    public void FindAudioFiles_FindsFixtures_SkipsNonAudio()
+    [Test]
+    public async Task FindAudioFiles_FindsFixtures_SkipsNonAudio()
     {
         var files = BandwidthReport.FindAudioFiles(Fixtures, recursive: false).ToList();
-        Assert.Contains(files, f => f.EndsWith("chirp.wav", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(files, f => f.EndsWith("chirp-mp3-64.mp3", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(files, f => f.EndsWith("notaudio.txt", StringComparison.OrdinalIgnoreCase));
+        await Assert.That(files.Any(f => f.EndsWith("chirp.wav", StringComparison.OrdinalIgnoreCase))).IsTrue();
+        await Assert.That(files.Any(f => f.EndsWith("chirp-mp3-64.mp3", StringComparison.OrdinalIgnoreCase))).IsTrue();
+        await Assert.That(files.Any(f => f.EndsWith("notaudio.txt", StringComparison.OrdinalIgnoreCase))).IsFalse();
     }
 }

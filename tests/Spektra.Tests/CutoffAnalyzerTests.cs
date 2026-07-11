@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -17,33 +16,33 @@ public class CutoffAnalyzerTests
         return session.AnalyzeColumns(P(file), meta, settings, CancellationToken.None).ToList();
     }
 
-    [Fact]
-    public void BroadbandPcmNoise_IsFullBandLossless()
+    [Test]
+    public async Task BroadbandPcmNoise_IsFullBandLossless()
     {
         var v = CutoffAnalyzer.Analyze(Columns("noise.wav"), 44100);
-        Assert.Equal(VerdictKind.Lossless, v.Kind);
-        Assert.Null(v.CutoffHz);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossless);
+        await Assert.That(v.CutoffHz).IsNull();
     }
 
-    [Fact]
-    public void FullBandChirp_IsLossless()
+    [Test]
+    public async Task FullBandChirp_IsLossless()
     {
         var v = CutoffAnalyzer.Analyze(Columns("chirp.wav"), 44100);
-        Assert.Equal(VerdictKind.Lossless, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossless);
     }
 
-    [Fact]
-    public void LowBitrateMp3_HasBrickWallCutoff()
+    [Test]
+    public async Task LowBitrateMp3_HasBrickWallCutoff()
     {
         var v = CutoffAnalyzer.Analyze(Columns("chirp-mp3-64.mp3"), 44100);
-        Assert.Equal(VerdictKind.Lossy, v.Kind);
-        Assert.NotNull(v.CutoffHz);
-        Assert.InRange(v.CutoffHz!.Value, 14000, 18500);
-        Assert.NotNull(v.CodecGuess);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossy);
+        await Assert.That(v.CutoffHz).IsNotNull();
+        await Assert.That(v.CutoffHz!.Value).IsBetween(14000, 18500);
+        await Assert.That(v.CodecGuess).IsNotNull();
     }
 
-    [Fact]
-    public void GradualRolloff_IsSuspicious_NotLossy()
+    [Test]
+    public async Task GradualRolloff_IsSuspicious_NotLossy()
     {
         // Strong to ~13 kHz, then a slow decline into the floor (a natural-style
         // rolloff): a cutoff exists below Nyquist but the transition is wide.
@@ -56,12 +55,12 @@ public class CutoffAnalyzerTests
             col[k] = hz <= 13000 ? -6f : Math.Max(Db.Floor, -6f - (float)((hz - 13000) / 1000.0) * 12f);
         }
         var v = CutoffAnalyzer.Analyze([col], 44100);
-        Assert.Equal(VerdictKind.Suspicious, v.Kind);
-        Assert.NotNull(v.CutoffHz);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Suspicious);
+        await Assert.That(v.CutoffHz).IsNotNull();
     }
 
-    [Fact]
-    public void PureLowTone_IsBandLimited_NotLossy()
+    [Test]
+    public async Task PureLowTone_IsBandLimited_NotLossy()
     {
         // Energy only near 1 kHz, dead above. That is band-limited content, not a
         // codec cutoff, so it must not be flagged Lossy.
@@ -73,40 +72,40 @@ public class CutoffAnalyzerTests
         col[toneBin] = -3f;
         col[toneBin - 1] = col[toneBin + 1] = -14f;
         var v = CutoffAnalyzer.Analyze([col], 44100);
-        Assert.NotEqual(VerdictKind.Lossy, v.Kind);
+        await Assert.That(v.Kind).IsNotEqualTo(VerdictKind.Lossy);
     }
 
-    [Fact]
-    public void Silence_IsUnknown()
+    [Test]
+    public async Task Silence_IsUnknown()
     {
         var col = new float[1025];
         Array.Fill(col, Db.Floor);
         var v = CutoffAnalyzer.Analyze([col], 44100);
-        Assert.Equal(VerdictKind.Unknown, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Unknown);
     }
 
-    [Fact]
-    public void EmptyColumns_IsUnknown()
+    [Test]
+    public async Task EmptyColumns_IsUnknown()
     {
         var v = CutoffAnalyzer.Analyze([], 44100);
-        Assert.Equal(VerdictKind.Unknown, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Unknown);
     }
 
-    [Fact]
-    public void PeakHold_TakesPerBinMaximum()
+    [Test]
+    public async Task PeakHold_TakesPerBinMaximum()
     {
         var peak = CutoffAnalyzer.PeakHold([[-90f, -10f, -120f], [-30f, -80f, -5f]]);
-        Assert.Equal(-30f, peak[0]);
-        Assert.Equal(-10f, peak[1]);
-        Assert.Equal(-5f, peak[2]);
+        await Assert.That(peak[0]).IsEqualTo(-30f);
+        await Assert.That(peak[1]).IsEqualTo(-10f);
+        await Assert.That(peak[2]).IsEqualTo(-5f);
     }
 
-    [Theory]
-    [InlineData(21000, "MP3 320 / AAC 256+")]
-    [InlineData(16000, "MP3 128 / AAC ~128")]
-    [InlineData(11000, "MP3 ~64-80")]
-    public void GuessCodec_MapsCutoffToLikelyFormat(double hz, string expected) =>
-        Assert.Equal(expected, CutoffAnalyzer.GuessCodec(hz));
+    [Test]
+    [Arguments(21000, "MP3 320 / AAC 256+")]
+    [Arguments(16000, "MP3 128 / AAC ~128")]
+    [Arguments(11000, "MP3 ~64-80")]
+    public async Task GuessCodec_MapsCutoffToLikelyFormat(double hz, string expected) =>
+        await Assert.That(CutoffAnalyzer.GuessCodec(hz)).IsEqualTo(expected);
 
     // --- Upsampling detection ---------------------------------------------
 
@@ -127,57 +126,57 @@ public class CutoffAnalyzerTests
         return col;
     }
 
-    [Fact]
-    public void HiResBrickWallAt22k05_IsUpsampledFrom44k1()
+    [Test]
+    public async Task HiResBrickWallAt22k05_IsUpsampledFrom44k1()
     {
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(48000, 22050)], 96000);
-        Assert.Equal(VerdictKind.Upsampled, v.Kind);
-        Assert.NotNull(v.CutoffHz);
-        Assert.InRange(v.CutoffHz!.Value, 21500, 22500);
-        Assert.Null(v.CodecGuess);
-        Assert.Contains("44.1", v.Summary);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Upsampled);
+        await Assert.That(v.CutoffHz).IsNotNull();
+        await Assert.That(v.CutoffHz!.Value).IsBetween(21500, 22500);
+        await Assert.That(v.CodecGuess).IsNull();
+        await Assert.That(v.Summary).Contains("44.1");
     }
 
-    [Fact]
-    public void HiResBrickWallAt24k_IsUpsampledFrom48k()
+    [Test]
+    public async Task HiResBrickWallAt24k_IsUpsampledFrom48k()
     {
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(48000, 24000)], 96000);
-        Assert.Equal(VerdictKind.Upsampled, v.Kind);
-        Assert.Contains("48 kHz", v.Summary);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Upsampled);
+        await Assert.That(v.Summary).Contains("48 kHz");
     }
 
-    [Fact]
-    public void FullBandHiRes_IsLossless()
+    [Test]
+    public async Task FullBandHiRes_IsLossless()
     {
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(48000, 48000)], 96000);
-        Assert.Equal(VerdictKind.Lossless, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossless);
     }
 
-    [Fact]
-    public void GenuineCdRate_SharpCutoff20k_StaysLossy_NotUpsampled()
+    [Test]
+    public async Task GenuineCdRate_SharpCutoff20k_StaysLossy_NotUpsampled()
     {
         // Declared 44.1 kHz with a 20 kHz wall: no base-rate match, no step-up.
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(22050, 20000)], 44100);
-        Assert.Equal(VerdictKind.Lossy, v.Kind);
-        Assert.NotNull(v.CodecGuess);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossy);
+        await Assert.That(v.CodecGuess).IsNotNull();
     }
 
-    [Fact]
-    public void HiRes_SoftRolloffNear22k_IsSuspicious_NotUpsampled()
+    [Test]
+    public async Task HiRes_SoftRolloffNear22k_IsSuspicious_NotUpsampled()
     {
         // -6 dB to 22.05 kHz, then a -65 dB shelf for ~2 kHz before silence:
         // the wall is not sharp, so this must stay Suspicious.
         var v = CutoffAnalyzer.Analyze(
             [SyntheticColumn(48000, 22050, level: -6f, tailLevel: -65f, tailToHz: 24050)], 96000);
-        Assert.Equal(VerdictKind.Suspicious, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Suspicious);
     }
 
-    [Fact]
-    public void FortyEightK_BrickWallAt22k05_NotUpsampled_StepUpTooSmall()
+    [Test]
+    public async Task FortyEightK_BrickWallAt22k05_NotUpsampled_StepUpTooSmall()
     {
         // 44.1→48 kHz is a 1.09× step: must NOT read as upsampled.
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(24000, 22050)], 48000);
-        Assert.Equal(VerdictKind.Lossy, v.Kind);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossy);
     }
 
     /// Emulates ffmpeg's default (swr) resampler: passband to `sourceNyquistHz`,
@@ -200,32 +199,32 @@ public class CutoffAnalyzerTests
         return col;
     }
 
-    [Fact]
-    public void LazyResamplerSkirt_44k1To96k_IsUpsampled()
+    [Test]
+    public async Task LazyResamplerSkirt_44k1To96k_IsUpsampled()
     {
         var v = CutoffAnalyzer.Analyze([LazySkirtColumn(48000, 22050)], 96000);
-        Assert.Equal(VerdictKind.Upsampled, v.Kind);
-        Assert.Contains("44.1", v.Summary);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Upsampled);
+        await Assert.That(v.Summary).Contains("44.1");
     }
 
-    [Fact]
-    public void LazyResamplerSkirt_48kTo96k_NamesThe48kSource()
+    [Test]
+    public async Task LazyResamplerSkirt_48kTo96k_NamesThe48kSource()
     {
         var v = CutoffAnalyzer.Analyze([LazySkirtColumn(48000, 24000)], 96000);
-        Assert.Equal(VerdictKind.Upsampled, v.Kind);
-        Assert.Contains("48 kHz", v.Summary);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Upsampled);
+        await Assert.That(v.Summary).Contains("48 kHz");
     }
 
-    [Fact]
-    public void SixteenKWall_OnlyUpsampledWhenContainerIsHiRes()
+    [Test]
+    public async Task SixteenKWall_OnlyUpsampledWhenContainerIsHiRes()
     {
         // 16 kHz is also the MP3-128 cutoff, so the 32 kHz base is trusted only
         // for genuinely hi-res containers.
         var hiRes = CutoffAnalyzer.Analyze([SyntheticColumn(48000, 16000)], 96000);
-        Assert.Equal(VerdictKind.Upsampled, hiRes.Kind);
-        Assert.Contains("32 kHz", hiRes.Summary);
+        await Assert.That(hiRes.Kind).IsEqualTo(VerdictKind.Upsampled);
+        await Assert.That(hiRes.Summary).Contains("32 kHz");
 
         var normal = CutoffAnalyzer.Analyze([SyntheticColumn(24000, 16000)], 48000);
-        Assert.Equal(VerdictKind.Lossy, normal.Kind);
+        await Assert.That(normal.Kind).IsEqualTo(VerdictKind.Lossy);
     }
 }

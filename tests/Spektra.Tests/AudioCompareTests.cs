@@ -1,31 +1,30 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
 public sealed class AudioCompareTests
 {
-    [Theory]
-    [InlineData(10, 10, 0, 0, 10)]   // aligned, equal length: full file
-    [InlineData(10, 10, 2, 0, 8)]    // B later: overlap ends when B runs out
-    [InlineData(10, 10, -2, 2, 8)]   // B earlier: overlap starts 2 s into A
-    [InlineData(30, 10, 0, 0, 10)]   // B shorter than A
-    public void OverlapSpan_ComputesAtimeWindow(
+    [Test]
+    [Arguments(10, 10, 0, 0, 10)]   // aligned, equal length: full file
+    [Arguments(10, 10, 2, 0, 8)]    // B later: overlap ends when B runs out
+    [Arguments(10, 10, -2, 2, 8)]   // B earlier: overlap starts 2 s into A
+    [Arguments(30, 10, 0, 0, 10)]   // B shorter than A
+    public async Task OverlapSpan_ComputesAtimeWindow(
         double durA, double durB, double offset, double start, double duration)
     {
         var (s, d) = AudioCompare.OverlapSpan(durA, durB, offset);
-        Assert.Equal(start, s, precision: 9);
-        Assert.Equal(duration, d, precision: 9);
+        await Assert.That(s).IsCloseTo(start, 1e-9);
+        await Assert.That(d).IsCloseTo(duration, 1e-9);
     }
 
-    [Theory]
-    [InlineData(10, 3, 5)]    // B's 3 s sit entirely 5 s late: min(10, -2) < 0
-    [InlineData(5, 10, -7)]   // B 7 s early: overlap would start at 7 s, past A's end
-    public void OverlapSpan_DisjointFiles_HaveNoOverlap(
+    [Test]
+    [Arguments(10, 3, 5)]    // B's 3 s sit entirely 5 s late: min(10, -2) < 0
+    [Arguments(5, 10, -7)]   // B 7 s early: overlap would start at 7 s, past A's end
+    public async Task OverlapSpan_DisjointFiles_HaveNoOverlap(
         double durA, double durB, double offset)
     {
         var (_, d) = AudioCompare.OverlapSpan(durA, durB, offset);
-        Assert.True(d <= 0);
+        await Assert.That(d <= 0).IsTrue();
     }
 
     private static readonly AudioMetadata Meta =
@@ -41,35 +40,35 @@ public sealed class AudioCompareTests
         new NullResult(residualRmsDb, residualRmsDb, referenceRmsDb),
         thresholdDb);
 
-    [Fact]
-    public void IsSame_WhenNullDepthMeetsThreshold() =>
-        Assert.True(Report(residualRmsDb: -60, referenceRmsDb: -14).IsSame); // depth 46 >= 40
+    [Test]
+    public async Task IsSame_WhenNullDepthMeetsThreshold() =>
+        await Assert.That(Report(residualRmsDb: -60, referenceRmsDb: -14).IsSame).IsTrue(); // depth 46 >= 40
 
-    [Fact]
-    public void Differs_WhenNullDepthBelowThreshold() =>
-        Assert.False(Report(residualRmsDb: -45, referenceRmsDb: -14).IsSame); // depth 31 < 40
+    [Test]
+    public async Task Differs_WhenNullDepthBelowThreshold() =>
+        await Assert.That(Report(residualRmsDb: -45, referenceRmsDb: -14).IsSame).IsFalse(); // depth 31 < 40
 
-    [Fact]
-    public void IsSame_OnPerfectNull_DespiteZeroDepth() =>
-        Assert.True(Report(residualRmsDb: Db.Floor, referenceRmsDb: Db.Floor).IsSame); // silence vs silence
+    [Test]
+    public async Task IsSame_OnPerfectNull_DespiteZeroDepth() =>
+        await Assert.That(Report(residualRmsDb: Db.Floor, referenceRmsDb: Db.Floor).IsSame).IsTrue(); // silence vs silence
 
-    [Fact]
-    public void LowConfidence_OnlyBelowPointThree()
+    [Test]
+    public async Task LowConfidence_OnlyBelowPointThree()
     {
-        Assert.True(Report(-60, -14, confidence: 0.29).LowConfidence);
-        Assert.False(Report(-60, -14, confidence: 0.3).LowConfidence);
-        Assert.False(Report(-60, -14, confidence: null).LowConfidence); // pinned offset
+        await Assert.That(Report(-60, -14, confidence: 0.29).LowConfidence).IsTrue();
+        await Assert.That(Report(-60, -14, confidence: 0.3).LowConfidence).IsFalse();
+        await Assert.That(Report(-60, -14, confidence: null).LowConfidence).IsFalse(); // pinned offset
     }
 
-    [Fact]
-    public void HasDrift_OnlyAboveTwentyMs()
+    [Test]
+    public async Task HasDrift_OnlyAboveTwentyMs()
     {
-        Assert.True(Report(-60, -14, driftSeconds: 0.021).HasDrift);
-        Assert.False(Report(-60, -14, driftSeconds: 0.019).HasDrift);
+        await Assert.That(Report(-60, -14, driftSeconds: 0.021).HasDrift).IsTrue();
+        await Assert.That(Report(-60, -14, driftSeconds: 0.019).HasDrift).IsFalse();
     }
 
-    [Fact]
-    public void ToCompareRow_MapsUnitsAndFileNames()
+    [Test]
+    public async Task ToCompareRow_MapsUnitsAndFileNames()
     {
         var report = new CompareReport(
             @"C:\music\a.flac", @"C:\music\b.mp3", Meta, Meta,
@@ -81,20 +80,20 @@ public sealed class AudioCompareTests
 
         var row = Reporting.ToCompareRow(report);
 
-        Assert.Equal("a.flac", row.FileA);
-        Assert.Equal("b.mp3", row.FileB);
-        Assert.Equal(12, row.OffsetMs, precision: 6);
-        Assert.Equal(0.94, row.AlignConfidence!.Value, precision: 6);
-        Assert.Equal(5, row.DriftMs, precision: 6);
-        Assert.Equal(231.5, row.OverlapSeconds, precision: 6);
-        Assert.Equal(4.2, row.MeanAbsDb, precision: 5);
-        Assert.Equal(6.1, row.RmsDb, precision: 5);
-        Assert.Equal(38, row.MaxAbsDb, precision: 5);
-        Assert.Equal(61, row.WithinTolerancePct, precision: 5);
-        Assert.Equal(-44.9, row.ResidualRmsDb, precision: 5);
-        Assert.Equal(-31.2, row.ResidualPeakDb, precision: 5);
-        Assert.Equal(30.7, row.NullDepthDb, precision: 4); // -14.2 - (-44.9)
-        Assert.Equal(40, row.ThresholdDb, precision: 6);
-        Assert.False(row.Same); // depth 30.7 < threshold 40
+        await Assert.That(row.FileA).IsEqualTo("a.flac");
+        await Assert.That(row.FileB).IsEqualTo("b.mp3");
+        await Assert.That(row.OffsetMs).IsCloseTo(12, 1e-6);
+        await Assert.That(row.AlignConfidence!.Value).IsCloseTo(0.94, 1e-6);
+        await Assert.That(row.DriftMs).IsCloseTo(5, 1e-6);
+        await Assert.That(row.OverlapSeconds).IsCloseTo(231.5, 1e-6);
+        await Assert.That(row.MeanAbsDb).IsCloseTo(4.2, 1e-5);
+        await Assert.That(row.RmsDb).IsCloseTo(6.1, 1e-5);
+        await Assert.That(row.MaxAbsDb).IsCloseTo(38, 1e-5);
+        await Assert.That(row.WithinTolerancePct).IsCloseTo(61, 1e-5);
+        await Assert.That(row.ResidualRmsDb).IsCloseTo(-44.9, 1e-5);
+        await Assert.That(row.ResidualPeakDb).IsCloseTo(-31.2, 1e-5);
+        await Assert.That(row.NullDepthDb).IsCloseTo(30.7, 1e-4); // -14.2 - (-44.9)
+        await Assert.That(row.ThresholdDb).IsCloseTo(40, 1e-6);
+        await Assert.That(row.Same).IsFalse(); // depth 30.7 < threshold 40
     }
 }

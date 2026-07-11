@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -23,42 +22,42 @@ public class SilenceScannerTests
         return outp;
     }
 
-    [Fact]
-    public void ContinuousAudio_HasNoDropouts()
+    [Test]
+    public async Task ContinuousAudio_HasNoDropouts()
     {
         var drops = SilenceScanner.FindDropouts([Tone(Rate * 3)], Rate);
-        Assert.Empty(drops);
+        await Assert.That(drops).IsEmpty();
     }
 
-    [Fact]
-    public void InteriorZeroGap_IsDetectedAtRightPlace()
+    [Test]
+    public async Task InteriorZeroGap_IsDetectedAtRightPlace()
     {
         // 1s tone, 1s of exact zero, 1s tone -> one gap from 1.0s to 2.0s.
         var signal = Concat(Tone(Rate), new float[Rate], Tone(Rate));
         var drops = SilenceScanner.FindDropouts([signal], Rate);
-        Assert.Single(drops);
-        Assert.Equal(1.0, drops[0].StartSeconds, 2);
-        Assert.Equal(2.0, drops[0].EndSeconds, 2);
-        Assert.Equal(1.0, drops[0].DurationSeconds, 2);
+        await Assert.That(drops).HasSingleItem();
+        await Assert.That(drops[0].StartSeconds).IsCloseTo(1.0, 0.01);
+        await Assert.That(drops[0].EndSeconds).IsCloseTo(2.0, 0.01);
+        await Assert.That(drops[0].DurationSeconds).IsCloseTo(1.0, 0.01);
     }
 
-    [Fact]
-    public void LeadingAndTrailingSilence_IsIgnored()
+    [Test]
+    public async Task LeadingAndTrailingSilence_IsIgnored()
     {
         var signal = Concat(new float[Rate], Tone(Rate), new float[Rate]);
-        Assert.Empty(SilenceScanner.FindDropouts([signal], Rate));
+        await Assert.That(SilenceScanner.FindDropouts([signal], Rate)).IsEmpty();
     }
 
-    [Fact]
-    public void ShortGap_BelowThreshold_IsIgnored()
+    [Test]
+    public async Task ShortGap_BelowThreshold_IsIgnored()
     {
         // 0.2s gap with a 0.5s threshold.
         var signal = Concat(Tone(Rate), new float[Rate / 5], Tone(Rate));
-        Assert.Empty(SilenceScanner.FindDropouts([signal], Rate));
+        await Assert.That(SilenceScanner.FindDropouts([signal], Rate)).IsEmpty();
     }
 
-    [Fact]
-    public void GapDetection_WorksAcrossChunkBoundaries()
+    [Test]
+    public async Task GapDetection_WorksAcrossChunkBoundaries()
     {
         // Same gap, but split into many small chunks so the run spans boundaries.
         var signal = Concat(Tone(Rate), new float[Rate], Tone(Rate));
@@ -66,7 +65,7 @@ public class SilenceScannerTests
         for (var i = 0; i < signal.Length; i += 999)
             chunks.Add(signal[i..Math.Min(i + 999, signal.Length)]);
         var drops = SilenceScanner.FindDropouts(chunks, Rate);
-        Assert.Single(drops);
-        Assert.Equal(1.0, drops[0].DurationSeconds, 2);
+        await Assert.That(drops).HasSingleItem();
+        await Assert.That(drops[0].DurationSeconds).IsCloseTo(1.0, 0.01);
     }
 }

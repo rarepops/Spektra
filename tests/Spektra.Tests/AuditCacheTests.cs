@@ -1,6 +1,5 @@
 using Microsoft.Data.Sqlite;
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -17,40 +16,40 @@ public sealed class AuditCacheTests : IDisposable
     private static AuditRow Row(string file = "a.flac", string? error = null) => new(
         file, "flac", 44100, 2, 900_000, 231.5, "Lossless", 22050, "Ok", 0, 0, false, error);
 
-    [Fact]
-    public void TryGet_OnEmptyCache_ReturnsNull()
+    [Test]
+    public async Task TryGet_OnEmptyCache_ReturnsNull()
     {
         using var cache = AuditCache.Open(DbPath);
-        Assert.Null(cache.TryGet(Target()));
+        await Assert.That(cache.TryGet(Target())).IsNull();
     }
 
-    [Fact]
-    public void Put_TryGet_RoundTrips()
+    [Test]
+    public async Task Put_TryGet_RoundTrips()
     {
         using var cache = AuditCache.Open(DbPath);
         cache.Put(Target(), Row(), hasProblem: true);
 
         var entry = cache.TryGet(Target());
 
-        Assert.NotNull(entry);
-        Assert.True(entry.FromCache);
-        Assert.True(entry.HasProblem);
-        Assert.Equal(Target(), entry.Target);
-        Assert.Equal(Row(), entry.Row);
+        await Assert.That(entry).IsNotNull();
+        await Assert.That(entry!.FromCache).IsTrue();
+        await Assert.That(entry.HasProblem).IsTrue();
+        await Assert.That(entry.Target).IsEqualTo(Target());
+        await Assert.That(entry.Row).IsEqualTo(Row());
     }
 
-    [Theory]
-    [InlineData(9999L, 5678L)]  // size changed
-    [InlineData(1234L, 9999L)]  // mtime changed
-    public void TryGet_IsStale_WhenIdentityChanges(long size, long mtime)
+    [Test]
+    [Arguments(9999L, 5678L)]  // size changed
+    [Arguments(1234L, 9999L)]  // mtime changed
+    public async Task TryGet_IsStale_WhenIdentityChanges(long size, long mtime)
     {
         using var cache = AuditCache.Open(DbPath);
         cache.Put(Target(), Row(), hasProblem: false);
-        Assert.Null(cache.TryGet(Target(size: size, mtime: mtime)));
+        await Assert.That(cache.TryGet(Target(size: size, mtime: mtime))).IsNull();
     }
 
-    [Fact]
-    public void TryGet_IsStale_OnAnalysisVersionMismatch()
+    [Test]
+    public async Task TryGet_IsStale_OnAnalysisVersionMismatch()
     {
         using (var cache = AuditCache.Open(DbPath))
             cache.Put(Target(), Row(), hasProblem: false);
@@ -64,11 +63,11 @@ public sealed class AuditCacheTests : IDisposable
         }
 
         using var reopened = AuditCache.Open(DbPath);
-        Assert.Null(reopened.TryGet(Target()));
+        await Assert.That(reopened.TryGet(Target())).IsNull();
     }
 
-    [Fact]
-    public void PruneFolder_DeletesOnlyStaleRowsUnderTheFolder()
+    [Test]
+    public async Task PruneFolder_DeletesOnlyStaleRowsUnderTheFolder()
     {
         using var cache = AuditCache.Open(DbPath);
         cache.Put(Target(@"C:\music\keep.flac"), Row("keep.flac"), false);
@@ -77,43 +76,44 @@ public sealed class AuditCacheTests : IDisposable
 
         cache.PruneFolder(@"C:\music", [@"C:\music\keep.flac"]);
 
-        Assert.NotNull(cache.TryGet(Target(@"C:\music\keep.flac")));
-        Assert.Null(cache.TryGet(Target(@"C:\music\gone.flac")));
-        Assert.NotNull(cache.TryGet(Target(@"D:\other\safe.flac")));
+        await Assert.That(cache.TryGet(Target(@"C:\music\keep.flac"))).IsNotNull();
+        await Assert.That(cache.TryGet(Target(@"C:\music\gone.flac"))).IsNull();
+        await Assert.That(cache.TryGet(Target(@"D:\other\safe.flac"))).IsNotNull();
     }
 
-    [Fact]
-    public void Open_OnCorruptFile_RecreatesEmpty_AndWorks()
+    [Test]
+    public async Task Open_OnCorruptFile_RecreatesEmpty_AndWorks()
     {
         File.WriteAllBytes(DbPath, [0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02, 0x03]);
 
         using var cache = AuditCache.Open(DbPath);
 
-        Assert.Null(cache.TryGet(Target()));
+        await Assert.That(cache.TryGet(Target())).IsNull();
         cache.Put(Target(), Row(), false);
-        Assert.NotNull(cache.TryGet(Target()));
+        await Assert.That(cache.TryGet(Target())).IsNotNull();
     }
 
-    [Theory]
-    [InlineData(5, false)]   // SQLITE_BUSY: another instance has the file
-    [InlineData(6, false)]   // SQLITE_LOCKED
-    [InlineData(10, false)]  // SQLITE_IOERR: flaky disk
-    [InlineData(13, false)]  // SQLITE_FULL
-    [InlineData(14, false)]  // SQLITE_CANTOPEN
-    [InlineData(11, true)]   // SQLITE_CORRUPT
-    [InlineData(26, true)]   // SQLITE_NOTADB
-    public void IsCorruptionError_RecreatesOnlyForBadFiles(int sqliteCode, bool expected)
+    [Test]
+    [Arguments(5, false)]   // SQLITE_BUSY: another instance has the file
+    [Arguments(6, false)]   // SQLITE_LOCKED
+    [Arguments(10, false)]  // SQLITE_IOERR: flaky disk
+    [Arguments(13, false)]  // SQLITE_FULL
+    [Arguments(14, false)]  // SQLITE_CANTOPEN
+    [Arguments(11, true)]   // SQLITE_CORRUPT
+    [Arguments(26, true)]   // SQLITE_NOTADB
+    public async Task IsCorruptionError_RecreatesOnlyForBadFiles(int sqliteCode, bool expected)
     {
-        Assert.Equal(expected, AuditCache.IsCorruptionError(new SqliteException("boom", sqliteCode)));
+        await Assert.That(AuditCache.IsCorruptionError(new SqliteException("boom", sqliteCode)))
+            .IsEqualTo(expected);
     }
 
-    [Fact]
-    public void Put_InParallel_UpsertsAllRows()
+    [Test]
+    public async Task Put_InParallel_UpsertsAllRows()
     {
         using var cache = AuditCache.Open(DbPath);
         Parallel.For(0, 100, i =>
             cache.Put(Target($@"C:\music\{i}.flac"), Row($"{i}.flac"), false));
         for (var i = 0; i < 100; i++)
-            Assert.NotNull(cache.TryGet(Target($@"C:\music\{i}.flac")));
+            await Assert.That(cache.TryGet(Target($@"C:\music\{i}.flac"))).IsNotNull();
     }
 }

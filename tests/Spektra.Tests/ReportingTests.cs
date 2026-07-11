@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -11,38 +10,38 @@ public class ReportingTests
         new("b, live.mp3", "mp3", 44100, 128000, 200.0, "Lossy", 16000, "MP3 128 / AAC ~128", null),
     ];
 
-    [Fact]
-    public void Csv_HasHeaderInDeclarationOrder()
+    [Test]
+    public async Task Csv_HasHeaderInDeclarationOrder()
     {
         var lines = Reporting.ToCsv(Rows).Split('\n');
-        Assert.Equal("File,Codec,SampleRateHz,BitrateBps,DurationSeconds,Verdict,CutoffHz,CodecGuess,Error",
-            lines[0]);
+        await Assert.That(lines[0])
+            .IsEqualTo("File,Codec,SampleRateHz,BitrateBps,DurationSeconds,Verdict,CutoffHz,CodecGuess,Error");
     }
 
-    [Fact]
-    public void Csv_QuotesFieldsWithCommas_AndFormatsNumbers()
+    [Test]
+    public async Task Csv_QuotesFieldsWithCommas_AndFormatsNumbers()
     {
         var lines = Reporting.ToCsv(Rows).Split('\n');
-        Assert.Equal("a.flac,flac,44100,900000,180.5,Lossless,,,", lines[1]);
-        Assert.StartsWith("\"b, live.mp3\",mp3,44100,128000,200,Lossy,16000,", lines[2]);
+        await Assert.That(lines[1]).IsEqualTo("a.flac,flac,44100,900000,180.5,Lossless,,,");
+        await Assert.That(lines[2]).StartsWith("\"b, live.mp3\",mp3,44100,128000,200,Lossy,16000,");
     }
 
-    [Fact]
-    public void Json_ContainsCamelCaseFieldsAndValues()
+    [Test]
+    public async Task Json_ContainsCamelCaseFieldsAndValues()
     {
         var json = Reporting.ToJson(Rows);
-        Assert.Contains("\"file\": \"a.flac\"", json);
-        Assert.Contains("\"verdict\": \"Lossless\"", json);
-        Assert.Contains("\"cutoffHz\": 16000", json);
-        Assert.Contains("\"error\": null", json);
+        await Assert.That(json).Contains("\"file\": \"a.flac\"");
+        await Assert.That(json).Contains("\"verdict\": \"Lossless\"");
+        await Assert.That(json).Contains("\"cutoffHz\": 16000");
+        await Assert.That(json).Contains("\"error\": null");
     }
 
-    [Fact]
-    public void ToBandwidthRow_MapsErrorFile()
+    [Test]
+    public async Task ToBandwidthRow_MapsErrorFile()
     {
         var row = Reporting.ToBandwidthRow(new FileReport("x/missing.wav", null, null, "not found"));
-        Assert.Equal("missing.wav", row.File);
-        Assert.Equal("Error", row.Verdict);
-        Assert.Equal("not found", row.Error);
+        await Assert.That(row.File).IsEqualTo("missing.wav");
+        await Assert.That(row.Verdict).IsEqualTo("Error");
+        await Assert.That(row.Error).IsEqualTo("not found");
     }
 }

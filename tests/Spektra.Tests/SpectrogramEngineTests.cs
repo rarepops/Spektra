@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -19,27 +18,27 @@ public class SpectrogramEngineTests
         return s;
     }
 
-    [Fact]
-    public void Sine_ProducesPeakInCorrectBin_EveryColumn()
+    [Test]
+    public async Task Sine_ProducesPeakInCorrectBin_EveryColumn()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings());
         var samples = Sine(1000f, 44100, 44100 * 3);
         var columns = engine.Columns(Chunks(samples), samples.Length, CancellationToken.None).ToList();
 
         // (132300 - 2048) / 1024 + 1 = 128 windows
-        Assert.InRange(columns.Count, 120, 130);
-        Assert.All(columns, c => Assert.Equal(1025, c.Length));
+        await Assert.That(columns.Count).IsBetween(120, 130);
+        await Assert.That(columns.All(c => c.Length == 1025)).IsTrue();
         foreach (var col in columns)
         {
             var peak = 0;
             for (var k = 1; k < col.Length; k++) if (col[k] > col[peak]) peak = k;
-            Assert.InRange(peak, 46, 47);
-            Assert.True(col[peak] > -2f);
+            await Assert.That(peak).IsBetween(46, 47);
+            await Assert.That(col[peak] > -2f).IsTrue();
         }
     }
 
-    [Fact]
-    public void Chirp_PeakBinRises()
+    [Test]
+    public async Task Chirp_PeakBinRises()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings());
         const int sr = 44100, total = sr * 3;
@@ -52,12 +51,11 @@ public class SpectrogramEngineTests
         var columns = engine.Columns(Chunks(samples), total, CancellationToken.None).ToList();
 
         static int ArgMax(float[] c) { var p = 0; for (var k = 1; k < c.Length; k++) if (c[k] > c[p]) p = k; return p; }
-        Assert.True(ArgMax(columns[^10]) > ArgMax(columns[5]) + 400,
-            $"chirp should rise: early={ArgMax(columns[5])} late={ArgMax(columns[^10])}");
+        await Assert.That(ArgMax(columns[^10]) > ArgMax(columns[5]) + 400).IsTrue(); // chirp should rise
     }
 
-    [Fact]
-    public void WhiteNoise_SpectrumIsApproximatelyFlat()
+    [Test]
+    public async Task WhiteNoise_SpectrumIsApproximatelyFlat()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings());
         var rng = new Random(42);
@@ -74,32 +72,31 @@ public class SpectrogramEngineTests
 
         var mid = mean[100..400].Average();
         var high = mean[600..900].Average();
-        Assert.True(Math.Abs(mid - high) < 6.0,
-            $"white noise should be roughly flat: mid={mid:0.0} dB, high={high:0.0} dB");
+        await Assert.That(Math.Abs(mid - high) < 6.0).IsTrue(); // white noise should be roughly flat
     }
 
-    [Fact]
-    public void Aggregation_RespectsMaxColumns()
+    [Test]
+    public async Task Aggregation_RespectsMaxColumns()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings(WindowSize: 512, MaxColumns: 100));
         const int total = 512 * 600; // ~1199 windows at hop 256
         var columns = engine.Columns(Chunks(new float[total]), total, CancellationToken.None).ToList();
-        Assert.InRange(columns.Count, 50, 101);
+        await Assert.That(columns.Count).IsBetween(50, 101);
     }
 
-    [Fact]
-    public void HopOverride_ProducesDenserColumns()
+    [Test]
+    public async Task HopOverride_ProducesDenserColumns()
     {
         // (10240 - 512) / 64 + 1 = 153 windows at hop 64 (vs 39 at default hop 256)
         var settings = new SpectrogramSettings(WindowSize: 512, MaxColumns: 100_000, HopOverride: 64);
         var engine = new SpectrogramEngine(settings);
         const int total = 512 * 20;
         var count = engine.Columns(Chunks(new float[total]), 0, CancellationToken.None).Count();
-        Assert.InRange(count, 145, 153);
+        await Assert.That(count).IsBetween(145, 153);
     }
 
-    [Fact]
-    public void Cancellation_StopsEnumeration()
+    [Test]
+    public async Task Cancellation_StopsEnumeration()
     {
         var engine = new SpectrogramEngine(new SpectrogramSettings());
         using var cts = new CancellationTokenSource();
@@ -109,11 +106,11 @@ public class SpectrogramEngineTests
             while (true) yield return new float[8192];
         }
 
-        Assert.Throws<OperationCanceledException>(() =>
+        await Assert.That(() =>
         {
             var n = 0;
             foreach (var _ in engine.Columns(Infinite(), 0, cts.Token))
                 if (++n == 3) cts.Cancel();
-        });
+        }).ThrowsExactly<OperationCanceledException>();
     }
 }

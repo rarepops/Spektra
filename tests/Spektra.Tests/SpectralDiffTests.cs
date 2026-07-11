@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -11,19 +10,19 @@ public class SpectralDiffTests
         new AnalysisSession(Ff).ReadMetadata(Path.Combine(Fixtures, file));
     private static string P(string file) => Path.Combine(Fixtures, file);
 
-    [Fact]
-    public void Identical_Inputs_ProduceZeroDiff()
+    [Test]
+    public async Task Identical_Inputs_ProduceZeroDiff()
     {
         var meta = Meta("chirp.wav");
         var cols = new SpectralDiff(Ff).Compute(
             P("chirp.wav"), meta, null, P("chirp.wav"), meta, null,
             0, 3, 0, 256, 2048, WindowFunctionKind.Hann, CancellationToken.None);
         var maxAbs = cols.SelectMany(c => c).Max(MathF.Abs);
-        Assert.True(maxAbs < 0.5f, $"identical diff should be ~0, was {maxAbs}");
+        await Assert.That(maxAbs < 0.5f).IsTrue(); // identical diff should be ~0
     }
 
-    [Fact]
-    public void FullBand_vs_LowPassed_IsPositiveAboveCutoff()
+    [Test]
+    public async Task FullBand_vs_LowPassed_IsPositiveAboveCutoff()
     {
         var cols = new SpectralDiff(Ff).Compute(
             P("chirp.wav"), Meta("chirp.wav"), null,
@@ -32,10 +31,9 @@ public class SpectralDiffTests
         // 44100 Hz, window 2048 → 21.5 Hz/bin. bin 820 ≈ 17.6 kHz (deep in B's
         // stopband); bin 350 ≈ 7.5 kHz (both share the chirp).
         var above = cols.SelectMany(c => c.Skip(820)).ToList();
-        Assert.True(above.Max() > 25f, $"expected strong positive diff above cutoff, max {above.Max()}");
-        Assert.True(above.Min() > -10f, $"B must not exceed A above cutoff, min {above.Min()}");
+        await Assert.That(above.Max() > 25f).IsTrue(); // expected strong positive diff above cutoff
+        await Assert.That(above.Min() > -10f).IsTrue(); // B must not exceed A above cutoff
         var below = cols.SelectMany(c => c.Take(350)).ToList();
-        Assert.True(below.Max() < 12f && below.Min() > -12f,
-            $"below-cutoff diff should be small (max {below.Max()}, min {below.Min()})");
+        await Assert.That(below.Max() < 12f && below.Min() > -12f).IsTrue(); // below-cutoff diff should be small
     }
 }

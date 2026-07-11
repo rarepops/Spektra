@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -20,19 +19,19 @@ public class DriftAlignerTests
         return b;
     }
 
-    [Fact]
-    public void ConstantDelay_YieldsConstantLag_NearZeroSpread()
+    [Test]
+    public async Task ConstantDelay_YieldsConstantLag_NearZeroSpread()
     {
         var a = Noise(24000, 1);
         var b = Delay(a, 60);
         var anchors = DriftAligner.EstimateDrift(a, b, 4, 200);
-        Assert.Equal(4, anchors.Count);
-        Assert.All(anchors, an => Assert.InRange(an.Lag, 55, 65));
-        Assert.True(DriftAligner.LagSpread(anchors) <= 8, "constant delay should not drift");
+        await Assert.That(anchors.Count).IsEqualTo(4);
+        await Assert.That(anchors.All(an => an.Lag >= 55 && an.Lag <= 65)).IsTrue();
+        await Assert.That(DriftAligner.LagSpread(anchors) <= 8).IsTrue(); // constant delay should not drift
     }
 
-    [Fact]
-    public void PiecewiseDelay_ShowsDifferentLags_LargeSpread()
+    [Test]
+    public async Task PiecewiseDelay_ShowsDifferentLags_LargeSpread()
     {
         // First half delayed by 20, second half by 90.
         var a = Noise(24000, 2);
@@ -42,13 +41,12 @@ public class DriftAlignerTests
         for (var i = mid + 90; i < b.Length; i++) b[i] = a[i - 90];
 
         var anchors = DriftAligner.EstimateDrift(a, b, 4, 200);
-        Assert.True(DriftAligner.LagSpread(anchors) > 40,
-            $"piecewise delay should produce a large lag spread, got {DriftAligner.LagSpread(anchors)}");
+        await Assert.That(DriftAligner.LagSpread(anchors) > 40).IsTrue(); // piecewise delay should produce a large lag spread
     }
 
-    [Fact]
-    public void TooShort_YieldsNoAnchors()
+    [Test]
+    public async Task TooShort_YieldsNoAnchors()
     {
-        Assert.Empty(DriftAligner.EstimateDrift(new float[4], new float[4], 4, 2));
+        await Assert.That(DriftAligner.EstimateDrift(new float[4], new float[4], 4, 2)).IsEmpty();
     }
 }

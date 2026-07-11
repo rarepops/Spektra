@@ -1,12 +1,11 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
 public class FfmpegLocatorTests
 {
-    [Fact]
-    public void FindsBinariesInProbeDir()
+    [Test]
+    public async Task FindsBinariesInProbeDir()
     {
         var dir = Directory.CreateTempSubdirectory("spektra-loc").FullName;
         var exe = OperatingSystem.IsWindows() ? ".exe" : "";
@@ -14,21 +13,21 @@ public class FfmpegLocatorTests
         File.WriteAllText(Path.Combine(dir, "ffprobe" + exe), "");
 
         var found = FfmpegLocator.Locate([dir], searchPath: false);
-        Assert.NotNull(found);
-        Assert.Equal(Path.Combine(dir, "ffmpeg" + exe), found!.FfmpegPath);
+        await Assert.That(found).IsNotNull();
+        await Assert.That(found!.FfmpegPath).IsEqualTo(Path.Combine(dir, "ffmpeg" + exe));
     }
 
-    [Fact]
-    public void ReturnsNullWhenAbsent()
+    [Test]
+    public async Task ReturnsNullWhenAbsent()
     {
         var empty = Directory.CreateTempSubdirectory("spektra-empty").FullName;
-        Assert.Null(FfmpegLocator.Locate([empty], searchPath: false));
+        await Assert.That(FfmpegLocator.Locate([empty], searchPath: false)).IsNull();
     }
 
-    [Fact]
-    public void FindsRealBinariesViaPath()
+    [Test]
+    public async Task FindsRealBinariesViaPath()
     {
         // ffmpeg is on PATH on the dev machine (verified in plan preflight)
-        Assert.NotNull(FfmpegLocator.Locate([], searchPath: true));
+        await Assert.That(FfmpegLocator.Locate([], searchPath: true)).IsNotNull();
     }
 }

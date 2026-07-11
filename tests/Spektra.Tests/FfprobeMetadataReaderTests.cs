@@ -1,5 +1,4 @@
 using Spektra.Core;
-using Xunit;
 
 namespace Spektra.Tests;
 
@@ -10,45 +9,45 @@ public class FfprobeMetadataReaderTests
     private static FfprobeMetadataReader Reader()
         => new(FfmpegLocator.Locate([])!.FfprobePath);
 
-    [Fact]
-    public void ReadsFlacMetadata()
+    [Test]
+    public async Task ReadsFlacMetadata()
     {
         var m = Reader().Read(Path.Combine(Fixtures, "sine-1khz.flac"));
-        Assert.Equal("flac", m.Codec);
-        Assert.Equal(44100, m.SampleRate);
-        Assert.Equal(1, m.Channels);
-        Assert.Equal(16, m.BitsPerSample);
-        Assert.InRange(m.Duration.TotalSeconds, 2.9, 3.1);
+        await Assert.That(m.Codec).IsEqualTo("flac");
+        await Assert.That(m.SampleRate).IsEqualTo(44100);
+        await Assert.That(m.Channels).IsEqualTo(1);
+        await Assert.That(m.BitsPerSample).IsEqualTo(16);
+        await Assert.That(m.Duration.TotalSeconds).IsBetween(2.9, 3.1);
     }
 
-    [Fact]
-    public void ReadsMp3Metadata_NoBitDepth_HasBitrate()
+    [Test]
+    public async Task ReadsMp3Metadata_NoBitDepth_HasBitrate()
     {
         var m = Reader().Read(Path.Combine(Fixtures, "sine-1khz.mp3"));
-        Assert.Equal("mp3", m.Codec);
-        Assert.Null(m.BitsPerSample);
-        Assert.NotNull(m.BitRateBps);
-        Assert.InRange(m.BitRateBps!.Value, 100_000, 160_000);
+        await Assert.That(m.Codec).IsEqualTo("mp3");
+        await Assert.That(m.BitsPerSample).IsNull();
+        await Assert.That(m.BitRateBps).IsNotNull();
+        await Assert.That(m.BitRateBps!.Value).IsBetween(100_000, 160_000);
     }
 
-    [Fact]
-    public void NonAudioFile_Throws()
+    [Test]
+    public async Task NonAudioFile_Throws()
     {
         var ex = Assert.Throws<AudioDecodeException>(
-            () => Reader().Read(Path.Combine(Fixtures, "notaudio.txt")));
-        Assert.False(string.IsNullOrEmpty(ex.Message));
+            () => { Reader().Read(Path.Combine(Fixtures, "notaudio.txt")); });
+        await Assert.That(string.IsNullOrEmpty(ex.Message)).IsFalse();
     }
 
-    [Fact]
-    public void Parse_MalformedJson_ReadsAsDecodeError()
+    [Test]
+    public async Task Parse_MalformedJson_ReadsAsDecodeError()
     {
         var ex = Assert.Throws<AudioDecodeException>(
-            () => FfprobeMetadataReader.Parse("garbage {", "boom from stderr"));
-        Assert.Contains("unreadable", ex.Message);
+            () => { FfprobeMetadataReader.Parse("garbage {", "boom from stderr"); });
+        await Assert.That(ex.Message).Contains("unreadable");
     }
 
-    [Fact]
-    public void Parse_ValidPayload_MapsFields()
+    [Test]
+    public async Task Parse_ValidPayload_MapsFields()
     {
         var json = """
             {
@@ -58,23 +57,23 @@ public class FfprobeMetadataReaderTests
             }
             """;
         var m = FfprobeMetadataReader.Parse(json, "");
-        Assert.Equal("flac", m.Codec);
-        Assert.Equal(44100, m.SampleRate);
-        Assert.Equal(2, m.Channels);
-        Assert.Equal(16, m.BitsPerSample);
-        Assert.Equal(900_000L, m.BitRateBps);
-        Assert.Equal(3.0, m.Duration.TotalSeconds, 3);
-        Assert.False(m.DurationIsEstimated);
+        await Assert.That(m.Codec).IsEqualTo("flac");
+        await Assert.That(m.SampleRate).IsEqualTo(44100);
+        await Assert.That(m.Channels).IsEqualTo(2);
+        await Assert.That(m.BitsPerSample).IsEqualTo(16);
+        await Assert.That(m.BitRateBps).IsEqualTo(900_000L);
+        await Assert.That(m.Duration.TotalSeconds).IsCloseTo(3.0, 0.001);
+        await Assert.That(m.DurationIsEstimated).IsFalse();
     }
 
-    [Fact]
-    public void DisplayLine_FormatsSegments()
+    [Test]
+    public async Task DisplayLine_FormatsSegments()
     {
         var m = new AudioMetadata("flac", 44100, 2, 16, 1_017_000, TimeSpan.FromSeconds(252));
-        Assert.Equal("song.flac — FLAC · 44.1 kHz · 16-bit · 2 ch · 4:12 · 1017 kbps",
-            m.ToDisplayLine("song.flac"));
+        await Assert.That(m.ToDisplayLine("song.flac"))
+            .IsEqualTo("song.flac — FLAC · 44.1 kHz · 16-bit · 2 ch · 4:12 · 1017 kbps");
 
         var lossy = new AudioMetadata("mp3", 48000, 2, null, null, TimeSpan.FromSeconds(3661));
-        Assert.Equal("x.mp3 — MP3 · 48 kHz · 2 ch · 1:01:01", lossy.ToDisplayLine("x.mp3"));
+        await Assert.That(lossy.ToDisplayLine("x.mp3")).IsEqualTo("x.mp3 — MP3 · 48 kHz · 2 ch · 1:01:01");
     }
 }
