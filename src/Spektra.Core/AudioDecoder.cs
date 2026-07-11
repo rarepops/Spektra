@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -12,13 +11,6 @@ public sealed class AudioDecoder(string ffmpegPath)
         string filePath, CancellationToken ct, DecodeOptions? options = null)
     {
         ct.ThrowIfCancellationRequested();
-        var psi = new ProcessStartInfo(ffmpegPath)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
         var o = options ?? new DecodeOptions();
         var args = new List<string> { "-v", "error" };
         if (o.Start is { } start)
@@ -47,10 +39,8 @@ public sealed class AudioDecoder(string ffmpegPath)
             args.Add(rate.ToString(CultureInfo.InvariantCulture));
         }
         args.AddRange(["-f", "f32le", "-"]);
-        foreach (var a in args) psi.ArgumentList.Add(a);
 
-        using var p = Process.Start(psi)
-            ?? throw new AudioDecodeException("Failed to start ffmpeg.");
+        using var p = FfmpegProcess.Start(FfmpegProcess.StartInfo(ffmpegPath, args), "ffmpeg");
 
         var stderr = new StringBuilder();
         p.ErrorDataReceived += (_, e) =>

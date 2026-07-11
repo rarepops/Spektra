@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 
 namespace Spektra.Core;
@@ -10,23 +9,15 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         if (!File.Exists(filePath))
             throw new AudioDecodeException($"File not found: {filePath}");
 
-        var psi = new ProcessStartInfo(ffprobePath)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        foreach (var a in new[]
-        {
+        var psi = FfmpegProcess.StartInfo(ffprobePath,
+        [
             // -v warning (not error): the demuxer's "Estimating duration from
             // bitrate" notice is how we know the duration is untrustworthy.
             "-v", "warning", "-print_format", "json",
             "-show_format", "-show_streams", "-select_streams", "a", filePath,
-        }) psi.ArgumentList.Add(a);
+        ]);
 
-        using var p = Process.Start(psi)
-            ?? throw new AudioDecodeException("Failed to start ffprobe.");
+        using var p = FfmpegProcess.Start(psi, "ffprobe");
         var stdout = p.StandardOutput.ReadToEnd();
         var stderr = p.StandardError.ReadToEnd();
         p.WaitForExit();

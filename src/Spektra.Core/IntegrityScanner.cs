@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace Spektra.Core;
 
 public enum IntegrityStatus { Ok, Suspect, Corrupt }
@@ -107,36 +105,16 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
     private int CountDecodeErrors(string path, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var psi = new ProcessStartInfo(ffmpeg.FfmpegPath)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
         // No +bitstream: it flags spec deviations (mp3 "bits_left" padding
         // quirks from sloppy encoders) that play fine, thousands per file.
-        foreach (var a in new[]
-                 {
-                     "-hide_banner", "-nostdin", "-v", "error",
-                     "-err_detect", "+crccheck+buffer",
-                     "-i", path, "-f", "null", "-",
-                 })
-            psi.ArgumentList.Add(a);
-
-        using var p = Process.Start(psi) ?? throw new AudioDecodeException("Failed to start ffmpeg.");
-        // Kill on cancel so the blocking reads below unblock; the token used
-        // to reach only the stdout drain, leaving the pass uncancellable.
-        using var killOnCancel = ct.Register(() =>
-        {
-            try { p.Kill(entireProcessTree: true); } catch { /* already exited */ }
-        });
-        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
-        var stderr = p.StandardError.ReadToEnd();
-        p.WaitForExit();
-        try { drain.Wait(CancellationToken.None); } catch { /* best effort */ }
-        ct.ThrowIfCancellationRequested();
-
+        var psi = FfmpegProcess.StartInfo(ffmpeg.FfmpegPath,
+        [
+            "-hide_banner", "-nostdin", "-v", "error",
+            "-err_detect", "+crccheck+buffer",
+            "-i", path, "-f", "null", "-",
+        ]);
+        // tailChars 0: keep all of stderr so every error line gets counted.
+        var (_, stderr) = FfmpegProcess.RunToNull(psi, "ffmpeg", ct);
         return stderr.Split('\n').Count(l => l.Trim().Length > 0);
     }
 }

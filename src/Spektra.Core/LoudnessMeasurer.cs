@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Spektra.Core;
@@ -53,46 +51,14 @@ public sealed partial class LoudnessMeasurer(FfmpegPaths ffmpeg)
     private (double? I, double? Lra, double? Tp) RunEbur128(string path, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var psi = new ProcessStartInfo(ffmpeg.FfmpegPath)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        foreach (var a in new[]
-                 {
-                     "-hide_banner", "-nostdin", "-nostats",
-                     "-i", path, "-af", "ebur128=peak=true", "-f", "null", "-",
-                 })
-            psi.ArgumentList.Add(a);
-
-        using var p = Process.Start(psi) ?? throw new AudioDecodeException("Failed to start ffmpeg.");
-        var sb = new StringBuilder();
-        p.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is null) return;
-            lock (sb)
-            {
-                sb.AppendLine(e.Data);
-                if (sb.Length > 8000) sb.Remove(0, sb.Length - 6000); // the summary is at the end
-            }
-        };
-        p.BeginErrorReadLine();
-        // Kill on cancel so WaitForExit unblocks; the token used to reach
-        // only the stdout drain, leaving the measurement uncancellable.
-        using var killOnCancel = ct.Register(() =>
-        {
-            try { p.Kill(entireProcessTree: true); } catch { /* already exited */ }
-        });
-        var drain = p.StandardOutput.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
-        p.WaitForExit();
-        try { drain.Wait(CancellationToken.None); } catch { /* best effort */ }
-        ct.ThrowIfCancellationRequested();
-
-        string text;
-        lock (sb) text = sb.ToString();
-        return ParseEbur128(text);
+        var psi = FfmpegProcess.StartInfo(ffmpeg.FfmpegPath,
+        [
+            "-hide_banner", "-nostdin", "-nostats",
+            "-i", path, "-af", "ebur128=peak=true", "-f", "null", "-",
+        ]);
+        // tailChars: keep only the end of stderr, where the ebur128 Summary lives.
+        var (_, stderr) = FfmpegProcess.RunToNull(psi, "ffmpeg", ct, tailChars: 6000);
+        return ParseEbur128(stderr);
     }
 
     [GeneratedRegex(@"\bI:\s*(-?\d+(?:\.\d+)?)\s*LUFS")]
