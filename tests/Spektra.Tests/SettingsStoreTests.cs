@@ -58,6 +58,24 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task Save_Succeeds_ReturnsTrue()
+    {
+        await Assert.That(SettingsStore.Save(SettingsPath, new AppSettings())).IsTrue();
+    }
+
+    [Test]
+    public async Task Save_UnwritableLocation_FailsSoft_ReturnsFalse()
+    {
+        // The parent is a file, so the settings directory can't be created:
+        // Save must fail soft (mirroring Load) rather than throw, so a
+        // read-only AppData never crashes the app.
+        var blocker = Path.Combine(_dir, "blocker");
+        File.WriteAllText(blocker, "x");
+        var target = Path.Combine(blocker, "settings.json");
+        await Assert.That(SettingsStore.Save(target, new AppSettings())).IsFalse();
+    }
+
+    [Test]
     public async Task PushRecent_DedupesCaseInsensitive_MovesToFront()
     {
         var s = new AppSettings();

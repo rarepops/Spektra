@@ -30,12 +30,23 @@ public static class SettingsStore
         }
     }
 
-    public static void Save(string path, AppSettings settings)
+    /// Persists settings; returns false (rather than throwing) when the location
+    /// is unwritable, so a read-only or full AppData degrades to "settings don't
+    /// persist" instead of crashing the app. Mirrors Load's fail-soft contract.
+    public static bool Save(string path, AppSettings settings)
     {
-        var dir = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Options));
-        File.Move(tmp, path, overwrite: true);
+        try
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Options));
+            File.Move(tmp, path, overwrite: true);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }
