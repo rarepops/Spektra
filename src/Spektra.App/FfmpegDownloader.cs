@@ -24,12 +24,23 @@ public static class FfmpegDownloader
         await using (var output = File.Create(zipPath))
             await input.CopyToAsync(output, ct);
 
-        if (PinnedSha256.Length != 0)
+        progress.Report("Verifying download…");
+        await using (var check = File.OpenRead(zipPath))
         {
-            await using var check = File.OpenRead(zipPath);
             var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(check, ct));
-            if (hash != PinnedSha256)
-                throw new InvalidOperationException($"ffmpeg download hash mismatch: {hash}");
+            if (PinnedSha256.Length != 0)
+            {
+                if (hash != PinnedSha256)
+                    throw new InvalidOperationException(
+                        $"ffmpeg download hash mismatch: expected {PinnedSha256}, got {hash}.");
+            }
+            else
+            {
+                // No hash pinned yet (record one with tools/get-ffmpeg.ps1
+                // -RecordHash). Surface the download's own hash instead of
+                // silently trusting it, so it is visible and can be pinned.
+                progress.Report($"Note: ffmpeg build is not integrity-pinned; downloaded SHA-256 {hash}.");
+            }
         }
 
         progress.Report("Extracting…");
