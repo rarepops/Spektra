@@ -94,9 +94,9 @@ public sealed class SpectrogramView : Control
         var vp = _vm?.Viewport;
         if (_vm?.Document is { } doc && vp is not null)
         {
-            var nyquist = doc.Metadata.SampleRate / 2.0;
-            _pane.DrawInto(ctx, plot, vp.T0, vp.T1, vp.F0, vp.F1, vp.T0, vp.T1, _display.LogFrequency, nyquist);
-            SpectrogramDraw.FrequencyRuler(ctx, plot, doc.Metadata.SampleRate, vp.F0, vp.F1, _display.LogFrequency);
+            var freq = new FreqAxis(vp.F0, vp.F1, _display.LogFrequency, doc.Metadata.SampleRate / 2.0);
+            _pane.DrawInto(ctx, plot, vp.T0, vp.T1, vp.T0, vp.T1, freq);
+            SpectrogramDraw.FrequencyRuler(ctx, plot, freq);
             if (_vm.IntegrityVisible && _vm.Integrity is { } integrity)
                 SpectrogramDraw.IntegrityLane(ctx, plot,
                     IntegrityStrip.Segments(integrity, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1));
@@ -127,7 +127,7 @@ public sealed class SpectrogramView : Control
         if (_peakProfile is not { Length: > 1 } peak || _avgProfile is not { } avg) return;
 
         var vp = _vm.Viewport;
-        var nyquist = meta.SampleRate / 2.0;
+        var freq = new FreqAxis(vp.F0, vp.F1, _display.LogFrequency, meta.SampleRate / 2.0);
         float floor = _display.DbFloor, ceil = _display.DbCeil;
         var overlayW = plot.Width * 0.33;
         var bins = peak.Length;
@@ -135,7 +135,7 @@ public sealed class SpectrogramView : Control
         Point Pt(float[] prof, int k)
         {
             var q = (double)k / (bins - 1);
-            var y = plot.Bottom - SpectrogramDraw.FreqPos(q, vp.F0, vp.F1, _display.LogFrequency, nyquist) * plot.Height;
+            var y = plot.Bottom - freq.PosOf(q) * plot.Height;
             var lvl = Math.Clamp((prof[k] - floor) / (ceil - floor), 0f, 1f);
             return new Point(plot.Right - lvl * overlayW, y);
         }
@@ -199,9 +199,9 @@ public sealed class SpectrogramView : Control
         var tN = vp.T0 + (p.X - plot.Left) / plot.Width * (vp.T1 - vp.T0);
         var seconds = tN * meta.Duration.TotalSeconds;
         var pos = 1 - (p.Y - plot.Top) / plot.Height;
-        var nyquist = meta.SampleRate / 2.0;
-        var q = SpectrogramDraw.PosToFreq(pos, vp.F0, vp.F1, _display.LogFrequency, nyquist);
-        var hz = q * nyquist;
+        var freq = new FreqAxis(vp.F0, vp.F1, _display.LogFrequency, meta.SampleRate / 2.0);
+        var q = freq.FreqAt(pos);
+        var hz = q * freq.Nyquist;
         var db = SampleDb(doc, tN, q);
 
         ctx.DrawLine(SpectrogramDraw.CursorUnderlayPen, new Point(p.X, plot.Top), new Point(p.X, plot.Bottom));

@@ -90,8 +90,7 @@ sealed class PaneRenderer : IDisposable
     public bool HasImage => _doc is not null && _overview is not null && _written > 0;
 
     public void DrawInto(DrawingContext ctx, Rect rect,
-        double paneT0, double paneT1, double f0, double f1, double vpT0, double vpT1,
-        bool logFreq = false, double nyquist = 0)
+        double paneT0, double paneT1, double vpT0, double vpT1, FreqAxis freq)
     {
         if (!HasImage) return;
         var span = paneT1 - paneT0;
@@ -107,33 +106,33 @@ sealed class PaneRenderer : IDisposable
                 rect.X + (vis0 - paneT0) / span * rect.Width, rect.Y,
                 (vis1 - vis0) / span * rect.Width, rect.Height);
             DrawBands(ctx, _overview!, _doc!.Bins,
-                vis0 * _written, Math.Max(1, (vis1 - vis0) * _written), dst, f0, f1, logFreq, nyquist);
+                vis0 * _written, Math.Max(1, (vis1 - vis0) * _written), dst, freq);
         }
 
         if (_tile is not null && _tileShown is { } tile &&
             Math.Abs(tile.T0 - vpT0) < 1e-9 && Math.Abs(tile.T1 - vpT1) < 1e-9)
         {
-            DrawBands(ctx, _tile, tile.Bins, 0, _tile.PixelSize.Width, rect, f0, f1, logFreq, nyquist);
+            DrawBands(ctx, _tile, tile.Bins, 0, _tile.PixelSize.Width, rect, freq);
         }
     }
 
-    // Draws a bitmap's frequency band [f0,f1] into dst. Linear is one stretch;
+    // Draws a bitmap's frequency band [F0,F1] into dst. Linear is one stretch;
     // log splits dst into horizontal strips, each mapping its own frequency
     // sub-band (low frequencies get more vertical room).
     internal static void DrawBands(DrawingContext ctx, WriteableBitmap bmp, int bins,
-        double srcX, double srcW, Rect dst, double f0, double f1, bool logFreq, double nyquist)
+        double srcX, double srcW, Rect dst, FreqAxis freq)
     {
-        if (!logFreq)
+        if (!freq.Log)
         {
-            var src = new Rect(srcX, (1 - f1) * bins, srcW, Math.Max(1, (f1 - f0) * bins));
+            var src = new Rect(srcX, (1 - freq.F1) * bins, srcW, Math.Max(1, (freq.F1 - freq.F0) * bins));
             ctx.DrawImage(bmp, src, dst);
             return;
         }
         var strips = Math.Clamp((int)dst.Height, 1, 256);
         for (var k = 0; k < strips; k++)
         {
-            var qTop = SpectrogramDraw.PosToFreq(1.0 - (double)k / strips, f0, f1, true, nyquist);
-            var qBot = SpectrogramDraw.PosToFreq(1.0 - (double)(k + 1) / strips, f0, f1, true, nyquist);
+            var qTop = freq.FreqAt(1.0 - (double)k / strips);
+            var qBot = freq.FreqAt(1.0 - (double)(k + 1) / strips);
             var src = new Rect(srcX, (1 - qTop) * bins, srcW, Math.Max(0.5, (qTop - qBot) * bins));
             var stripRect = new Rect(dst.X, dst.Y + (double)k / strips * dst.Height, dst.Width, dst.Height / strips + 1);
             ctx.DrawImage(bmp, src, stripRect);
