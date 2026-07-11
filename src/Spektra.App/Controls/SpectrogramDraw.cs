@@ -6,7 +6,8 @@ using Spektra.Core;
 namespace Spektra.App.Controls;
 
 /// Shared static drawing helpers for spectrogram surfaces (rulers, legends,
-/// plot geometry). No per-instance state.
+/// plot geometry). No per-instance state; the legend and text caches below are
+/// static and touched only on the render (UI) thread.
 static class SpectrogramDraw
 {
     public const double RulerLeft = 46, RulerBottom = 22, LegendWidth = 64, Pad = 8;
@@ -32,6 +33,15 @@ static class SpectrogramDraw
         Math.Max(1, bounds.Width - RulerLeft - LegendWidth - Pad),
         Math.Max(1, bounds.Height - RulerBottom - 2 * Pad));
 
+    // First step whose tick count fits the budget, else the coarsest. A plain
+    // loop, so no per-frame closure/enumerator like LinFreqSteps.First(lambda).
+    private static double PickStep(double[] steps, double span, double maxTicks)
+    {
+        foreach (var s in steps)
+            if (span / s <= maxTicks) return s;
+        return steps[^1];
+    }
+
     public static void FrequencyRuler(DrawingContext ctx, Rect plot, FreqAxis axis)
     {
         var nyquist = axis.Nyquist;
@@ -51,7 +61,7 @@ static class SpectrogramDraw
         }
         var lo = axis.F0 * nyquist;
         var hi = axis.F1 * nyquist;
-        var step = LinFreqSteps.First(s => (hi - lo) / s <= 8);
+        var step = PickStep(LinFreqSteps, hi - lo, 8);
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var hz = i * step;
@@ -67,7 +77,7 @@ static class SpectrogramDraw
         if (durationSeconds <= 0) return;
         var lo = t0 * durationSeconds;
         var hi = t1 * durationSeconds;
-        var step = TimeSteps.First(s => (hi - lo) / s <= 10);
+        var step = PickStep(TimeSteps, hi - lo, 10);
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var t = i * step;
@@ -107,19 +117,40 @@ static class SpectrogramDraw
         return $"{basic}.{tenths}";
     }
 
+    // The 64-step legend ramp depends only on the palette LUT and dB range, so
+    // cache the brushes and rebuild only when those change; Render runs on every
+    // repaint (pointer moves included), so rebuilding 64 brushes each frame was
+    // pure garbage.
+    private const int LegendSteps = 64;
+    private static uint[]? _legendLut;
+    private static float _legendFloor, _legendCeil;
+    private static IBrush[]? _legendBrushes;
+
+    private static IBrush[] LegendBrushes(DisplaySettings display)
+    {
+        float floor = display.DbFloor, ceil = display.DbCeil;
+        if (_legendBrushes is not null && ReferenceEquals(_legendLut, display.Lut) &&
+            _legendFloor == floor && _legendCeil == ceil)
+            return _legendBrushes;
+        var brushes = new IBrush[LegendSteps];
+        for (var i = 0; i < LegendSteps; i++)
+        {
+            var db = floor + (ceil - floor) * (LegendSteps - 1 - i) / (LegendSteps - 1);
+            brushes[i] = new SolidColorBrush(Color.FromUInt32(PaletteLut.Sample(display.Lut, db, floor, ceil)));
+        }
+        (_legendLut, _legendFloor, _legendCeil, _legendBrushes) = (display.Lut, floor, ceil, brushes);
+        return brushes;
+    }
+
     public static void Legend(DrawingContext ctx, Rect plot, DisplaySettings display)
     {
         var x = plot.Right + 10;
         const double w = 14;
-        const int steps = 64;
+        var brushes = LegendBrushes(display);
+        var h = plot.Height / LegendSteps;
+        for (var i = 0; i < LegendSteps; i++)
+            ctx.FillRectangle(brushes[i], new Rect(x, plot.Top + i * h, w, h + 1));
         float floor = display.DbFloor, ceil = display.DbCeil;
-        for (var i = 0; i < steps; i++)
-        {
-            var db = floor + (ceil - floor) * (steps - 1 - i) / (steps - 1);
-            var brush = new SolidColorBrush(Color.FromUInt32(PaletteLut.Sample(display.Lut, db, floor, ceil)));
-            var h = plot.Height / steps;
-            ctx.FillRectangle(brush, new Rect(x, plot.Top + i * h, w, h + 1));
-        }
         for (var db = (int)ceil; db >= floor; db -= 30)
         {
             var y = plot.Top + (ceil - db) / (ceil - floor) * plot.Height;
@@ -127,29 +158,54 @@ static class SpectrogramDraw
         }
     }
 
+    private static float _divClamp = float.NaN;
+    private static IBrush[]? _divBrushes;
+
+    // The diff ramp depends only on clamp (a constant), so it caches after the
+    // first frame; the label span is stack-allocated to avoid a per-frame array.
+    private static IBrush[] DivergingBrushes(float clamp)
+    {
+        if (_divBrushes is not null && _divClamp == clamp) return _divBrushes;
+        var brushes = new IBrush[LegendSteps];
+        for (var i = 0; i < LegendSteps; i++)
+        {
+            var diff = clamp - 2 * clamp * i / (LegendSteps - 1); // +clamp at top → −clamp at bottom
+            brushes[i] = new SolidColorBrush(Color.FromUInt32(DivergingPalette.ToBgra(diff, clamp)));
+        }
+        (_divClamp, _divBrushes) = (clamp, brushes);
+        return brushes;
+    }
+
     public static void DivergingLegend(DrawingContext ctx, Rect plot, float clamp)
     {
         var x = plot.Right + 10;
         const double w = 14;
-        const int steps = 64;
-        for (var i = 0; i < steps; i++)
-        {
-            var diff = clamp - 2 * clamp * i / (steps - 1); // +clamp at top → −clamp at bottom
-            var brush = new SolidColorBrush(Color.FromUInt32(DivergingPalette.ToBgra(diff, clamp)));
-            var h = plot.Height / steps;
-            ctx.FillRectangle(brush, new Rect(x, plot.Top + i * h, w, h + 1));
-        }
-        foreach (var db in new[] { clamp, 0f, -clamp })
+        var brushes = DivergingBrushes(clamp);
+        var h = plot.Height / LegendSteps;
+        for (var i = 0; i < LegendSteps; i++)
+            ctx.FillRectangle(brushes[i], new Rect(x, plot.Top + i * h, w, h + 1));
+        foreach (var db in stackalloc[] { clamp, 0f, -clamp })
         {
             var y = plot.Top + (clamp - db) / (2 * clamp) * plot.Height;
             Text(ctx, $"{db:+0;-0;0}", x + w + 4, y - 7);
         }
     }
 
+    // Ruler and legend labels repeat every frame from a small, fixed string set,
+    // so cache the FormattedText (heavier than a brush) by string. The cap guards
+    // against unbounded growth from many distinct time labels over a session; in
+    // practice the set is tiny, so it rarely trips.
+    private static readonly Dictionary<string, FormattedText> TextCache = [];
+
     public static void Text(DrawingContext ctx, string text, double x, double y, bool alignRight = false)
     {
-        var ft = new FormattedText(text, CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight, Font, 11, TextBrush);
+        if (!TextCache.TryGetValue(text, out var ft))
+        {
+            if (TextCache.Count > 512) TextCache.Clear();
+            ft = new FormattedText(text, CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, Font, 11, TextBrush);
+            TextCache[text] = ft;
+        }
         ctx.DrawText(ft, new Point(alignRight ? x - ft.Width : x, y));
     }
 }
