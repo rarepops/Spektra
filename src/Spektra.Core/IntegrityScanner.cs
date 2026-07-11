@@ -55,7 +55,27 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
             decodeFailed = true; // corrupt enough that ffmpeg bailed out
         }
 
-        var decodedSeconds = meta.SampleRate > 0 ? (double)samples / meta.SampleRate : 0;
+        return Build(meta, decodeErrors, decodeFailed, dropouts, samples);
+    }
+
+    /// Audit path: the dropouts and decoded-sample count already came from the
+    /// shared decode (see AnalysisSession.AnalyzeColumnsWithSilence), so this
+    /// only runs the error-count pass. decodeFailed is false here: a failed
+    /// shared decode never reaches this point, since the caller reports the file
+    /// as an error row instead.
+    public IntegrityReport CheckPreDecoded(
+        string path, AudioMetadata meta, IReadOnlyList<DropoutRegion> dropouts, long decodedSamples,
+        CancellationToken ct = default)
+    {
+        var decodeErrors = CountDecodeErrors(path, ct);
+        return Build(meta, decodeErrors, decodeFailed: false, dropouts, decodedSamples);
+    }
+
+    private static IntegrityReport Build(
+        AudioMetadata meta, int decodeErrors, bool decodeFailed,
+        IReadOnlyList<DropoutRegion> dropouts, long decodedSamples)
+    {
+        var decodedSeconds = meta.SampleRate > 0 ? (double)decodedSamples / meta.SampleRate : 0;
         var expectedSeconds = meta.Duration.TotalSeconds;
         // An estimated duration (no-Xing mp3 and friends) proves nothing about
         // truncation: appended junk inflates the estimate on healthy files.

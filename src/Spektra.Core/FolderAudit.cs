@@ -40,16 +40,37 @@ public static class FolderAudit
             })
             .ToArray();
 
+    /// Bandwidth + integrity for one file, sharing a single decode: the mono
+    /// stream is teed through the spectrogram engine (bandwidth verdict) and the
+    /// silence scan (dropouts + truncation) at once, so only the separate
+    /// error-count pass decodes a second time (two decodes total, not three).
     public static AuditResult AnalyzeFile(FfmpegPaths ffmpeg, string path, CancellationToken ct = default)
     {
-        var report = BandwidthReport.Analyze(ffmpeg, path, ct: ct);
+        var session = new AnalysisSession(ffmpeg);
+        AudioMetadata meta;
+        List<float[]> columns;
+        IReadOnlyList<DropoutRegion> dropouts;
+        long decodedSamples;
+        try
+        {
+            meta = session.ReadMetadata(path);
+            var settings = new SpectrogramSettings(WindowSize: 2048);
+            (columns, dropouts, decodedSamples) = session.AnalyzeColumnsWithSilence(path, meta, settings, ct);
+        }
+        catch (Exception ex) when (ex is AudioDecodeException or IOException or InvalidOperationException)
+        {
+            // ffprobe or the decode failed: no verdict and no samples to judge, so
+            // this is an error row and (as before) integrity is skipped.
+            return new AuditResult(new FileReport(path, null, null, ex.Message), null, null);
+        }
+
+        var report = new FileReport(path, meta, CutoffAnalyzer.Analyze(columns, meta.SampleRate), null);
+
         IntegrityReport? integrity = null;
         string? integrityError = null;
-        if (report.Metadata is { } meta)
-        {
-            try { integrity = new IntegrityScanner(ffmpeg).Check(path, meta, ct); }
-            catch (Exception ex) when (ex is AudioDecodeException or IOException) { integrityError = ex.Message; }
-        }
+        try { integrity = new IntegrityScanner(ffmpeg).CheckPreDecoded(path, meta, dropouts, decodedSamples, ct); }
+        catch (Exception ex) when (ex is AudioDecodeException or IOException) { integrityError = ex.Message; }
+
         return new AuditResult(report, integrity, integrityError);
     }
 

@@ -162,4 +162,26 @@ public class FolderAuditTests
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
+
+    [Test]
+    public async Task AnalyzeFile_SilentGap_DetectsDropoutAndKeepsVerdict()
+    {
+        // Exercises the audit's combined decode: one pass has to feed both the
+        // bandwidth verdict and the silence scan.
+        var r = FolderAudit.AnalyzeFile(Ff, P("gap.wav"));
+        await Assert.That(r.Report.Verdict).IsNotNull();
+        await Assert.That(r.Integrity).IsNotNull();
+        await Assert.That(r.Integrity!.Dropouts).HasSingleItem();
+        await Assert.That(r.Integrity.Status).IsEqualTo(IntegrityStatus.Ok);
+    }
+
+    [Test]
+    public async Task AnalyzeFile_CorruptFile_IsFlaggedAsProblem()
+    {
+        // corrupt.flac is truncated: either the decode errors out (error row) or
+        // it decodes short and the integrity pass reports Corrupt.
+        var r = FolderAudit.AnalyzeFile(Ff, P("corrupt.flac"));
+        await Assert.That(r.HasProblem).IsTrue();
+        await Assert.That(r.Report.Error is not null || r.Integrity?.Status == IntegrityStatus.Corrupt).IsTrue();
+    }
 }
