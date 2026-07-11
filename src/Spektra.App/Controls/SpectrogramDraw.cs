@@ -21,6 +21,13 @@ static class SpectrogramDraw
     public static readonly IPen CursorUnderlayPen = new Pen(CursorUnderlayBrush, 3);
     public static readonly IPen CursorLinePen = new Pen(CursorCoreBrush, 1);
 
+    // Hoisted out of the per-frame ruler loops: the tick pen and the tick-step
+    // tables never change, so rebuilding them on every Render was pure garbage.
+    private static readonly IPen TickPen = new Pen(TextBrush, 1);
+    private static readonly double[] LogFreqTicks = [20.0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+    private static readonly double[] LinFreqSteps = [50.0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+    private static readonly double[] TimeSteps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600, 86400];
+
     public static Rect PlotRect(Rect bounds) => new(
         RulerLeft, Pad,
         Math.Max(1, bounds.Width - RulerLeft - LegendWidth - Pad),
@@ -58,12 +65,12 @@ static class SpectrogramDraw
         if (nyquist <= 0) return;
         if (log)
         {
-            foreach (var hz in new[] { 20.0, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000 })
+            foreach (var hz in LogFreqTicks)
             {
                 var q = hz / nyquist;
                 if (q < f0 || q > f1) continue;
                 var y = plot.Bottom - FreqPos(q, f0, f1, true, nyquist) * plot.Height;
-                ctx.DrawLine(new Pen(TextBrush, 1), new Point(plot.Left - 4, y), new Point(plot.Left, y));
+                ctx.DrawLine(TickPen, new Point(plot.Left - 4, y), new Point(plot.Left, y));
                 var label = hz >= 1000 ? $"{hz / 1000:0.#}k" : $"{hz:0}";
                 Text(ctx, label, plot.Left - 8, y - 7, alignRight: true);
             }
@@ -71,13 +78,12 @@ static class SpectrogramDraw
         }
         var lo = f0 * nyquist;
         var hi = f1 * nyquist;
-        var step = new[] { 50.0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000 }
-            .First(s => (hi - lo) / s <= 8);
+        var step = LinFreqSteps.First(s => (hi - lo) / s <= 8);
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var hz = i * step;
             var y = plot.Bottom - (hz - lo) / (hi - lo) * plot.Height;
-            ctx.DrawLine(new Pen(TextBrush, 1), new Point(plot.Left - 4, y), new Point(plot.Left, y));
+            ctx.DrawLine(TickPen, new Point(plot.Left - 4, y), new Point(plot.Left, y));
             var label = hz >= 1000 ? $"{hz / 1000:0.#}k" : $"{hz:0}";
             Text(ctx, label, plot.Left - 8, y - 7, alignRight: true);
         }
@@ -88,13 +94,12 @@ static class SpectrogramDraw
         if (durationSeconds <= 0) return;
         var lo = t0 * durationSeconds;
         var hi = t1 * durationSeconds;
-        var step = new[] { 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600, 86400 }
-            .First(s => (hi - lo) / s <= 10);
+        var step = TimeSteps.First(s => (hi - lo) / s <= 10);
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var t = i * step;
             var x = plot.Left + (t - lo) / (hi - lo) * plot.Width;
-            ctx.DrawLine(new Pen(TextBrush, 1), new Point(x, plot.Bottom), new Point(x, plot.Bottom + 4));
+            ctx.DrawLine(TickPen, new Point(x, plot.Bottom), new Point(x, plot.Bottom + 4));
             Text(ctx, FormatTick(t, step), x + 2, plot.Bottom + 5);
         }
     }
