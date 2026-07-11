@@ -80,9 +80,12 @@ public sealed class CompareSurface : Control
             vm.Changed += OnVmChanged; vm.DiffChanged += OnDiffReady; vm.DiffRequested += OnDiffRequested;
             vm.BusyChanged += OnBusyChanged; vm.OffsetChanged += OnOffsetChanged;
             vm.TargetColumns = Cols();
-            _a.SetDocument(vm.A.Document); _a.SetTile(vm.A.Tile);
-            _b.SetDocument(vm.B.Document); _b.SetTile(vm.B.Tile);
         }
+        // Set (or, when vm is null, release) both panes and the diff so a
+        // detached compare tab frees its bitmaps instead of holding them alive.
+        _a.SetDocument(vm?.A.Document); _a.SetTile(vm?.A.Tile);
+        _b.SetDocument(vm?.B.Document); _b.SetTile(vm?.B.Tile);
+        if (vm is null) { _diff?.Dispose(); _diff = null; }
         OnBusyChanged();
         InvalidateVisual();
     }
