@@ -49,6 +49,7 @@ Run the app or the CLI:
 - Releases are cut by the maintainer: merge to `main`, then push a `vX.Y.Z` tag. A GitHub Actions workflow builds the installer and binaries and publishes the release. Update `CHANGELOG.md` as part of the release.
 - If verdict or integrity analysis changed, bump `AuditCache.AnalysisVersion` so cached audit rows re-analyze.
 - **Only pushing the `vX.Y.Z` tag publishes a release.** Running the release workflow manually (`workflow_dispatch`) builds the same artifacts for inspection but does not create a GitHub release, so it is a safe dry run.
+- **Optional release summary**: text in the annotated tag's body (the lines after the `Spektra X.Y.Z` subject) is published at the top of the GitHub release, above the auto-generated commit list. Leave the body empty for just the commit list. For example: `git tag -a v1.2.3 -m "Spektra 1.2.3" -m "Highlights: repaired the ffmpeg download, faster rendering."`
 
 ## License
 

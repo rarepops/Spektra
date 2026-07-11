@@ -22,6 +22,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history + tag objects so the release step can read the
+          # annotated tag's message body for the optional summary.
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -103,11 +107,26 @@ jobs:
           name: spektra-${{ steps.v.outputs.version }}
           path: dist/artifacts/*
 
+      - name: Release summary from tag body
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          # Optional per-release summary. The annotated tag's body (everything
+          # after the first line) becomes the top of the release notes, above
+          # the auto-generated commit list. The "Spektra X.Y.Z" subject is left
+          # out (it duplicates the release title) and so is the tag's PGP
+          # signature. A tag with no body yields no summary.
+          $body = (git tag -l --format='%(contents:body)' $env:GITHUB_REF_NAME) -join "`n"
+          Set-Content notes.md -Value $body.Trim() -Encoding utf8
+          if ($body.Trim()) { Write-Host "Release summary:`n$($body.Trim())" }
+          else { Write-Host "No tag body; using generated notes only." }
+
       - name: Create GitHub release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
           name: Spektra ${{ steps.v.outputs.version }}
+          body_path: notes.md
           files: |
             dist/artifacts/*.zip
             dist/artifacts/*.msi
