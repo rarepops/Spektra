@@ -7,7 +7,7 @@ public enum VerdictKind { Unknown, Lossless, Suspicious, Lossy, Upsampled }
 /// `Summary` is a one-line, user-facing verdict; `CodecGuess` names the likely
 /// lossy format/bitrate when a cutoff is found.
 public sealed record LosslessVerdict(
-    VerdictKind Kind, double? CutoffHz, double NyquistHz, string Summary, string? CodecGuess);
+    VerdictKind Kind, double? CutoffHz, string Summary, string? CodecGuess);
 
 /// Estimates an audio file's real bandwidth from its spectrogram and decides
 /// whether a lossy low-pass cutoff is present. Heuristic: lossy encoders zero
@@ -80,13 +80,13 @@ public static class CutoffAnalyzer
         var nyquist = sampleRate / 2.0;
         var peak = PeakHold(columns);
         if (peak.Length < 2 || nyquist <= 0)
-            return new LosslessVerdict(VerdictKind.Unknown, null, nyquist,
+            return new LosslessVerdict(VerdictKind.Unknown, null,
                 "Not enough data to analyze bandwidth.", null);
 
         var hzPerBin = nyquist / (peak.Length - 1);
         var globalPeak = peak.Max();
         if (globalPeak <= Db.Floor + 3f)
-            return new LosslessVerdict(VerdictKind.Unknown, null, nyquist,
+            return new LosslessVerdict(VerdictKind.Unknown, null,
                 "Signal is too quiet to judge bandwidth.", null);
 
         var active = Math.Max(globalPeak - ActiveSpanDb, Db.Floor + DeadMarginDb);
@@ -99,11 +99,11 @@ public static class CutoffAnalyzer
         var ratio = cutoffHz / nyquist;
 
         if (ratio >= FullBandRatio)
-            return new LosslessVerdict(VerdictKind.Lossless, null, nyquist,
+            return new LosslessVerdict(VerdictKind.Lossless, null,
                 $"Full-band to {Khz(nyquist)}. No cutoff detected; consistent with lossless.", null);
 
         if (cutoffHz < MinLossyCutoffHz)
-            return new LosslessVerdict(VerdictKind.Unknown, cutoffHz, nyquist,
+            return new LosslessVerdict(VerdictKind.Unknown, cutoffHz,
                 $"Band-limited to {Khz(cutoffHz)}; too little high-frequency content to judge encoding.", null);
 
         // How quickly does the top of the band collapse into dead air? A codec
@@ -125,15 +125,15 @@ public static class CutoffAnalyzer
             var passbandHz = passbandBin * hzPerBin;
 
             if (TryMatchUpsampleBase(cutoffHz, passbandHz, sampleRate, out var baseRateHz, out var edgeHz))
-                return new LosslessVerdict(VerdictKind.Upsampled, edgeHz, nyquist,
+                return new LosslessVerdict(VerdictKind.Upsampled, edgeHz,
                     $"Bandwidth ends near {Khz(edgeHz)}; matches a {RateKhz(baseRateHz)} " +
                     $"source upsampled to {RateKhz(sampleRate)}.", null);
 
-            return new LosslessVerdict(VerdictKind.Lossy, cutoffHz, nyquist,
+            return new LosslessVerdict(VerdictKind.Lossy, cutoffHz,
                 $"Sharp cutoff at {Khz(cutoffHz)}. Consistent with lossy encoding ({guess}).", guess);
         }
 
-        return new LosslessVerdict(VerdictKind.Suspicious, cutoffHz, nyquist,
+        return new LosslessVerdict(VerdictKind.Suspicious, cutoffHz,
             $"Energy rolls off above {Khz(cutoffHz)}. Could be lossy ({guess}) or natural high-frequency rolloff.",
             guess);
     }
