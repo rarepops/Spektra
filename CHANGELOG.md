@@ -4,6 +4,15 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.3] - 2026-07-12
+
+### Changed
+- Analysis runs faster and allocates far less memory. The FFT behind the spectrogram, cutoff detection, and compare-view alignment was rewritten to run without per-transform allocations, so the transform itself allocates nothing, spectrogram generation allocates a fraction of what it used to, and the compare/alignment path no longer churns the large-object heap. The first audit after updating re-analyzes each cached file once.
+
+### Fixed
+- A corrupt row in the audit cache is treated as a cache miss and re-analyzed, instead of making the whole lookup fail.
+- The built-in ffmpeg download aborts with a clear error if it stalls (no data for 30 seconds) instead of hanging indefinitely.
+
 ## [0.11.2] - 2026-07-11
 
 ### Fixed
