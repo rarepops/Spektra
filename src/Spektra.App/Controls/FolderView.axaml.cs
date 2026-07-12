@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using Spektra.Core;
 using System.ComponentModel;
 
 namespace Spektra.App.Controls;

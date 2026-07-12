@@ -26,9 +26,19 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
         || Integrity?.Status == IntegrityStatus.Corrupt;
 }
 
+/// How bad a single audited row is, low to high. Drives the grid's
+/// severity filter and the tree marker colors.
+public enum RowSeverity { Clean = 0, Suspect = 1, Problem = 2 }
+
 /// The combined bandwidth + integrity audit over a folder's files (see Run).
 public static class FolderAudit
 {
+    public static RowSeverity Severity(AuditEntry entry) =>
+        entry.HasProblem ? RowSeverity.Problem
+        : entry.Row.Integrity is "Suspect" || entry.Row.Bandwidth is "Suspicious"
+            ? RowSeverity.Suspect
+            : RowSeverity.Clean;
+
     /// Enumerates a folder's audio files with the size/mtime identity the
     /// cache keys on (one stat per file).
     public static AuditTarget[] CollectTargets(string folder, bool recursive = true) =>

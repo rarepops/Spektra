@@ -5,10 +5,6 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-/// Ordered row severity for the grid filter: a corrupt file is also a
-/// suspect file, so filtering at a tier shows that tier and everything worse.
-public enum RowSeverity { Clean = 0, Suspect = 1, Problem = 2 }
-
 /// One grid row: the flat audit columns plus identity and provenance.
 /// Numeric values stay numeric so DataGrid sorting works; display-only
 /// strings are separate properties.
@@ -38,9 +34,7 @@ public sealed class FolderRow(AuditEntry entry)
         || (Row.Bandwidth is "Lossy"
             && TranscodeCheck.IsSuspectLossy(Row.Codec, Row.BitrateBps, Row.Channels, Row.CutoffHz));
 
-    public RowSeverity Severity => HasProblem ? RowSeverity.Problem
-        : Row.Integrity is "Suspect" || Row.Bandwidth is "Suspicious" ? RowSeverity.Suspect
-        : RowSeverity.Clean;
+    public RowSeverity Severity { get; } = FolderAudit.Severity(entry);
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
 }
