@@ -14,7 +14,9 @@ public sealed class AuditCache : IDisposable
     /// 3: integrity false-positive hardening (no bits_left counting, stray
     ///    errors are Suspect, no truncation verdict on estimated durations).
     /// 4: silent gaps are informational and no longer raise Suspect.
-    public const int AnalysisVersion = 4;
+    /// 5: zero-allocation radix-2 FFT (dB values shift by <~0.001 dB;
+    ///    re-analyze once as insurance, no verdict is expected to change).
+    public const int AnalysisVersion = 5;
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
