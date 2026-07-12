@@ -35,6 +35,14 @@ Run the app or the CLI:
 - `tests/Spektra.Tests` — TUnit tests. **Tests target `Spektra.Core` only**; UI is verified manually.
 - `tools/make-fixtures.ps1` — regenerates the committed audio fixtures.
 
+## Benchmarks
+
+`bench/Spektra.Benchmarks` measures the pure-managed hot paths of `Spektra.Core` (FFT, spectrogram, cutoff, alignment) with [BenchmarkDotNet](https://benchmarkdotnet.org/), reporting time alongside allocations and GC counts. It is compiled by the solution but never run in CI. Run it on demand, in Release:
+
+    dotnet run -c Release --project bench/Spektra.Benchmarks -- --filter '*Fft*'
+
+Omit `--filter` to run everything; add `--job Short` for a quick, lower-fidelity pass. Results print to the console and are written to `BenchmarkDotNet.Artifacts/` (gitignored).
+
 ## Conventions
 
 - **Core is test-first.** New analysis logic goes in `Spektra.Core` with tests. Keep it free of Avalonia and UI concerns so it stays easy to test.
