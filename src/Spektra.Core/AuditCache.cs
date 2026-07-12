@@ -139,7 +139,6 @@ public sealed class AuditCache : IDisposable
     /// completed (not cancelled) scan.
     public void PruneFolder(string folder, IReadOnlyCollection<string> livePaths)
     {
-        var prefix = Path.TrimEndingDirectorySeparator(folder) + Path.DirectorySeparatorChar;
         var live = new HashSet<string>(livePaths, StringComparer.OrdinalIgnoreCase);
         lock (_gate)
         {
@@ -151,7 +150,7 @@ public sealed class AuditCache : IDisposable
                 while (r.Read())
                 {
                     var p = r.GetString(0);
-                    if (p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && !live.Contains(p))
+                    if (PathScope.IsUnder(p, folder) && !live.Contains(p))
                         stale.Add(p);
                 }
             }
