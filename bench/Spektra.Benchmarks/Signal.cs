@@ -7,7 +7,7 @@ namespace Spektra.Benchmarks;
 /// same data on every run and the numbers stay comparable over time.
 internal static class Signal
 {
-    /// White noise in [-1, 1].
+    /// White noise in [-1, 1).
     public static float[] Noise(int n, int seed)
     {
         var rng = new Random(seed);

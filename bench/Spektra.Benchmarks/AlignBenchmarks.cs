@@ -12,7 +12,7 @@ public class AlignBenchmarks
 {
     private const int SampleRate = 16000;      // Aligner's default analysis rate
     private const int MaxLag = SampleRate * 2; // +/-2 s, Aligner's default search radius
-    private const int Segments = 6;            // DriftAligner's default segment count
+    private const int Segments = 6;            // Aligner's default drift segment count
     private const int DelaySamples = 800;      // 50 ms known lag
 
     [Params(10, 30)]
