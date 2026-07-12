@@ -101,6 +101,8 @@
           <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" />
         </MenuItem>
         <MenuItem Header="_Help">
+          <MenuItem Header="_Controls" Click="OnControlsClicked" InputGesture="F1" />
+          <Separator />
           <MenuItem Header="Check for _Updates…" Click="OnCheckUpdatesClicked" />
           <Separator />
           <MenuItem Header="_About Spektra" Click="OnAboutClicked" />

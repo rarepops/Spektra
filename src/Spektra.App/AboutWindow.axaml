@@ -1,11 +1,22 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Spektra.App.AboutWindow"
-        Title="About Spektra" Width="470" SizeToContent="Height"
+        Title="About Spektra" Width="440" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" Background="#1A1A1A" CanResize="False">
+  <Window.Styles>
+    <Style Selector="TextBlock.link">
+      <Setter Property="Foreground" Value="#8AB4F8" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="TextBlock.link:pointerover">
+      <Setter Property="Foreground" Value="#AECBFA" />
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+  </Window.Styles>
   <StackPanel Margin="20" Spacing="14">
     <StackPanel Orientation="Horizontal" Spacing="16">
-      <Image Source="/Assets/spektra-logo.png" Width="76" Height="76" VerticalAlignment="Top" />
+      <Image Source="/Assets/spektra-logo.png" Width="72" Height="72" VerticalAlignment="Top" />
       <StackPanel VerticalAlignment="Center" Spacing="3">
         <TextBlock Text="Spektra" FontSize="24" FontWeight="SemiBold" Foreground="#EDEDED" />
         <TextBlock x:Name="VersionText" Foreground="#9AA0A6" FontSize="13" />
@@ -16,61 +27,14 @@
 
     <Border Height="1" Background="#2E2E2E" />
 
-    <TextBlock Text="Keyboard &amp; mouse" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
-    <StackPanel Spacing="6" Margin="4,0,0,0">
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+O" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Open audio files" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+W  ·  Ctrl+Tab" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Close tab  ·  switch tabs (Shift to reverse)" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+S  ·  Ctrl+Shift+C" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Save spectrogram image  ·  copy it to the clipboard" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+E  ·  Ctrl+R" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Preferences  ·  toggle the average-spectrum overlay" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+I  ·  Ctrl+L" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Check integrity  ·  measure loudness (LUFS)" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Wheel  ·  Shift+Wheel" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Zoom time  ·  zoom frequency" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Drag  ·  Double-click" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Pan  ·  reset the view" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="T  ·  D  ·  A  ·  Esc" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Compare: flip A/B  ·  difference  ·  auto-align  ·  back to both" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+D  ·  Ctrl+Shift+S" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Compare two files  ·  export the current file's report" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+0  ·  Ctrl+1..9" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Reset the view  ·  jump to tab N" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+Up / Ctrl+Down  ·  F5" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Switch channel  ·  reload the file" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="Ctrl+H" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Toggle the crosshair" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-      <Grid ColumnDefinitions="160,*">
-        <TextBlock Grid.Column="0" Text="File → Compare…" Foreground="#C9C9C9" FontSize="12" />
-        <TextBlock Grid.Column="1" Text="Stack two open files with synced zoom and alignment" Foreground="#9A9A9A" FontSize="12" />
-      </Grid>
-    </StackPanel>
+    <Grid ColumnDefinitions="70,*" RowDefinitions="Auto,Auto" RowSpacing="6">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Runtime" Foreground="#9A9A9A" FontSize="12" />
+      <TextBlock Grid.Row="0" Grid.Column="1" x:Name="RuntimeText"
+                 Foreground="#C9C9C9" FontSize="12" TextWrapping="Wrap" />
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="ffmpeg" Foreground="#9A9A9A" FontSize="12" />
+      <TextBlock Grid.Row="1" Grid.Column="1" x:Name="FfmpegText"
+                 Foreground="#C9C9C9" FontSize="12" TextWrapping="Wrap" />
+    </Grid>
 
     <Border Height="1" Background="#2E2E2E" />
 
@@ -79,8 +43,19 @@
       Licensed under PolyForm Perimeter 1.0.1. © Rares (rarepops).
     </TextBlock>
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
+    <Border Height="1" Background="#2E2E2E" />
+
+    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <TextBlock Classes="link" Text="Controls" PointerPressed="OnControls" />
+      <TextBlock Text="·" Foreground="#5A5A5A" FontSize="12" />
+      <TextBlock Classes="link" Text="GitHub" PointerPressed="OnGitHub" />
+      <TextBlock Text="·" Foreground="#5A5A5A" FontSize="12" />
+      <TextBlock Classes="link" Text="License" PointerPressed="OnLicense" />
     </StackPanel>
+
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <Button Grid.Column="0" Content="Copy info" Click="OnCopyInfo" />
+      <Button Grid.Column="2" Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
+    </Grid>
   </StackPanel>
 </Window>

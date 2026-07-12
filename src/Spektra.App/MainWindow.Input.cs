@@ -50,6 +50,12 @@ public partial class MainWindow
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (e.Key == Key.F1)
+        {
+            _ = new ControlsWindow().ShowDialog(this);
+            e.Handled = true;
+            return;
+        }
         if (_vm.Selected is ComparisonViewModel cmp && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             switch (e.Key)

@@ -130,6 +130,9 @@ public partial class MainWindow
         if (_vm.Selected is DocumentViewModel doc) _ = doc.ToggleLoudnessAsync();
     }
 
+    private async void OnControlsClicked(object? sender, RoutedEventArgs e) =>
+        await new ControlsWindow().ShowDialog(this);
+
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
         await new AboutWindow().ShowDialog(this);
 
