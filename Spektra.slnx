@@ -7,4 +7,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Spektra.Tests/Spektra.Tests.csproj" />
   </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Spektra.Benchmarks/Spektra.Benchmarks.csproj" />
+  </Folder>
 </Solution>

@@ -17,3 +17,6 @@ tools/ffmpeg/
 # release artifacts
 dist/
 /design/
+
+# benchmark results (BenchmarkDotNet writes here; never committed)
+BenchmarkDotNet.Artifacts/
