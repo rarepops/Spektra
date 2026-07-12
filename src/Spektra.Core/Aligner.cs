@@ -34,7 +34,7 @@ public static class Aligner
             fft.Forward(fa.AsSpan(0, n));
             fft.Forward(fb.AsSpan(0, n));
             for (var i = 0; i < n; i++) fa[i] = fa[i].Conjugate() * fb[i]; // cross-power into fa
-            fft.Inverse(fa.AsSpan(0, n)); // Matlab: 1/n on inverse -> true correlation
+            fft.Inverse(fa.AsSpan(0, n)); // Matlab: 1/n on inverse → true correlation
 
             var bestLag = 0;
             var bestVal = float.NegativeInfinity;

@@ -47,7 +47,10 @@ public class AlignerTests
     [Test]
     public async Task EstimateLag_MatchesMathNetReference()
     {
-        (int seed, int delay, int len)[] cases = [(11, 90, 4000), (12, 0, 2000), (13, 250, 6000)];
+        // Includes a production-scale case (len 200000 -> n = 2^19), the FFT size
+        // the aligner actually runs at (10 s @ 16 kHz), not just the small sizes.
+        (int seed, int delay, int len)[] cases =
+            [(11, 90, 4000), (12, 0, 2000), (13, 250, 6000), (14, 200, 200000)];
         foreach (var (seed, delay, len) in cases)
         {
             var a = Noise(len, seed);
