@@ -4,6 +4,14 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-07-12
+
+### Added
+- A dedicated Controls window, opened from Help > Controls or by pressing F1, listing every keyboard and mouse shortcut grouped by task (files and tabs, view and zoom, analysis, save and export, compare).
+
+### Changed
+- The About window is now a diagnostics panel. It shows the .NET runtime and the detected ffmpeg build (with where it was found), adds a Copy info button that copies those details to the clipboard for bug reports, and links to the project and its license. The keyboard and mouse reference it used to list moved to the new Controls window.
+
 ## [0.11.3] - 2026-07-12
 
 ### Changed
@@ -244,7 +252,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.11.2...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/rarepops/Spektra/releases/tag/v0.12.0
+[0.11.3]: https://github.com/rarepops/Spektra/releases/tag/v0.11.3
 [0.11.2]: https://github.com/rarepops/Spektra/releases/tag/v0.11.2
 [0.11.1]: https://github.com/rarepops/Spektra/releases/tag/v0.11.1
 [0.8.2]: https://github.com/rarepops/Spektra/releases/tag/v0.8.2
