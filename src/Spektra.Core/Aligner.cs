@@ -1,5 +1,5 @@
+using System.Buffers;
 using MathNet.Numerics;
-using MathNet.Numerics.IntegralTransforms;
 
 namespace Spektra.Core;
 
@@ -17,29 +17,42 @@ public static class Aligner
         var n = 1;
         while (n < need * 2) n <<= 1;
 
-        var fa = new Complex32[n];
-        var fb = new Complex32[n];
-        double ea = 0, eb = 0;
-        for (var i = 0; i < a.Length; i++) { fa[i] = new Complex32(a[i], 0f); ea += (double)a[i] * a[i]; }
-        for (var i = 0; i < b.Length; i++) { fb[i] = new Complex32(b[i], 0f); eb += (double)b[i] * b[i]; }
-
-        Fourier.Forward(fa, FourierOptions.Matlab);
-        Fourier.Forward(fb, FourierOptions.Matlab);
-        var prod = new Complex32[n];
-        for (var i = 0; i < n; i++) prod[i] = fa[i].Conjugate() * fb[i];
-        Fourier.Inverse(prod, FourierOptions.Matlab); // Matlab: 1/n on inverse → true correlation
-
-        var bestLag = 0;
-        var bestVal = float.NegativeInfinity;
-        for (var l = -maxLag; l <= maxLag; l++)
+        var pool = ArrayPool<Complex32>.Shared;
+        var fa = pool.Rent(n);
+        var fb = pool.Rent(n);
+        try
         {
-            var idx = ((l % n) + n) % n; // circular index handles negative lags
-            var v = prod[idx].Real;
-            if (v > bestVal) { bestVal = v; bestLag = l; }
+            // Rented arrays may be dirty and oversized; clear the region we use so
+            // the tail past the inputs is the zero-padding the correlation needs.
+            Array.Clear(fa, 0, n);
+            Array.Clear(fb, 0, n);
+            double ea = 0, eb = 0;
+            for (var i = 0; i < a.Length; i++) { fa[i] = new Complex32(a[i], 0f); ea += (double)a[i] * a[i]; }
+            for (var i = 0; i < b.Length; i++) { fb[i] = new Complex32(b[i], 0f); eb += (double)b[i] * b[i]; }
+
+            var fft = Fft.OfSize(n);
+            fft.Forward(fa.AsSpan(0, n));
+            fft.Forward(fb.AsSpan(0, n));
+            for (var i = 0; i < n; i++) fa[i] = fa[i].Conjugate() * fb[i]; // cross-power into fa
+            fft.Inverse(fa.AsSpan(0, n)); // Matlab: 1/n on inverse -> true correlation
+
+            var bestLag = 0;
+            var bestVal = float.NegativeInfinity;
+            for (var l = -maxLag; l <= maxLag; l++)
+            {
+                var idx = ((l % n) + n) % n; // circular index handles negative lags
+                var v = fa[idx].Real;
+                if (v > bestVal) { bestVal = v; bestLag = l; }
+            }
+            var denom = Math.Sqrt(ea * eb);
+            var conf = denom > 0 ? Math.Clamp(bestVal / denom, 0, 1) : 0;
+            return (bestLag, conf);
         }
-        var denom = Math.Sqrt(ea * eb);
-        var conf = denom > 0 ? Math.Clamp(bestVal / denom, 0, 1) : 0;
-        return (bestLag, conf);
+        finally
+        {
+            pool.Return(fa);
+            pool.Return(fb);
+        }
     }
 
     /// Decodes the first `windowSeconds` of each file (mono, resampled to `rate`)
