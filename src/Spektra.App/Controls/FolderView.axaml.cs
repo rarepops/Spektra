@@ -36,22 +36,46 @@ public partial class FolderView : UserControl
         vm.PropertyChanged += OnVmPropertyChanged;
         _view = new DataGridCollectionView(vm.Rows)
         {
-            Filter = o => _vm is null || ((FolderRow)o).Severity >= (RowSeverity)_vm.FilterIndex,
+            Filter = o => Passes((FolderRow)o),
         };
         Grid.ItemsSource = _view;
     }
 
+    // A row shows when it meets the severity tier and, when the grid is scoped,
+    // lives under the scope folder.
+    private bool Passes(FolderRow row) =>
+        _vm is not null
+        && row.Severity >= (RowSeverity)_vm.FilterIndex
+        && (_vm.ScopeFolder is null || PathScope.IsUnder(row.FullPath, _vm.ScopeFolder));
+
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FolderViewModel.FilterIndex)) _view?.Refresh();
+        if (e.PropertyName is nameof(FolderViewModel.FilterIndex)
+            or nameof(FolderViewModel.ScopeFolder))
+            _view?.Refresh();
     }
 
     private void OnCancelClicked(object? sender, RoutedEventArgs e) => _vm?.Cancel();
 
-    private void OnRescanClicked(object? sender, RoutedEventArgs e) =>
-        _vm?.StartScan(fresh: _shiftHeld);
+    private void OnAnalyzeClicked(object? sender, RoutedEventArgs e) =>
+        _vm?.Analyze(fresh: _shiftHeld);
 
-    // Track Shift for Shift+click Rescan; KeyDown/Up bubble through the window.
+    private void OnSelectAllClicked(object? sender, RoutedEventArgs e) =>
+        _vm?.SelectAll();
+
+    private void OnSelectNoneClicked(object? sender, RoutedEventArgs e) =>
+        _vm?.SelectNone();
+
+    private void OnDrilldownClicked(object? sender, RoutedEventArgs e)
+    {
+        if (Tree.SelectedItem is FolderNodeViewModel folder)
+            _vm?.Drilldown(folder.FullPath);
+    }
+
+    private void OnShowAllClicked(object? sender, RoutedEventArgs e) =>
+        _vm?.ShowAll();
+
+    // Track Shift for Shift+click Analyze; KeyDown/Up bubble through the window.
     private bool _shiftHeld;
     protected override void OnKeyDown(KeyEventArgs e)
     {
