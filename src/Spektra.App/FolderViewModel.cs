@@ -143,6 +143,19 @@ public sealed class FolderViewModel : TabViewModelBase
     public void Drilldown(string folder) => ScopeFolder = folder;
     public void ShowAll() => ScopeFolder = null;
 
+    /// Widen the scope one folder toward the root; at a top-level folder
+    /// (or with no scope) this clears the scope entirely.
+    public void DrillUp()
+    {
+        if (_scopeFolder is null)
+            return;
+        var parent = Path.GetDirectoryName(_scopeFolder);
+        if (parent is not null && PathScope.IsUnder(parent, FolderPath))
+            ScopeFolder = parent;
+        else
+            ShowAll();
+    }
+
     public void SelectAll() => SetAllChecks(true);
     public void SelectNone() => SetAllChecks(false);
 

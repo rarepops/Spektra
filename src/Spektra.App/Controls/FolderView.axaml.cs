@@ -72,6 +72,9 @@ public partial class FolderView : UserControl
             _vm?.Drilldown(folder.FullPath);
     }
 
+    private void OnDrillUpClicked(object? sender, RoutedEventArgs e) =>
+        _vm?.DrillUp();
+
     private void OnShowAllClicked(object? sender, RoutedEventArgs e) =>
         _vm?.ShowAll();
 
