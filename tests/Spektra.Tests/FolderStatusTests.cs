@@ -42,4 +42,15 @@ public sealed class FolderStatusTests
         await Assert.That(status.Partial).IsTrue();
         await Assert.That(status.Worst).IsEqualTo(RowSeverity.Clean);
     }
+
+    [Test]
+    public async Task Rollup_all_clean_is_analyzed_and_clean()
+    {
+        var status = FolderTree.Rollup([RowSeverity.Clean, RowSeverity.Clean]);
+
+        await Assert.That(status.Total).IsEqualTo(2);
+        await Assert.That(status.Analyzed).IsEqualTo(2);
+        await Assert.That(status.Partial).IsFalse();
+        await Assert.That(status.Worst).IsEqualTo(RowSeverity.Clean);
+    }
 }

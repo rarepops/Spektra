@@ -3,7 +3,8 @@ namespace Spektra.Core;
 /// Shared definition of "this path lives inside that folder". Used by the
 /// audit cache prune and by the folder grid's drill-down scope filter so
 /// both agree on containment (case-insensitive, prefix on a separator
-/// boundary, and never the folder itself).
+/// boundary, and never the folder itself). FolderTree.Build also derives
+/// its level prefixes from PrefixOf.
 public static class PathScope
 {
     public static bool IsUnder(string path, string folder)
