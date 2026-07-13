@@ -58,7 +58,10 @@
                    Height="8" Margin="0,0,12,0" VerticalAlignment="Center" />
     </DockPanel>
     <Grid ColumnDefinitions="320,4,*">
-      <TreeView x:Name="Tree" Grid.Column="0" ItemsSource="{Binding Roots}" />
+      <Border Grid.Column="0" Padding="4,4,4,0"
+              BorderBrush="#2E2E2E" BorderThickness="0,0,1,0">
+        <TreeView x:Name="Tree" ItemsSource="{Binding Roots}" Background="Transparent" />
+      </Border>
       <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
       <DockPanel Grid.Column="2">
         <Border DockPanel.Dock="Top" Padding="6" IsVisible="{Binding IsScoped}">
