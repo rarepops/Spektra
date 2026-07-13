@@ -16,7 +16,11 @@ public sealed class AuditCache : IDisposable
     /// 4: silent gaps are informational and no longer raise Suspect.
     /// 5: zero-allocation radix-2 FFT (dB values shift by <~0.001 dB;
     ///    re-analyze once as insurance, no verdict is expected to change).
-    public const int AnalysisVersion = 5;
+    /// 6: decode errors counted with default ffmpeg detection only; the
+    ///    +crccheck+buffer flags marked whole libraries of quirky-encoder
+    ///    mp3s (bits_left padding, bogus frame CRCs) Corrupt though they
+    ///    decode clean.
+    public const int AnalysisVersion = 6;
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

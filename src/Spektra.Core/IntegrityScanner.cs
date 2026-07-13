@@ -120,17 +120,20 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
     private static string Time(double seconds) =>
         AudioMetadata.FormatDuration(TimeSpan.FromSeconds(Math.Max(0, seconds)));
 
-    /// Decodes the whole file to null with error detection on, and counts the
-    /// error lines ffmpeg emits (corrupt frames, CRC mismatches, and the like).
+    /// Decodes the whole file to null and counts the error lines ffmpeg emits
+    /// (corrupt frames, resync failures, and the like).
     private int CountDecodeErrors(string path, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        // No +bitstream: it flags spec deviations (mp3 "bits_left" padding
-        // quirks from sloppy encoders) that play fine, thousands per file.
+        // Default error detection only. The strict flags flag harmless encoder
+        // quirks that play fine, one line per frame: +bitstream and +buffer
+        // both surface mp3 "bits_left" padding slop, and +crccheck fails whole
+        // libraries of old rips whose encoders wrote bogus frame CRCs. Real
+        // damage still logs at error level without them (header resync,
+        // invalid data), which the corrupt fixtures pin.
         var psi = FfmpegProcess.StartInfo(ffmpeg.FfmpegPath,
         [
             "-hide_banner", "-nostdin", "-v", "error",
-            "-err_detect", "+crccheck+buffer",
             "-i", path, "-f", "null", "-",
         ]);
         // tailChars 0: keep all of stderr so every error line gets counted.
