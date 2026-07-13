@@ -4,6 +4,15 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.2] - 2026-07-13
+
+### Changed
+- Folder audits now report each file's path relative to the audited folder instead of the bare name: in the folder tab's File column (hover for the full path; sorting groups rows by folder), in its Export, in File > Export Folder Report, and in CLI `audit` runs on a folder. Same-named tracks from different albums can finally be told apart, and a row in a report can be located again. CLI audits of explicit file arguments keep the bare name.
+
+### Fixed
+- The folder analysis order preference now controls what you actually see. Parallel analysis used to hand each worker its own contiguous chunk of the worklist, so several cursors crawled distant parts of the tree at once and every schedule looked random; files are now dispatched strictly in the scheduled order, and "Folder order (top to bottom)" follows the tree exactly as shown, at the same speed.
+- Cached verdicts hydrate into the grid in tree order when a folder opens, and the live progress readout no longer sits flush against the severity filter.
+
 ## [0.13.1] - 2026-07-13
 
 ### Added
