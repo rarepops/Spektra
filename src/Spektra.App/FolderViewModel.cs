@@ -208,7 +208,8 @@ public sealed class FolderViewModel : TabViewModelBase
                         if (hydrated[i] is { } entry)
                             _pending.Add(entry);
                     Flush();
-                    cache.PruneFolder(FolderPath, paths);
+                    AuditCache live = cache;
+                    await Task.Run(() => live.PruneFolder(FolderPath, paths));
                 }
             }
             finally
@@ -217,10 +218,6 @@ public sealed class FolderViewModel : TabViewModelBase
             }
 
             SetSummaryStatus();
-        }
-        catch (OperationCanceledException)
-        {
-            // opening was cancelled; leave whatever painted so far
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

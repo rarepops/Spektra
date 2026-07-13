@@ -44,7 +44,7 @@
         <Button Content="Analyze" Click="OnAnalyzeClicked"
                 IsEnabled="{Binding CanAnalyze}" IsVisible="{Binding !IsAnalyzing}"
                 ToolTip.Tip="Analyze the checked files · Shift+click or Shift+F5 re-analyzes even cached ones" />
-        <Button x:Name="CancelButton" Content="Cancel" Click="OnCancelClicked"
+        <Button Content="Cancel" Click="OnCancelClicked"
                 IsVisible="{Binding IsAnalyzing}" />
         <Button Content="Select all" Click="OnSelectAllClicked" />
         <Button Content="Select none" Click="OnSelectNoneClicked" />

@@ -4,16 +4,13 @@ using Spektra.Core;
 namespace Spektra.App;
 
 /// Base for the folder browse tree nodes. Holds the parent link (for
-/// bubbling checkbox and rollup changes upward) and the expand state; each
-/// concrete node supplies its own marker color.
+/// bubbling checkbox and rollup changes upward); each concrete node supplies
+/// its own marker color.
 public abstract class TreeNodeViewModel(string name, string fullPath) : ObservableObject
 {
     public string Name { get; } = name;
     public string FullPath { get; } = fullPath;
     public TreeNodeViewModel? Parent { get; internal set; }
-
-    private bool _isExpanded;
-    public bool IsExpanded { get => _isExpanded; set => Set(ref _isExpanded, value); }
 
     public abstract IBrush MarkerBrush { get; }
 }
@@ -63,9 +60,7 @@ public sealed class FileNodeViewModel(string name, string fullPath)
     {
         null => NodeMarkers.NotAnalyzed,
         { Row.Bandwidth: "Upsampled" } => NodeMarkers.Upsampled,
-        { HasProblem: true } => NodeMarkers.Problem,
-        { Row.Integrity: "Suspect" } or { Row.Bandwidth: "Suspicious" } => NodeMarkers.Suspect,
-        _ => NodeMarkers.Clean,
+        _ => NodeMarkers.For(FolderAudit.Severity(_entry)),
     };
 }
 
@@ -100,7 +95,8 @@ public sealed class FolderNodeViewModel : TreeNodeViewModel
                 return;
             }
             var target = value ?? false;
-            Set(ref _isChecked, target, nameof(IsChecked));
+            if (!Set(ref _isChecked, target, nameof(IsChecked)))
+                return;
             foreach (var child in Children)
             {
                 if (child is FileNodeViewModel file)
