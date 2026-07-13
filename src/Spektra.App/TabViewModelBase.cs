@@ -9,4 +9,7 @@ public abstract class TabViewModelBase : StatusViewModel, ITab
 
     public abstract string TabTitle { get; }
     public abstract void Cancel();
+
+    /// Folder-audit tabs show a folder glyph in the tab strip.
+    public virtual bool IsFolderTab => false;
 }

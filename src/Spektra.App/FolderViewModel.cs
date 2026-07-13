@@ -91,6 +91,7 @@ public sealed class FolderViewModel : TabViewModelBase
     }
 
     public override string TabTitle { get; }
+    public override bool IsFolderTab => true;
 
     // Cancels an in-flight Analyze; a no-op while only browsing (OpenTree runs
     // no cancellable ffmpeg work, so _cts is null until the first Analyze).
