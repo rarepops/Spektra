@@ -73,7 +73,7 @@ public partial class MainWindow
                 case DocumentViewModel rdoc: _ = rdoc.LoadOverviewAsync(); e.Handled = true; return;
                 case ComparisonViewModel rcmp: _ = rcmp.LoadAsync(); e.Handled = true; return;
                 case FolderViewModel rfold:
-                    rfold.StartScan(fresh: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                    rfold.Analyze(fresh: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                     e.Handled = true;
                     return;
             }

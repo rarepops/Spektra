@@ -105,17 +105,10 @@ public sealed class FolderViewModel : TabViewModelBase
             if (!Set(ref _isAnalyzing, value))
                 return;
             RaisePropertyChanged(nameof(CanAnalyze));
-            RaisePropertyChanged(nameof(IsScanning));   // TEMP alias, removed in a later task
-            RaisePropertyChanged(nameof(CanRescan));    // TEMP alias, removed in a later task
         }
     }
 
     public bool CanAnalyze => !IsAnalyzing;
-
-    // Temporary shims so the pre-Task-8 AXAML and F5 path keep compiling.
-    public bool IsScanning => IsAnalyzing;              // TEMP, removed in a later task
-    public bool CanRescan => CanAnalyze;                // TEMP, removed in a later task
-    public void StartScan(bool fresh) => Analyze(fresh);// TEMP, removed in a later task
 
     private string? _scopeFolder;
     public string? ScopeFolder
