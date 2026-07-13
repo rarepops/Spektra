@@ -4,6 +4,15 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-07-13
+
+### Added
+- The order the folder tab analyzes checked files in is now a preference (Ctrl+E, "Folder analysis order"): folder order (top to bottom, the default), smallest files first for quick early results, or largest files first so the time estimate settles sooner. Analysis stays parallel; the choice applies from the next Analyze.
+- A live readout beside the folder tab's progress bar shows the percentage done, the file count, and the remaining-time estimate while analysis runs; the status bar keeps just the final summary.
+
+### Fixed
+- The integrity check no longer marks healthy files as corrupt when an old or sloppy encoder left harmless quirks in every frame (mp3 padding slop, bogus frame CRCs); whole libraries of older rips were flagged even though they decode and play cleanly. Decode errors are now counted with ffmpeg's default error detection, which still catches real damage (resync failures, invalid data, truncation). Cached audit rows re-analyze once after updating.
+
 ## [0.13.0] - 2026-07-13
 
 ### Added
