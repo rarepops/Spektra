@@ -44,4 +44,20 @@ public class ReportingTests
         await Assert.That(row.Verdict).IsEqualTo("Error");
         await Assert.That(row.Error).IsEqualTo("not found");
     }
+
+    [Test]
+    public async Task RelativeFile_UsesForwardSlashesUnderTheRoot()
+    {
+        var root = Path.Combine("D:", "Music");
+        var path = Path.Combine(root, "Album", "CD2", "03.wav");
+        await Assert.That(Reporting.RelativeFile(root, path)).IsEqualTo("Album/CD2/03.wav");
+    }
+
+    [Test]
+    public async Task RelativeFile_FileDirectlyInRoot_IsTheBareName()
+    {
+        var root = Path.Combine("D:", "Music");
+        await Assert.That(Reporting.RelativeFile(root, Path.Combine(root, "single.wav")))
+            .IsEqualTo("single.wav");
+    }
 }

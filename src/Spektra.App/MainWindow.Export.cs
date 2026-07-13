@@ -173,7 +173,9 @@ public partial class MainWindow
         if (file is null) return;
         try
         {
-            await ReportWriter.WriteAsync(file, results.Select(r => r.Row).ToList());
+            await ReportWriter.WriteAsync(file, results
+                .Select(r => r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) })
+                .ToList());
             _vm.StatusText = $"Exported {results.Length} file(s) to {file.Name}";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

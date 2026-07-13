@@ -9,14 +9,17 @@ namespace Spektra.App;
 /// One grid row: the flat audit columns plus identity and provenance.
 /// Numeric values stay numeric so DataGrid sorting works; display-only
 /// strings are separate properties.
-public sealed class FolderRow(AuditEntry entry)
+public sealed class FolderRow(AuditEntry entry, string rootFolder)
 {
     public AuditRow Row { get; } = entry.Row;
     public string FullPath { get; } = entry.Target.Path;
     public bool HasProblem { get; } = entry.HasProblem;
     public bool FromCache { get; } = entry.FromCache;
 
-    public string File => Row.File;
+    /// Path relative to the audited root (Row.File is the bare name, which
+    /// says nothing about where a row lives in a deep tree). Sorting the
+    /// column therefore groups rows by folder.
+    public string File { get; } = Reporting.RelativeFile(rootFolder, entry.Target.Path);
     public string Codec => Row.Codec ?? "";
     public int? SampleRateHz => Row.SampleRateHz;
     public double? BitrateKbps => Row.BitrateBps / 1000.0;
@@ -68,6 +71,10 @@ public sealed class FolderViewModel : TabViewModelBase
     private readonly Dictionary<string, int> _rowIndex =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly List<FolderNodeViewModel> _folders = [];
+    // Files in tree display order (depth-first, folders before siblings):
+    // the "Folder order" schedule and the cache replay follow this, so what
+    // runs top to bottom is what the tree shows top to bottom.
+    private readonly List<FileNodeViewModel> _filesInOrder = [];
 
     private readonly List<AuditEntry> _pending = [];   // UI thread only
     private readonly DispatcherTimer _flushTimer;
@@ -149,8 +156,7 @@ public sealed class FolderViewModel : TabViewModelBase
 
     public string ScopeBreadcrumb => _scopeFolder is null
         ? ""
-        : "Scope: " + Path.GetRelativePath(FolderPath, _scopeFolder)
-            .Replace(Path.DirectorySeparatorChar, '/');
+        : "Scope: " + Reporting.RelativeFile(FolderPath, _scopeFolder);
 
     public void Drilldown(string folder) => ScopeFolder = folder;
     public void ShowAll() => ScopeFolder = null;
@@ -189,7 +195,10 @@ public sealed class FolderViewModel : TabViewModelBase
         OpenFileRequested?.Invoke(row.FullPath,
             row.Integrity is "Corrupt" or "Suspect" || row.Dropouts > 0);
 
-    public IReadOnlyList<AuditRow> ExportRows() => Rows.Select(r => r.Row).ToList();
+    /// Export mirrors the grid: File carries the path relative to the
+    /// audited root, not the bare name, so rows can be located again.
+    public IReadOnlyList<AuditRow> ExportRows() =>
+        Rows.Select(r => r.Row with { File = r.File }).ToList();
 
     /// Drop entry point: walk the folder, build the tree, and paint any cached
     /// verdicts. No ffmpeg runs here; analysis waits for Analyze.
@@ -214,6 +223,7 @@ public sealed class FolderViewModel : TabViewModelBase
 
             Roots.Clear();
             _fileByPath.Clear();
+            _filesInOrder.Clear();
             _folders.Clear();
             _targetByPath.Clear();
             _rowIndex.Clear();
@@ -236,7 +246,8 @@ public sealed class FolderViewModel : TabViewModelBase
             {
                 if (cache is not null)
                 {
-                    IReadOnlyList<AuditTarget> orderedTargets = targets;
+                    var orderedTargets = _filesInOrder
+                        .Select(f => _targetByPath[f.FullPath]).ToList();
                     var hydrated = await Task.Run(() =>
                         FolderAudit.HydrateFromCache(cache, orderedTargets));
                     for (var i = 0; i < hydrated.Length; i++)
@@ -273,6 +284,7 @@ public sealed class FolderViewModel : TabViewModelBase
         {
             var vm = new FileNodeViewModel(file.Name, file.FullPath);
             _fileByPath[file.FullPath] = vm;
+            _filesInOrder.Add(vm);
             return vm;
         }
 
@@ -291,7 +303,7 @@ public sealed class FolderViewModel : TabViewModelBase
     {
         if (IsAnalyzing) return; // a second F5/Analyze must never dispose the live CTS
         _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
-        var worklist = _fileByPath.Values
+        var worklist = _filesInOrder
             .Where(f => f.IsChecked && (fresh || f.Entry is null))
             .Select(f => _targetByPath[f.FullPath])
             .ToList();
@@ -409,7 +421,7 @@ public sealed class FolderViewModel : TabViewModelBase
     private void ApplyEntry(AuditEntry entry)
     {
         var path = entry.Target.Path;
-        var row = new FolderRow(entry);
+        var row = new FolderRow(entry, FolderPath);
         if (_rowIndex.TryGetValue(path, out var i))
         {
             Rows[i] = row;

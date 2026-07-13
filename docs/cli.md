@@ -55,6 +55,8 @@ Suspect means worth a listen: one or two stray decode errors (an isolated damage
 
 A `Lossy` verdict counts as a problem only when it should not be there: lossy content inside a lossless format (`Transcode.flac` above), or an mp3/aac whose cutoff sits far below what its bitrate should deliver (a 320 kbps MP3 walling at 16 kHz was re-encoded from a ~128 kbps source). An MP3 with the cutoff its bitrate predicts is just an MP3 and exits `0`.
 
+When the argument is a folder, the `File` column holds each file's path relative to it (nested rows read `Album/CD2/03.flac`), in text, CSV, and JSON output alike; explicit file arguments keep the bare name.
+
 Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db` (keyed by size and modified time), so repeat runs of the same library only analyze new or changed files. Pass `--fresh` to ignore the cache and re-analyze everything; results are written back either way. The cache is disposable: deleting the file just means the next audit starts cold. The `audit` command analyzes immediately and in full, while the desktop app's folder tab is the fine-grained counterpart (browse, pick which files to check, then analyze); both share this same on-disk cache, so a file analyzed in one is already cached for the other.
 
 ## loudness: LUFS, true peak, dynamics

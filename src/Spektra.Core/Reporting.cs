@@ -46,6 +46,12 @@ public static class Reporting
         ir?.DecodedSeconds ?? 0, ir?.ExpectedSeconds ?? 0, ir?.Truncated ?? false,
         ir?.Summary ?? error ?? "", error);
 
+    /// Path relative to an audited root, with '/' separators. Folder-audit
+    /// grids and reports use this for File instead of the bare name, which
+    /// cannot place a row in a deep tree.
+    public static string RelativeFile(string root, string path) =>
+        Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/');
+
     public static AuditRow ToAuditRow(FileReport r, IntegrityReport? ir, string? integrityError) => new(
         Path.GetFileName(r.Path), r.Metadata?.Codec, r.Metadata?.SampleRate, r.Metadata?.Channels,
         r.Metadata?.BitRateBps, r.Metadata?.Duration.TotalSeconds ?? 0,

@@ -57,7 +57,7 @@
       </StackPanel>
       <TextBlock DockPanel.Dock="Right" Text="{Binding AnalyzeProgress}"
                  IsVisible="{Binding IsAnalyzing}" FontSize="12" Foreground="#CCCCCC"
-                 VerticalAlignment="Center" Margin="12,0,0,0" />
+                 VerticalAlignment="Center" Margin="0,0,12,0" />
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
                    Height="8" Margin="12,0,12,0" VerticalAlignment="Center" />
     </DockPanel>
@@ -99,7 +99,15 @@
                   Background="#111111" FontSize="12"
                   DoubleTapped="OnRowDoubleTapped" KeyDown="OnGridKeyDown">
           <DataGrid.Columns>
-            <DataGridTextColumn Header="File" Binding="{Binding File}" Width="2*" />
+            <DataGridTemplateColumn Header="File" SortMemberPath="File" Width="2*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Classes="cell" Text="{Binding File}" Margin="12,0"
+                             TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding FullPath}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTemplateColumn Header="Bandwidth" SortMemberPath="Bandwidth" Width="Auto">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>

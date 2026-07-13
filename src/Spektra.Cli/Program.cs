@@ -289,15 +289,21 @@ internal static class Program
         }
         finally { cache?.Dispose(); }
 
+        // Folder audits report folder-relative paths (matching `scan`), so a
+        // row in a deep tree can be located; explicit file args keep the name.
+        AuditRow RowFor(AuditEntry r) => folder is null
+            ? r.Row
+            : r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) };
+
         if (fmt != OutFormat.Text)
         {
-            Emit(results.Select(r => r.Row).ToList(), fmt);
+            Emit(results.Select(RowFor).ToList(), fmt);
             return results.Any(r => r.HasProblem) ? 1 : 0;
         }
 
         foreach (var r in results)
         {
-            var row = r.Row;
+            var row = RowFor(r);
             var bw = row.Error is not null ? "error"
                 : $"{row.Bandwidth}{(row.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
             var integ = row.Error is not null ? "ERROR" : row.Integrity;

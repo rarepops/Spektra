@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace Spektra.Core;
 
 /// A file selected for audit, with the identity fields the cache keys on.
@@ -117,9 +119,11 @@ public static class FolderAudit
     /// Runs the combined bandwidth + integrity audit over the targets, in
     /// parallel (bounded by `jobs`), returning entries in input order.
     /// Cache hits (unless `fresh`) replay first, in input order, without
-    /// touching ffmpeg; misses are analyzed and upserted into the cache the
-    /// moment each finishes, so cancel/crash keeps completed work. Error
-    /// rows are never cached (a transient failure must not stick).
+    /// touching ffmpeg; misses START in input order too (completion jitters
+    /// within a jobs-wide window), so an OrderWorklist schedule is visible
+    /// live. Each miss is upserted into the cache the moment it finishes,
+    /// so cancel/crash keeps completed work. Error rows are never cached
+    /// (a transient failure must not stick).
     /// `progress` receives every entry once. Cancellation throws
     /// OperationCanceledException. Shared by the CLI `audit` verb, the GUI
     /// report export, and the GUI folder tab.
@@ -142,7 +146,13 @@ public static class FolderAudit
             else missing.Add(i);
         }
 
-        Parallel.For(0, missing.Count,
+        // One index at a time, in order (NoBuffering): Parallel.For's range
+        // partitioner would hand each worker its own contiguous chunk of
+        // the list, scattering the start points across the whole worklist
+        // and erasing whatever order the caller scheduled. The per-item
+        // lock is noise next to a per-file ffmpeg run.
+        Parallel.ForEach(
+            Partitioner.Create(Enumerable.Range(0, missing.Count), EnumerablePartitionerOptions.NoBuffering),
             new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, jobs), CancellationToken = ct },
             k =>
             {
