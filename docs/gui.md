@@ -13,6 +13,8 @@ When the overview finishes, the **bandwidth banner** appears under the header:
 - **Red (Lossy):** a sharp cutoff at a codec-typical frequency, with a likely codec/bitrate guess.
 - **Violet (Upsampled):** the container claims hi-res (e.g. 96 kHz) but the real bandwidth stops at a lower standard rate's limit (e.g. 22.05 kHz, a 44.1 kHz source). The codec guess is suppressed; the banner names the likely true source rate.
 
+When a cutoff is detected, its frequency is also drawn as a thin line (with a matching tick on the frequency ruler) across the spectrogram in the verdict's color, so the wall is visible against the image; the line tracks zoom, pan, and the log/linear axis.
+
 Zoom with the wheel (time) and Shift+wheel (frequency), drag to pan, double-click to reset. Zoomed spans re-render sharply via an ffmpeg segment decode. Multichannel files get a channel selector (Mix / Ch 1 / Ch 2 / …); for stereo files the other views are precomputed in the background right after load, so switching is instant (Ctrl+Up / Ctrl+Down step through them). The integrity result sticks to the file across switches; loudness is remembered per channel. Ctrl+0 resets the view, F5 reloads the file, and the cursor crosshair with its time / frequency / dB readout can be hidden via View → Crosshair (Ctrl+H).
 
 ## Deeper checks (Analyze menu)

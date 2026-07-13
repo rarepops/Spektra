@@ -70,10 +70,12 @@ public sealed class SpectrogramView : Control
 
     private void OnViewportChanged() { InvalidateVisual(); ScheduleTile(); }
 
-    // The integrity lane appears the moment RunIntegrityCheckAsync lands.
+    // The integrity lane appears the moment RunIntegrityCheckAsync lands; the
+    // cutoff line appears the moment the bandwidth verdict does.
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DocumentViewModel.Integrity) or nameof(DocumentViewModel.IntegrityVisible))
+        if (e.PropertyName is nameof(DocumentViewModel.Integrity) or nameof(DocumentViewModel.IntegrityVisible)
+            or nameof(DocumentViewModel.CutoffHz))
             InvalidateVisual();
     }
 
@@ -104,7 +106,40 @@ public sealed class SpectrogramView : Control
         }
         SpectrogramDraw.Legend(ctx, plot, _display);
         DrawSpectrumOverlay(ctx, plot);
+        DrawCutoffLine(ctx, plot);
         DrawCursorReadout(ctx, plot);
+    }
+
+    // Verdict-tier colours (the folder-grid marker palette): red = lossy wall,
+    // violet = upsample edge, amber = suspicious rolloff. The 0xC0 alpha keeps
+    // the line subtle over the colormap while staying legible.
+    private static readonly IPen CutoffLossyPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0x80, 0x80)), 1);
+    private static readonly IPen CutoffUpsampledPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xB0, 0x8F, 0xD8)), 1);
+    private static readonly IPen CutoffSuspiciousPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xD8, 0xB0, 0x60)), 1);
+
+    // A thin line across the plot at the detected cutoff frequency, plus a
+    // matching tick in the frequency gutter, so the wall is visible against the
+    // image. Only drawn when a cutoff was detected (null = nothing). Reuses
+    // FreqAxis, so it tracks zoom/pan and the log axis and clips to the visible
+    // band; coloured by the verdict tier like the rest of the app.
+    private void DrawCutoffLine(DrawingContext ctx, Rect plot)
+    {
+        if (_vm?.CutoffHz is not { } hz || _vm.Metadata is not { } meta) return;
+        var nyquist = meta.SampleRate / 2.0;
+        if (nyquist <= 0) return;
+        var q = hz / nyquist;
+        var vp = _vm.Viewport;
+        if (q < vp.F0 || q > vp.F1) return; // cutoff outside the visible span
+        var freq = new FreqAxis(vp.F0, vp.F1, _display.LogFrequency, nyquist);
+        var y = plot.Bottom - freq.PosOf(q) * plot.Height;
+        var pen = _vm.Verdict?.Kind switch
+        {
+            VerdictKind.Upsampled => CutoffUpsampledPen,
+            VerdictKind.Suspicious => CutoffSuspiciousPen,
+            _ => CutoffLossyPen,
+        };
+        ctx.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
+        ctx.DrawLine(pen, new Point(plot.Left - 5, y), new Point(plot.Left, y));
     }
 
     private static readonly IBrush PeakBrush = new SolidColorBrush(Color.FromArgb(90, 180, 210, 255));
