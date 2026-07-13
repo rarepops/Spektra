@@ -13,6 +13,19 @@ public sealed record FolderTreeFolder(
     string FullPath,
     IReadOnlyList<FolderTreeNode> Children) : FolderTreeNode(Name, FullPath);
 
+/// A folder subtree's audit summary: how many files it holds, how many are
+/// analyzed, and the suspect/problem tally. Partial means some files are
+/// still unanalyzed; Worst is the highest severity present.
+public sealed record FolderStatus(int Total, int Analyzed, int Suspect, int Problem)
+{
+    public bool Partial => Analyzed < Total;
+
+    public RowSeverity Worst =>
+        Problem > 0 ? RowSeverity.Problem
+        : Suspect > 0 ? RowSeverity.Suspect
+        : RowSeverity.Clean;
+}
+
 public static class FolderTree
 {
     private static readonly char Sep = Path.DirectorySeparatorChar;
@@ -113,5 +126,22 @@ public static class FolderTree
         if (anyChecked && anyUnchecked)
             return null;
         return anyChecked;
+    }
+
+    /// Fold a subtree's per-file severities (null = not yet analyzed) into a
+    /// FolderStatus. Total counts every file; Analyzed counts the non-null.
+    public static FolderStatus Rollup(IEnumerable<RowSeverity?> severities)
+    {
+        int total = 0, analyzed = 0, suspect = 0, problem = 0;
+        foreach (var severity in severities)
+        {
+            total++;
+            if (severity is null)
+                continue;
+            analyzed++;
+            if (severity == RowSeverity.Suspect) suspect++;
+            else if (severity == RowSeverity.Problem) problem++;
+        }
+        return new FolderStatus(total, analyzed, suspect, problem);
     }
 }
