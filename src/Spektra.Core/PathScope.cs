@@ -8,8 +8,18 @@ public static class PathScope
 {
     public static bool IsUnder(string path, string folder)
     {
-        var prefix = Path.TrimEndingDirectorySeparator(folder)
-            + Path.DirectorySeparatorChar;
-        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        var prefix = PrefixOf(folder);
+        // Strictly longer than the prefix so a root never contains itself:
+        // PrefixOf(@"C:\") is @"C:\", which the root path equals exactly.
+        return path.Length > prefix.Length
+            && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// The folder's path as a separator-terminated prefix. Root paths
+    /// (C:\) keep their existing separator instead of gaining a second one.
+    internal static string PrefixOf(string folder)
+    {
+        var trimmed = Path.TrimEndingDirectorySeparator(folder);
+        return trimmed.EndsWith(Path.DirectorySeparatorChar) ? trimmed : trimmed + Path.DirectorySeparatorChar;
     }
 }

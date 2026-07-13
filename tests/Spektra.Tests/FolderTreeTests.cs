@@ -28,6 +28,25 @@ public sealed class FolderTreeTests
     }
 
     [Test]
+    public async Task Build_from_a_drive_root_does_not_eat_the_first_character()
+    {
+        IReadOnlyList<string> files =
+        [
+            @"C:\Album\01.flac",
+            @"C:\single.flac",
+        ];
+
+        var forest = FolderTree.Build(@"C:\", files);
+
+        await Assert.That(forest.Count).IsEqualTo(2);
+        await Assert.That(forest[0]).IsTypeOf<FolderTreeFolder>();
+        await Assert.That(forest[0].Name).IsEqualTo("Album");
+        await Assert.That(forest[0].FullPath).IsEqualTo(@"C:\Album");
+        await Assert.That(forest[1]).IsTypeOf<FolderTreeFile>();
+        await Assert.That(forest[1].Name).IsEqualTo("single.flac");
+    }
+
+    [Test]
     public async Task Build_sorts_folders_before_files_then_by_name()
     {
         IReadOnlyList<string> files =

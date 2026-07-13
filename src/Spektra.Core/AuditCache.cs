@@ -136,7 +136,7 @@ public sealed class AuditCache : IDisposable
     /// Deletes rows for files under `folder` that no longer exist there
     /// (`livePaths` is the current enumeration). Rows for other folders are
     /// untouched, so entries for unmounted drives survive. Call only after a
-    /// completed (not cancelled) scan.
+    /// completed (not cancelled) enumeration of the folder's live files.
     public void PruneFolder(string folder, IReadOnlyCollection<string> livePaths)
     {
         var live = new HashSet<string>(livePaths, StringComparer.OrdinalIgnoreCase);

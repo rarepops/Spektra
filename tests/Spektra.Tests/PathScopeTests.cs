@@ -11,6 +11,9 @@ public sealed class PathScopeTests
     [Arguments(@"C:\music\Album2\a.flac", @"C:\music\Album", false)]
     [Arguments(@"C:\MUSIC\a.flac", @"C:\music", true)]
     [Arguments(@"C:\music\a.flac", @"C:\music\", true)]
+    [Arguments(@"C:\a.flac", @"C:\", true)]
+    [Arguments(@"C:\Album\a.flac", @"C:\", true)]
+    [Arguments(@"C:\", @"C:\", false)]
     public async Task IsUnder_reports_strict_containment(
         string path, string folder, bool expected)
     {

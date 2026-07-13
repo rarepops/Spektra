@@ -35,7 +35,7 @@ public static class FolderTree
     public static IReadOnlyList<FolderTreeNode> Build(
         string root, IReadOnlyList<string> audioFiles)
     {
-        var prefix = Path.TrimEndingDirectorySeparator(root) + Sep;
+        var prefix = PathScope.PrefixOf(root);
         return BuildLevel(prefix, audioFiles);
     }
 
