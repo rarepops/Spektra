@@ -55,7 +55,7 @@ Omit `--filter` to run everything; add `--job Short` for a quick, lower-fidelity
 - Work happens on `dev` (or feature branches merged into it).
 - `main` is the release branch. CI (build + test) runs on every push and PR.
 - Releases are cut by the maintainer: merge to `main`, then push a `vX.Y.Z` tag. A GitHub Actions workflow builds the installer and binaries and publishes the release. Update `CHANGELOG.md` as part of the release.
-- If verdict or integrity analysis changed, bump `AuditCache.AnalysisVersion` so cached audit rows re-analyze.
+- If verdict or integrity analysis changed, bump `AuditCache.AnalysisVersion` so cached audit rows re-analyze. Only changes to how a verdict or integrity result is computed count; orchestration-only changes (like the folder tab's browse-and-Analyze flow, which reorders when files are analyzed but not how) leave cached rows valid and do not bump it.
 - **Only pushing the `vX.Y.Z` tag publishes a release.** Running the release workflow manually (`workflow_dispatch`) builds the same artifacts for inspection but does not create a GitHub release, so it is a safe dry run.
 - **Optional release summary**: text in the annotated tag's body (the lines after the `Spektra X.Y.Z` subject) is published at the top of the GitHub release, above the auto-generated commit list. Leave the body empty for just the commit list. For example: `git tag -a v1.2.3 -m "Spektra 1.2.3" -m "Highlights: repaired the ffmpeg download, faster rendering."`
 

@@ -13,7 +13,7 @@
 
 # Spektra
 
-A desktop audio spectrum analyzer: drop in a file or a whole folder, see spectrograms, triage a library in a live audit grid, compare encodes side by side, and get an automated "is this really lossless?" verdict.
+A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop in a folder to browse a library and audit the files you pick in a live grid, compare encodes side by side, and get an automated "is this really lossless?" verdict.
 
 ## Features
 
@@ -22,7 +22,7 @@ A desktop audio spectrum analyzer: drop in a file or a whole folder, see spectro
 - Upsampling detection: a hi-res file whose real bandwidth stops at a lower standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged Upsampled, naming the likely true source rate
 - Transcode-aware problems: an honest lossy file is not a problem; the audit flags lossy content hiding in a lossless container, or an mp3/aac whose cutoff sits far below what its bitrate should deliver
 - Export report: save the bandwidth + integrity audit for the current file or a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
-- Folder audit grid: drop a folder (or pass it on the command line) to triage a whole library live in a sortable grid, with byte-weighted progress and a remaining-time estimate, a tiered severity filter (all / suspect + worse / problems only), and a persistent cache so re-scans only analyze what changed
+- Folder browse-and-audit: drop a folder (or pass it on the command line) for an instant browse tree with any cached verdicts already shown, check the files or folders you want and press Analyze to audit just those into a sortable grid with byte-weighted progress, a remaining-time estimate, and a tiered severity filter (all / suspect + worse / problems only), Drilldown to focus the grid on one subtree, all backed by a persistent cache shared with the CLI
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan, double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay (peak-hold + time-average)
 - Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris), color palette (Turbo by default, plus Magma/Inferno/Plasma/Viridis/Cividis/Grayscale, mono phosphor ramps, and custom palettes as JSON files with even anchors or stops pinned to a dB level), a tightness curve for how fast quiet detail fades to black, dynamic-range floor, and a linear or logarithmic frequency axis
@@ -49,7 +49,7 @@ A desktop audio spectrum analyzer: drop in a file or a whole folder, see spectro
 | `T` · `D` · `A` · `Esc` | Compare view: flip A/B · difference · auto-align · back to both |
 | `Ctrl+D` · `Ctrl+Shift+S` | Compare two files · export the current file's report |
 | `Ctrl+0` · `Ctrl+1`..`Ctrl+9` | Reset the view · jump to tab N |
-| `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file or rescan the folder (`Shift+F5` = ignore the cache) |
+| `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file or analyze the folder's checked files (`Shift+F5` = ignore the cache) |
 | `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
 
 Check for a newer release any time from **Help → Check for Updates**. Spektra never updates itself; it only tells you when a newer release exists and links to it. You can also enable a quiet once-a-day check on startup in Preferences.
