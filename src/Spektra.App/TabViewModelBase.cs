@@ -12,4 +12,8 @@ public abstract class TabViewModelBase : StatusViewModel, ITab
 
     /// Folder-audit tabs show a folder glyph in the tab strip.
     public virtual bool IsFolderTab => false;
+
+    /// True while the tab runs a long analysis; the tab strip swaps the
+    /// glyph for a spinner so a backgrounded run stays visible.
+    public virtual bool IsAnalyzing => false;
 }

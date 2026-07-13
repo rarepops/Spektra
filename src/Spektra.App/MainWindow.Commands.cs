@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -78,6 +79,17 @@ public partial class MainWindow
 
     private async void OnDownloadFfmpegClicked(object? sender, RoutedEventArgs e) =>
         await _vm.DownloadFfmpegAsync();
+
+    // The header's context menu: the header shows the bare name (the tooltip
+    // has the full path), so the path can be taken elsewhere from here.
+    private async void OnCopyPathClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DocHost.DataContext is not DocumentViewModel doc || Clipboard is null) return;
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(DataFormat.Text, doc.FilePath));
+        await Clipboard.SetDataAsync(data);
+        doc.StatusText = "Path copied to clipboard";
+    }
 
     private async void OnCompareClicked(object? sender, RoutedEventArgs e) => await CompareViaDialogAsync();
 

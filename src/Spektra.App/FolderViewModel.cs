@@ -117,18 +117,22 @@ public sealed class FolderViewModel : TabViewModelBase
     public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }
 
     private bool _isAnalyzing;
-    public bool IsAnalyzing
+    public override bool IsAnalyzing => _isAnalyzing;
+
+    private void SetAnalyzing(bool value)
     {
-        get => _isAnalyzing;
-        private set
-        {
-            if (!Set(ref _isAnalyzing, value))
-                return;
-            RaisePropertyChanged(nameof(CanAnalyze));
-        }
+        if (!Set(ref _isAnalyzing, value, nameof(IsAnalyzing)))
+            return;
+        RaisePropertyChanged(nameof(CanAnalyze));
     }
 
     public bool CanAnalyze => !IsAnalyzing;
+
+    // The folder tab currently running Analyze, if any: one run at a time
+    // across every tab, since a run already fans ffmpeg out across most
+    // cores and a second would fight the first for them and wreck both
+    // ETAs. UI-thread only, like the rest of the tab state.
+    private static FolderViewModel? _analyzingTab;
 
     /// Live run readout shown beside the progress bar: percent, files done,
     /// and the ETA once it means something. Empty when idle.
@@ -302,6 +306,11 @@ public sealed class FolderViewModel : TabViewModelBase
     private async Task AnalyzeAsync(bool fresh)
     {
         if (IsAnalyzing) return; // a second F5/Analyze must never dispose the live CTS
+        if (_analyzingTab is not null)
+        {
+            StatusText = $"Already analyzing \"{_analyzingTab.TabTitle}\" · one analysis runs at a time";
+            return;
+        }
         _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
         var worklist = _filesInOrder
             .Where(f => f.IsChecked && (fresh || f.Entry is null))
@@ -318,7 +327,8 @@ public sealed class FolderViewModel : TabViewModelBase
 
         var ordered = FolderAudit.OrderWorklist(worklist, _settings.FolderAnalysisOrder);
 
-        IsAnalyzing = true;
+        SetAnalyzing(true);
+        _analyzingTab = this;
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         _worklistCount = ordered.Count;
@@ -358,7 +368,8 @@ public sealed class FolderViewModel : TabViewModelBase
         finally
         {
             _flushTimer.Stop();
-            IsAnalyzing = false;
+            _analyzingTab = null;
+            SetAnalyzing(false);
             AnalyzeProgress = "";
             cache?.Dispose();
             Flush(); // drain stragglers; the IsAnalyzing guard keeps the final status intact

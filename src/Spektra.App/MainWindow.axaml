@@ -24,6 +24,18 @@
       <Setter Property="Padding" Value="4,0" />
       <Setter Property="FontSize" Value="11" />
     </Style>
+    <Style Selector="Path.tabspin">
+      <Style.Animations>
+        <Animation Duration="0:0:1.1" IterationCount="INFINITE">
+          <KeyFrame Cue="0%">
+            <Setter Property="RotateTransform.Angle" Value="0" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="RotateTransform.Angle" Value="360" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
     <Style Selector="Border.verdict">
       <Setter Property="Padding" Value="12,6" />
       <Setter Property="Background" Value="#1E1E1E" />
@@ -145,10 +157,22 @@
           <Border Classes="tab" Classes.selected="{Binding IsSelected}"
                   PointerPressed="OnTabPointerPressed">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <Path IsVisible="{Binding IsFolderTab}" Fill="#999999"
+              <Path Fill="#999999"
                     Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
                     Margin="0,2,0,0"
-                    Data="M10,4 H4 C2.9,4 2,4.9 2,6 V18 C2,19.1 2.9,20 4,20 H20 C21.1,20 22,19.1 22,18 V8 C22,6.9 21.1,6 20,6 H12 L10,4 Z" />
+                    Data="M10,4 H4 C2.9,4 2,4.9 2,6 V18 C2,19.1 2.9,20 4,20 H20 C21.1,20 22,19.1 22,18 V8 C22,6.9 21.1,6 20,6 H12 L10,4 Z">
+                <Path.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="IsFolderTab" />
+                    <Binding Path="!IsAnalyzing" />
+                  </MultiBinding>
+                </Path.IsVisible>
+              </Path>
+              <Path Classes.tabspin="{Binding IsAnalyzing}" IsVisible="{Binding IsAnalyzing}"
+                    Stroke="#6FB3E8" StrokeThickness="1.75" StrokeLineCap="Round"
+                    Width="13" Height="13" Stretch="None" VerticalAlignment="Center"
+                    Margin="0,2,0,0" ToolTip.Tip="Analyzing…"
+                    Data="M 11.5,6.5 A 5,5 0 1 1 6.5,1.5" />
               <TextBlock Text="{Binding TabTitle}" Foreground="#CCCCCC"
                          VerticalAlignment="Center" />
               <Button Classes="close" Content="✕" Foreground="#888888"
@@ -166,7 +190,14 @@
                   SelectedIndex="{Binding SelectedChannelIndex, Mode=TwoWay}"
                   IsVisible="{Binding HasMultipleChannels}" />
         <TextBlock Text="{Binding HeaderText}" FontSize="13" Foreground="#DDDDDD"
-                   VerticalAlignment="Center" />
+                   VerticalAlignment="Center" Background="Transparent"
+                   ToolTip.Tip="{Binding FilePath}">
+          <TextBlock.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Copy _path" Click="OnCopyPathClicked" />
+            </ContextMenu>
+          </TextBlock.ContextMenu>
+        </TextBlock>
       </DockPanel>
       <Border Background="#5C1010" Padding="12,8" IsVisible="{Binding HasError}">
         <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Foreground="#FFBBBB" />
