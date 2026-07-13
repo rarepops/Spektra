@@ -40,13 +40,15 @@
   </UserControl.DataTemplates>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top" Margin="12,8,12,6">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
         <Button Content="Analyze" Click="OnAnalyzeClicked"
                 IsEnabled="{Binding CanAnalyze}" IsVisible="{Binding !IsAnalyzing}"
                 ToolTip.Tip="Analyze the checked files · Shift+click or Shift+F5 re-analyzes even cached ones" />
         <Button Content="Cancel" Click="OnCancelClicked"
                 IsVisible="{Binding IsAnalyzing}"
                 ToolTip.Tip="Stop analyzing · rows already finished are kept" />
+      </StackPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
         <ComboBox ItemsSource="{Binding FilterOptions}" SelectedIndex="{Binding FilterIndex, Mode=TwoWay}"
                   MinWidth="140" FontSize="12" VerticalAlignment="Center"
                   ToolTip.Tip="Show rows at this severity and worse" />
@@ -54,25 +56,29 @@
                 ToolTip.Tip="Save the grid as CSV or JSON" />
       </StackPanel>
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
-                   Height="8" Margin="0,0,12,0" VerticalAlignment="Center" />
+                   Height="8" Margin="12,0,12,0" VerticalAlignment="Center" />
     </DockPanel>
     <Border DockPanel.Dock="Top" Height="1" Background="#2E2E2E" />
     <Grid ColumnDefinitions="320,4,*">
       <Border Grid.Column="0" Padding="4,4,4,0"
               BorderBrush="#2E2E2E" BorderThickness="0,0,1,0">
         <DockPanel>
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4"
-                      Margin="0,0,0,4">
-            <Button Content="All" FontSize="12" Click="OnSelectAllClicked"
-                    ToolTip.Tip="Check every file in the tree" />
-            <Button Content="None" FontSize="12" Click="OnSelectNoneClicked"
-                    ToolTip.Tip="Uncheck every file" />
-            <Button Content="Drilldown" FontSize="12" Click="OnDrilldownClicked"
-                    ToolTip.Tip="Scope the grid to the selected folder" />
-            <Button Content="Up" FontSize="12" Click="OnDrillUpClicked"
-                    IsEnabled="{Binding IsScoped}"
-                    ToolTip.Tip="Widen the scope one folder up" />
-          </StackPanel>
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto"
+                Margin="0,0,0,4">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+              <Button Content="All" FontSize="12" Click="OnSelectAllClicked"
+                      ToolTip.Tip="Check every file in the tree" />
+              <Button Content="None" FontSize="12" Click="OnSelectNoneClicked"
+                      ToolTip.Tip="Uncheck every file" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+              <Button Content="Drilldown" FontSize="12" Click="OnDrilldownClicked"
+                      ToolTip.Tip="Scope the grid to the selected folder" />
+              <Button Content="Up" FontSize="12" Click="OnDrillUpClicked"
+                      IsEnabled="{Binding IsScoped}"
+                      ToolTip.Tip="Widen the scope one folder up" />
+            </StackPanel>
+          </Grid>
           <TreeView x:Name="Tree" ItemsSource="{Binding Roots}" Background="Transparent" />
         </DockPanel>
       </Border>
