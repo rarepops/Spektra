@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Spektra.Core;
 
@@ -37,6 +38,15 @@ public sealed class FolderRow(AuditEntry entry)
     public RowSeverity Severity { get; } = FolderAudit.Severity(entry);
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
+
+    /// The integrity cell's marker dot, using the same palette as the tree.
+    public IBrush IntegrityBrush => Row.Integrity switch
+    {
+        "Ok" => NodeMarkers.Clean,
+        "Suspect" => NodeMarkers.Suspect,
+        "Corrupt" or "Error" => NodeMarkers.Problem,
+        _ => NodeMarkers.NotAnalyzed,
+    };
 }
 
 /// A folder-audit tab built around an explicit-Analyze workflow: dropping a

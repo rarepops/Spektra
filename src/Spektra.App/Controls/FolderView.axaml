@@ -57,6 +57,7 @@
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
                    Height="8" Margin="0,0,12,0" VerticalAlignment="Center" />
     </DockPanel>
+    <Border DockPanel.Dock="Top" Height="1" Background="#2E2E2E" />
     <Grid ColumnDefinitions="320,4,*">
       <Border Grid.Column="0" Padding="4,4,4,0"
               BorderBrush="#2E2E2E" BorderThickness="0,0,1,0">
@@ -88,14 +89,6 @@
             </DataGridTemplateColumn>
             <DataGridTextColumn Header="Cutoff kHz" Binding="{Binding CutoffKhz, StringFormat='0.0'}"
                                 SortMemberPath="CutoffKhz" Width="Auto" />
-            <DataGridTemplateColumn Header="Integrity" SortMemberPath="Integrity" Width="Auto">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <TextBlock Classes="cell" Classes.bad="{Binding IntegrityIsBad}"
-                             Text="{Binding Integrity}" Margin="12,0" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
             <DataGridTextColumn Header="Codec" Binding="{Binding Codec}" Width="Auto" />
             <DataGridTextColumn Header="kbps" Binding="{Binding BitrateKbps, StringFormat='0'}"
                                 SortMemberPath="BitrateKbps" Width="Auto" />
@@ -104,6 +97,18 @@
                                 SortMemberPath="DurationSeconds" Width="Auto" />
             <DataGridTextColumn Header="Errors" Binding="{Binding DecodeErrors}" Width="Auto" />
             <DataGridTextColumn Header="Dropouts" Binding="{Binding Dropouts}" Width="Auto" />
+            <DataGridTemplateColumn Header="Integrity" SortMemberPath="Integrity" Width="Auto">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                             Fill="{Binding IntegrityBrush}" />
+                    <TextBlock Classes="cell" Classes.bad="{Binding IntegrityIsBad}"
+                               Text="{Binding Integrity}" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </DockPanel>
