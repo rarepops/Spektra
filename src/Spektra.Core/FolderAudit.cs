@@ -30,6 +30,11 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
 /// severity filter and the tree marker colors.
 public enum RowSeverity { Clean = 0, Suspect = 1, Problem = 2 }
 
+/// How a folder worklist is scheduled for analysis. FolderOrder follows the
+/// browse tree top to bottom; the size orders trade that for quicker early
+/// results (smallest) or a faster-settling time estimate (largest).
+public enum AnalysisOrder { FolderOrder = 0, SmallestFirst = 1, LargestFirst = 2 }
+
 /// The combined bandwidth + integrity audit over a folder's files (see Run).
 public static class FolderAudit
 {
@@ -83,6 +88,17 @@ public static class FolderAudit
 
         return new AuditResult(report, integrity, integrityError);
     }
+
+    /// Order a worklist for analysis. FolderOrder keeps the given (tree)
+    /// order; the size orders are stable, so equal-size files keep their
+    /// tree order. Scheduling only: the result set is identical either way.
+    public static IReadOnlyList<AuditTarget> OrderWorklist(
+        IReadOnlyList<AuditTarget> worklist, AnalysisOrder order) => order switch
+        {
+            AnalysisOrder.SmallestFirst => [.. worklist.OrderBy(t => t.SizeBytes)],
+            AnalysisOrder.LargestFirst => [.. worklist.OrderByDescending(t => t.SizeBytes)],
+            _ => worklist,
+        };
 
     /// Read-only positional cache lookup for a tree drop: one slot per target,
     /// the cached entry on a hit and null on a miss/stale/null-cache. Never
