@@ -4,6 +4,14 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.4] - 2026-07-13
+
+### Added
+- The folder grid's File column now leads with the same marker dot the tree shows for that file: the row's whole verdict, the worst of bandwidth and integrity, violet for upsampled. The Integrity column's dot keeps coloring integrity alone, so a transcode that decodes cleanly reads as red overall next to green integrity instead of looking like a tree/grid mismatch.
+
+### Fixed
+- Audit cache keys no longer depend on how the folder argument was spelled: auditing `C:/Music` (forward slashes, or a relative path) used to write cache entries that a later run on the canonical path silently missed, re-analyzing everything from scratch.
+
 ## [0.13.3] - 2026-07-13
 
 ### Added
