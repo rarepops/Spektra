@@ -4,6 +4,23 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-07-13
+
+### Added
+- The folder tab is now a browse-first workspace: dropping a folder (or Ctrl+Shift+O, or a folder on the command line) instantly shows a checkbox tree of its files and folders instead of starting a scan, with any verdicts cached from earlier audits painted onto the tree and grid right away. Tick files or whole folders (folder checkboxes cascade, and show a partial state when only part of a subtree is checked) and press Analyze (or F5) to audit exactly the checked set; Shift+F5 or Shift+click Analyze re-analyzes even cached files.
+- Tree markers and rollups: every file and folder in the tree carries a severity dot (not analyzed, clean, suspect, problem, or upsampled), and each folder shows a live "5/12 · 2 problems" style summary while analysis runs.
+- Drilldown and Up: scope the grid to one folder's subtree (a "Scope:" breadcrumb shows the focus, Show all clears it), then widen back one folder at a time.
+- The detected bandwidth cutoff is drawn on the spectrogram as a thin line in the verdict's color, with a matching tick on the frequency ruler, so a lossy wall is visible at a glance; the line tracks zoom, pan, and the log/linear axis.
+- Folders now appear in File > Open Recent alongside files, and reopen as folder tabs.
+- Folder-audit tabs show a small folder glyph in the tab strip, and the folder view gained tooltips throughout (including the Shift-to-re-analyze hint on Analyze).
+
+### Changed
+- Dropping a folder no longer analyzes anything by itself; analysis is explicit via Analyze or F5. The severity filter, export, double-click to open, byte-weighted progress, and remaining-time estimate all work as before over the analyzed set, and cancelling still keeps the rows already finished.
+- The integrity verdict moved to the grid's last column and gained a severity dot so problem files read at a glance.
+
+### Fixed
+- Pruning stale audit-cache rows now works when the audited folder is a bare drive root (for example Z:\); it silently skipped such folders before.
+
 ## [0.12.0] - 2026-07-12
 
 ### Added
