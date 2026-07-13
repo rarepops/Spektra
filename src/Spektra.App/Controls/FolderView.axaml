@@ -55,6 +55,9 @@
         <Button Content="Export…" Click="OnExportClicked" IsEnabled="{Binding CanAnalyze}"
                 ToolTip.Tip="Save the grid as CSV or JSON" />
       </StackPanel>
+      <TextBlock DockPanel.Dock="Right" Text="{Binding AnalyzeProgress}"
+                 IsVisible="{Binding IsAnalyzing}" FontSize="12" Foreground="#CCCCCC"
+                 VerticalAlignment="Center" Margin="12,0,0,0" />
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}"
                    Height="8" Margin="12,0,12,0" VerticalAlignment="Center" />
     </DockPanel>

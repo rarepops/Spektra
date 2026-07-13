@@ -48,6 +48,23 @@ public sealed class MainWindowViewModel : StatusViewModel
 
     public IReadOnlyList<WindowFunctionKind> WindowFunctions { get; } = Enum.GetValues<WindowFunctionKind>();
 
+    public IReadOnlyList<string> FolderAnalysisOrders { get; } =
+        ["Folder order (top to bottom)", "Smallest files first", "Largest files first"];
+
+    /// Scheduling for the folder tab's Analyze. Read when a run starts, so a
+    /// change applies from the next Analyze without touching open tabs.
+    public int FolderAnalysisOrderIndex
+    {
+        get => (int)Settings.FolderAnalysisOrder;
+        set
+        {
+            if (value < 0 || (int)Settings.FolderAnalysisOrder == value) return;
+            Settings.FolderAnalysisOrder = (AnalysisOrder)value;
+            RaisePropertyChanged(nameof(FolderAnalysisOrderIndex));
+            SaveSettings();
+        }
+    }
+
     private PaletteRegistry _paletteRegistry = PaletteRegistry.LoadWithCustom();
     private IReadOnlyList<string>? _palettes;
     public IReadOnlyList<string> Palettes => _palettes ??= _paletteRegistry.Names;
@@ -307,7 +324,7 @@ public sealed class MainWindowViewModel : StatusViewModel
             RememberRecent(path);
             return;
         }
-        var folder = new FolderViewModel(_ffmpeg, path);
+        var folder = new FolderViewModel(_ffmpeg, path, Settings);
         folder.OpenFileRequested += (file, checkIntegrity) =>
         {
             OpenFile(file);

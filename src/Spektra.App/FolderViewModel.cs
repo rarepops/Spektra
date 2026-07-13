@@ -57,6 +57,7 @@ public sealed class FolderRow(AuditEntry entry)
 public sealed class FolderViewModel : TabViewModelBase
 {
     private readonly FfmpegPaths _ffmpeg;
+    private readonly AppSettings _settings;
 
     public ObservableCollection<TreeNodeViewModel> Roots { get; } = [];
 
@@ -80,9 +81,10 @@ public sealed class FolderViewModel : TabViewModelBase
     public string FolderPath { get; }
     public ObservableCollection<FolderRow> Rows { get; } = [];
 
-    public FolderViewModel(FfmpegPaths ffmpeg, string folderPath)
+    public FolderViewModel(FfmpegPaths ffmpeg, string folderPath, AppSettings settings)
     {
         _ffmpeg = ffmpeg;
+        _settings = settings;
         FolderPath = folderPath;
         TabTitle = Path.GetFileName(Path.TrimEndingDirectorySeparator(folderPath));
         if (TabTitle.Length == 0) TabTitle = folderPath; // drive roots like Z:\
@@ -120,6 +122,15 @@ public sealed class FolderViewModel : TabViewModelBase
     }
 
     public bool CanAnalyze => !IsAnalyzing;
+
+    /// Live run readout shown beside the progress bar: percent, files done,
+    /// and the ETA once it means something. Empty when idle.
+    private string _analyzeProgress = "";
+    public string AnalyzeProgress
+    {
+        get => _analyzeProgress;
+        private set => Set(ref _analyzeProgress, value);
+    }
 
     private string? _scopeFolder;
     public string? ScopeFolder
@@ -293,13 +304,15 @@ public sealed class FolderViewModel : TabViewModelBase
             return;
         }
 
+        var ordered = FolderAudit.OrderWorklist(worklist, _settings.FolderAnalysisOrder);
+
         IsAnalyzing = true;
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
-        _worklistCount = worklist.Count;
+        _worklistCount = ordered.Count;
         _doneFiles = 0;
         _analyzedFiles = 0;
-        _totalBytes = worklist.Sum(t => t.SizeBytes);
+        _totalBytes = ordered.Sum(t => t.SizeBytes);
         _cachedBytes = 0;
         _analyzedBytes = 0;
         _analysisClock.Restart();
@@ -315,7 +328,7 @@ public sealed class FolderViewModel : TabViewModelBase
             var ct = _cts.Token;
             var localCache = cache;
             await Task.Run(() => FolderAudit.Run(
-                _ffmpeg, worklist, Jobs, localCache, fresh, progress, ct), ct);
+                _ffmpeg, ordered, Jobs, localCache, fresh, progress, ct), ct);
 
             Flush();
             SetSummaryStatus();
@@ -334,6 +347,7 @@ public sealed class FolderViewModel : TabViewModelBase
         {
             _flushTimer.Stop();
             IsAnalyzing = false;
+            AnalyzeProgress = "";
             cache?.Dispose();
             Flush(); // drain stragglers; the IsAnalyzing guard keeps the final status intact
         }
@@ -387,8 +401,8 @@ public sealed class FolderViewModel : TabViewModelBase
         if (_worklistCount > 0)
         {
             var eta = progress.EtaSeconds is { } s ? $" · ~{FormatEta(s)} left" : "";
-            StatusText =
-                $"Analyzing · {_doneFiles} of {_worklistCount} · {_problems} problems{eta}{CacheNote()}";
+            AnalyzeProgress =
+                $"{progress.Fraction * 100:0}% · {_doneFiles} of {_worklistCount}{eta}";
         }
     }
 
