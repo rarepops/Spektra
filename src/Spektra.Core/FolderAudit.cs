@@ -47,9 +47,12 @@ public static class FolderAudit
             : RowSeverity.Clean;
 
     /// Enumerates a folder's audio files with the size/mtime identity the
-    /// cache keys on (one stat per file).
+    /// cache keys on (one stat per file). The folder is canonicalized first:
+    /// enumeration echoes the argument's spelling into every path, and the
+    /// cache keys on that path verbatim, so a forward-slash or relative
+    /// spelling would write keys the canonical spelling never hits again.
     public static AuditTarget[] CollectTargets(string folder, bool recursive = true) =>
-        BandwidthReport.FindAudioFiles(folder, recursive)
+        BandwidthReport.FindAudioFiles(Path.GetFullPath(folder), recursive)
             .Select(p =>
             {
                 var info = new FileInfo(p);

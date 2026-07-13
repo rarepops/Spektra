@@ -164,6 +164,24 @@ public class FolderAuditTests
     }
 
     [Test]
+    public async Task CollectTargets_NormalizesTheFolderSpelling_SoCacheKeysMatch()
+    {
+        // The cache keys on Target.Path verbatim, and EnumerateFiles echoes the
+        // folder argument's spelling into every result: `audit C:/Music` must
+        // produce the same keys as the canonical backslash spelling, or every
+        // later hit against it turns into a silent miss.
+        var dir = Directory.CreateTempSubdirectory("spektra-norm").FullName;
+        try
+        {
+            File.Copy(P("chirp.wav"), Path.Combine(dir, "chirp.wav"));
+            var altSpelling = dir.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var targets = FolderAudit.CollectTargets(altSpelling);
+            await Assert.That(targets.Single().Path).IsEqualTo(Path.Combine(dir, "chirp.wav"));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Test]
     public async Task AnalyzeFile_SilentGap_DetectsDropoutAndKeepsVerdict()
     {
         // Exercises the audit's combined decode: one pass has to feed both the
