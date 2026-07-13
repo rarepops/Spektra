@@ -270,10 +270,16 @@ public sealed class MainWindowViewModel : StatusViewModel
         var doc = new DocumentViewModel(_ffmpeg, path) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
         Tabs.Add(doc);
         Selected = doc;
+        RememberRecent(path);
+        _ = doc.LoadOverviewAsync();
+    }
+
+    /// Files and folders share one recent list; the menu tells them apart.
+    private void RememberRecent(string path)
+    {
         Settings.PushRecent(path);
         SaveSettings();
         RecentFilesChanged?.Invoke();
-        _ = doc.LoadOverviewAsync();
     }
 
     public ComparisonViewModel? OpenComparison(string pathA, string pathB)
@@ -298,6 +304,7 @@ public sealed class MainWindowViewModel : StatusViewModel
         if (existing is not null)
         {
             Selected = existing;
+            RememberRecent(path);
             return;
         }
         var folder = new FolderViewModel(_ffmpeg, path);
@@ -309,6 +316,7 @@ public sealed class MainWindowViewModel : StatusViewModel
         };
         Tabs.Add(folder);
         Selected = folder;
+        RememberRecent(path);
         folder.OpenTree();
     }
 

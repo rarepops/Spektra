@@ -112,7 +112,11 @@ public partial class MainWindow : Window
         {
             var captured = path;
             var item = new MenuItem { Header = path.Replace("_", "__") }; // __ escapes access-key marker
-            item.Click += (_, _) => _vm.OpenFile(captured);
+            item.Click += (_, _) =>
+            {
+                if (Directory.Exists(captured)) _vm.OpenFolder(captured);
+                else _vm.OpenFile(captured);
+            };
             items.Add(item);
         }
         if (items.Count > 0)
