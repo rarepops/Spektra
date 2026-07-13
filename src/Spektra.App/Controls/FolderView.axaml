@@ -42,7 +42,8 @@
     <DockPanel DockPanel.Dock="Top" Margin="12,8,12,6">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
         <Button Content="Analyze" Click="OnAnalyzeClicked"
-                IsEnabled="{Binding CanAnalyze}" IsVisible="{Binding !IsAnalyzing}" />
+                IsEnabled="{Binding CanAnalyze}" IsVisible="{Binding !IsAnalyzing}"
+                ToolTip.Tip="Analyze the checked files · Shift+click or Shift+F5 re-analyzes even cached ones" />
         <Button x:Name="CancelButton" Content="Cancel" Click="OnCancelClicked"
                 IsVisible="{Binding IsAnalyzing}" />
         <Button Content="Select all" Click="OnSelectAllClicked" />

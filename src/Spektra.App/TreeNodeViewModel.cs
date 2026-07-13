@@ -178,9 +178,9 @@ public sealed class FolderNodeViewModel : TreeNodeViewModel
     private static string FormatRollup(FolderStatus status)
     {
         if (status.Analyzed == 0)
-            return $"{status.Total} files";
+            return $"{status.Total} file{(status.Total == 1 ? "" : "s")}";
         var parts = new List<string> { $"{status.Analyzed}/{status.Total}" };
-        if (status.Problem > 0) parts.Add($"{status.Problem} problems");
+        if (status.Problem > 0) parts.Add($"{status.Problem} problem{(status.Problem == 1 ? "" : "s")}");
         if (status.Suspect > 0) parts.Add($"{status.Suspect} suspect");
         return string.Join(" · ", parts);
     }

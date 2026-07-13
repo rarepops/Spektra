@@ -163,6 +163,7 @@ public sealed class FolderViewModel : TabViewModelBase
     private async Task OpenTreeAsync()
     {
         if (IsAnalyzing) return; // rebuilding would clear the maps a live run is using
+        _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
         try
         {
             var targets = await Task.Run(() =>
@@ -257,6 +258,7 @@ public sealed class FolderViewModel : TabViewModelBase
     private async Task AnalyzeAsync(bool fresh)
     {
         if (IsAnalyzing) return; // a second F5/Analyze must never dispose the live CTS
+        _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
         var worklist = _fileByPath.Values
             .Where(f => f.IsChecked && (fresh || f.Entry is null))
             .Select(f => _targetByPath[f.FullPath])
@@ -264,7 +266,9 @@ public sealed class FolderViewModel : TabViewModelBase
 
         if (worklist.Count == 0)
         {
-            StatusText = "Nothing to analyze: check files or folders first.";
+            StatusText = _fileByPath.Values.Any(f => f.IsChecked)
+                ? "All checked files are already analyzed · Shift+F5 or Shift+click Analyze for a fresh pass"
+                : "Nothing to analyze: check files or folders first.";
             return;
         }
 
