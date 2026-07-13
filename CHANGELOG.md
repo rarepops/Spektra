@@ -4,6 +4,15 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.3] - 2026-07-13
+
+### Added
+- The single-file tab's header now shows the file's full path on hover, and right-clicking it offers Copy path (with a status-bar confirmation), so the file behind a spectrogram can be found again and pasted elsewhere.
+- A folder tab whose analysis is running swaps its folder icon for a spinner in the tab strip, so a run left in the background stays visible from any tab.
+
+### Changed
+- Only one folder analysis runs at a time across tabs: starting Analyze elsewhere names the busy tab in the status bar instead of competing with the running analysis for the same CPU cores.
+
 ## [0.13.2] - 2026-07-13
 
 ### Changed
