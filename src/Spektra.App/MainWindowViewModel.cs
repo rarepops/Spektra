@@ -286,8 +286,10 @@ public sealed class MainWindowViewModel : StatusViewModel
         return cmp;
     }
 
-    /// Opens (or re-selects) a folder-audit tab. An existing tab for the same
-    /// folder is selected without rescanning; F5 rescans.
+    /// Opens (or re-selects) a folder-audit tab. Opening builds the browse
+    /// tree and hydrates cached verdicts (no ffmpeg runs); analysis waits for
+    /// an explicit Analyze. An existing tab for the same folder is re-selected
+    /// as is, without rebuilding.
     public void OpenFolder(string path)
     {
         if (_ffmpeg is null) return;
@@ -307,7 +309,7 @@ public sealed class MainWindowViewModel : StatusViewModel
         };
         Tabs.Add(folder);
         Selected = folder;
-        folder.StartScan(fresh: false);
+        folder.OpenTree();
     }
 
     public IReadOnlyList<DocumentViewModel> OpenDocuments => Tabs.OfType<DocumentViewModel>().ToList();

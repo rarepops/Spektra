@@ -39,19 +39,33 @@ public sealed class FolderRow(AuditEntry entry)
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
 }
 
-/// A folder-audit tab: streams FolderAudit entries into a sortable grid with
-/// byte-weighted progress, an ETA, and the persistent cache.
+/// A folder-audit tab built around an explicit-Analyze workflow: dropping a
+/// folder builds the checkbox browse tree and paints any cached verdicts
+/// (OpenTree, no ffmpeg), then analysis runs only the checked worklist on
+/// demand (Analyze). Entries stream into a sortable grid with byte-weighted
+/// progress and an ETA, and change-driven rollups keep the tree cheap.
 public sealed class FolderViewModel : TabViewModelBase
 {
     private readonly FfmpegPaths _ffmpeg;
-    private CancellationTokenSource _cts = new();
+
+    public ObservableCollection<TreeNodeViewModel> Roots { get; } = [];
+
+    private readonly Dictionary<string, FileNodeViewModel> _fileByPath =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, AuditTarget> _targetByPath =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _rowIndex =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<FolderNodeViewModel> _folders = [];
+
     private readonly List<AuditEntry> _pending = [];   // UI thread only
     private readonly DispatcherTimer _flushTimer;
     private readonly Stopwatch _analysisClock = new();
 
+    private int _worklistCount, _doneFiles, _analyzedFiles, _problems, _treeTotal;
     private long _totalBytes, _cachedBytes, _analyzedBytes;
-    private int _totalFiles, _doneFiles, _analyzedFiles, _problems, _cachedFiles;
     private bool _cacheUnavailable;
+    private CancellationTokenSource? _cts;
 
     public string FolderPath { get; }
     public ObservableCollection<FolderRow> Rows { get; } = [];
@@ -68,7 +82,9 @@ public sealed class FolderViewModel : TabViewModelBase
 
     public override string TabTitle { get; }
 
-    public override void Cancel() => _cts.Cancel();
+    // Cancels an in-flight Analyze; a no-op while only browsing (OpenTree runs
+    // no cancellable ffmpeg work, so _cts is null until the first Analyze).
+    public override void Cancel() => _cts?.Cancel();
 
     public IReadOnlyList<string> FilterOptions { get; } = ["All files", "Suspect + worse", "Problems only"];
 
@@ -80,14 +96,60 @@ public sealed class FolderViewModel : TabViewModelBase
     private double _progressFraction;
     public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }
 
-    private bool _isScanning;
-    public bool IsScanning
+    private bool _isAnalyzing;
+    public bool IsAnalyzing
     {
-        get => _isScanning;
-        private set { if (Set(ref _isScanning, value)) RaisePropertyChanged(nameof(CanRescan)); }
+        get => _isAnalyzing;
+        private set
+        {
+            if (!Set(ref _isAnalyzing, value))
+                return;
+            RaisePropertyChanged(nameof(CanAnalyze));
+            RaisePropertyChanged(nameof(IsScanning));   // TEMP alias, removed in a later task
+            RaisePropertyChanged(nameof(CanRescan));    // TEMP alias, removed in a later task
+        }
     }
 
-    public bool CanRescan => !IsScanning;
+    public bool CanAnalyze => !IsAnalyzing;
+
+    // Temporary shims so the pre-Task-8 AXAML and F5 path keep compiling.
+    public bool IsScanning => IsAnalyzing;              // TEMP, removed in a later task
+    public bool CanRescan => CanAnalyze;                // TEMP, removed in a later task
+    public void StartScan(bool fresh) => Analyze(fresh);// TEMP, removed in a later task
+
+    private string? _scopeFolder;
+    public string? ScopeFolder
+    {
+        get => _scopeFolder;
+        private set
+        {
+            if (!Set(ref _scopeFolder, value))
+                return;
+            RaisePropertyChanged(nameof(IsScoped));
+            RaisePropertyChanged(nameof(ScopeBreadcrumb));
+        }
+    }
+
+    public bool IsScoped => _scopeFolder is not null;
+
+    public string ScopeBreadcrumb => _scopeFolder is null
+        ? ""
+        : "Scope: " + Path.GetRelativePath(FolderPath, _scopeFolder)
+            .Replace(Path.DirectorySeparatorChar, '/');
+
+    public void Drilldown(string folder) => ScopeFolder = folder;
+    public void ShowAll() => ScopeFolder = null;
+
+    public void SelectAll() => SetAllChecks(true);
+    public void SelectNone() => SetAllChecks(false);
+
+    private void SetAllChecks(bool value)
+    {
+        foreach (var file in _fileByPath.Values)
+            file.SetCheckedSilently(value);
+        foreach (var folder in _folders)
+            folder.SetCheckedSilently(value);
+    }
 
     /// (path, checkIntegrity): the flag asks the opener to run the integrity
     /// check immediately, so the lane under the spectrogram is populated on
@@ -101,103 +163,249 @@ public sealed class FolderViewModel : TabViewModelBase
 
     public IReadOnlyList<AuditRow> ExportRows() => Rows.Select(r => r.Row).ToList();
 
-    public void StartScan(bool fresh) => _ = ScanAsync(fresh);
+    /// Drop entry point: walk the folder, build the tree, and paint any cached
+    /// verdicts. No ffmpeg runs here; analysis waits for Analyze.
+    public void OpenTree() => _ = OpenTreeAsync();
 
-    private async Task ScanAsync(bool fresh)
+    private async Task OpenTreeAsync()
     {
-        if (IsScanning) return;
-        IsScanning = true;
-        _cts = new CancellationTokenSource();
-        Rows.Clear();
-        _pending.Clear();
-        _totalBytes = _cachedBytes = _analyzedBytes = 0;
-        _totalFiles = _doneFiles = _analyzedFiles = _problems = _cachedFiles = 0;
-        _cacheUnavailable = false;
-        _analysisClock.Reset();
-        ProgressFraction = 0;
-        StatusText = "Scanning…";
-        _flushTimer.Start();
+        if (IsAnalyzing) return; // rebuilding would clear the maps a live run is using
         try
         {
-            var ct = _cts.Token;
-            var targets = await Task.Run(() => FolderAudit.CollectTargets(FolderPath), ct);
-            _totalFiles = targets.Length;
-            _totalBytes = targets.Sum(t => t.SizeBytes);
-            if (_totalFiles == 0)
+            var targets = await Task.Run(() =>
+                FolderAudit.CollectTargets(FolderPath, recursive: true));
+            if (targets.Length == 0)
             {
-                StatusText = "No audio files found.";
+                StatusText = "No audio files found in this folder.";
                 return;
             }
+
+            var paths = targets.Select(t => t.Path).ToList();
+            var forest = await Task.Run(() => FolderTree.Build(FolderPath, paths));
+
+            Roots.Clear();
+            _fileByPath.Clear();
+            _folders.Clear();
+            _targetByPath.Clear();
+            _rowIndex.Clear();
+            Rows.Clear();
+
+            foreach (var node in BuildNodes(forest))
+                Roots.Add(node);
+            foreach (var target in targets)
+                _targetByPath[target.Path] = target;
+            _treeTotal = _fileByPath.Count;
+
+            foreach (var folder in _folders)
+                folder.RefreshRollup();
 
             AuditCache? cache = null;
             try { cache = AuditCache.Open(AuditCache.DefaultPath); }
             catch (Exception e) when (e is not OutOfMemoryException) { _cacheUnavailable = true; }
+
             try
             {
-                var progress = new Progress<AuditEntry>(OnEntry); // marshals to this (UI) thread
-                var jobs = Math.Max(1, (int)(Environment.ProcessorCount * 0.8));
-                await Task.Run(() => FolderAudit.Run(_ffmpeg, targets, jobs, cache, fresh, progress, ct), ct);
-                cache?.PruneFolder(FolderPath, targets.Select(t => t.Path).ToList());
-                Flush();
-                StatusText = ComposeDone();
+                if (cache is not null)
+                {
+                    IReadOnlyList<AuditTarget> orderedTargets = targets;
+                    var hydrated = await Task.Run(() =>
+                        FolderAudit.HydrateFromCache(cache, orderedTargets));
+                    for (var i = 0; i < hydrated.Length; i++)
+                        if (hydrated[i] is { } entry)
+                            _pending.Add(entry);
+                    Flush();
+                    cache.PruneFolder(FolderPath, paths);
+                }
             }
-            finally { cache?.Dispose(); }
+            finally
+            {
+                cache?.Dispose();
+            }
+
+            SetSummaryStatus();
+        }
+        catch (OperationCanceledException)
+        {
+            // opening was cancelled; leave whatever painted so far
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SetErrorStatus($"Could not read the folder: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<TreeNodeViewModel> BuildNodes(
+        IEnumerable<FolderTreeNode> forest)
+    {
+        foreach (var node in forest)
+            yield return Wrap(node);
+    }
+
+    private TreeNodeViewModel Wrap(FolderTreeNode node)
+    {
+        if (node is FolderTreeFile file)
+        {
+            var vm = new FileNodeViewModel(file.Name, file.FullPath);
+            _fileByPath[file.FullPath] = vm;
+            return vm;
+        }
+
+        var folder = (FolderTreeFolder)node;
+        var children = folder.Children.Select(Wrap).ToList();
+        var folderVm = new FolderNodeViewModel(folder.Name, folder.FullPath, children);
+        _folders.Add(folderVm);
+        return folderVm;
+    }
+
+    /// Analyze exactly the checked files. fresh ignores cached rows and
+    /// re-analyzes; otherwise only files without a verdict yet are queued.
+    public void Analyze(bool fresh) => _ = AnalyzeAsync(fresh);
+
+    private async Task AnalyzeAsync(bool fresh)
+    {
+        if (IsAnalyzing) return; // a second F5/Analyze must never dispose the live CTS
+        var worklist = _fileByPath.Values
+            .Where(f => f.IsChecked && (fresh || f.Entry is null))
+            .Select(f => _targetByPath[f.FullPath])
+            .ToList();
+
+        if (worklist.Count == 0)
+        {
+            StatusText = "Nothing to analyze: check files or folders first.";
+            return;
+        }
+
+        IsAnalyzing = true;
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        _worklistCount = worklist.Count;
+        _doneFiles = 0;
+        _analyzedFiles = 0;
+        _totalBytes = worklist.Sum(t => t.SizeBytes);
+        _cachedBytes = 0;
+        _analyzedBytes = 0;
+        _analysisClock.Restart();
+        _flushTimer.Start();
+
+        AuditCache? cache = null;
+        try
+        {
+            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
+            catch (Exception e) when (e is not OutOfMemoryException) { _cacheUnavailable = true; }
+
+            var progress = new Progress<AuditEntry>(OnEntry); // marshals to this (UI) thread
+            var ct = _cts.Token;
+            var localCache = cache;
+            await Task.Run(() => FolderAudit.Run(
+                _ffmpeg, worklist, Jobs, localCache, fresh, progress, ct), ct);
+
+            Flush();
+            SetSummaryStatus();
         }
         catch (OperationCanceledException)
         {
             Flush();
-            StatusText = $"Cancelled at {_doneFiles} of {_totalFiles} · partial results kept";
+            StatusText =
+                $"Cancelled at {_doneFiles} of {_worklistCount} · partial results kept";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            SetErrorStatus(ex.Message);
+            SetErrorStatus($"Analysis failed: {ex.Message}");
         }
         finally
         {
             _flushTimer.Stop();
-            IsScanning = false;
-            Flush(); // drain stragglers; the IsScanning guard keeps the final status intact
+            IsAnalyzing = false;
+            cache?.Dispose();
+            Flush(); // drain stragglers; the IsAnalyzing guard keeps the final status intact
         }
     }
+
+    private static int Jobs => Math.Max(1, (int)(Environment.ProcessorCount * 0.8));
 
     private void OnEntry(AuditEntry entry)
     {
         _pending.Add(entry);
         _doneFiles++;
-        if (entry.HasProblem) _problems++;
         if (entry.FromCache)
         {
-            _cachedFiles++;
             _cachedBytes += entry.Target.SizeBytes;
         }
         else
         {
-            if (!_analysisClock.IsRunning) _analysisClock.Start();
             _analyzedFiles++;
             _analyzedBytes += entry.Target.SizeBytes;
         }
     }
 
     /// Batched UI update: appending per entry would flood the grid when a
-    /// 20k-entry cache replay lands.
+    /// large cache replay lands. Apply pending entries and refresh touched
+    /// rollups first, then (only while analyzing) update progress and the ETA;
+    /// ScanProgress.Fraction returns 1 at zero bytes, so the early return keeps
+    /// the bar empty during the browse/hydrate phase.
     private void Flush()
     {
-        foreach (var entry in _pending) Rows.Add(new FolderRow(entry));
-        _pending.Clear();
+        if (_pending.Count > 0)
+        {
+            var touched = new HashSet<FolderNodeViewModel>();
+            foreach (var entry in _pending)
+            {
+                ApplyEntry(entry);
+                MarkRollupDirty(entry.Target.Path, touched);
+            }
+            _pending.Clear();
+            foreach (var folder in touched)
+                folder.RefreshRollup();
+            _problems = Rows.Count(r => r.HasProblem);
+        }
+
+        if (!IsAnalyzing)
+            return;   // progress + ETA only mean something while analyzing
 
         var progress = new ScanProgress(
-            _totalBytes, _cachedBytes, _analyzedBytes,
-            _analyzedFiles, _analysisClock.Elapsed.TotalSeconds);
+            _totalBytes, _cachedBytes, _analyzedBytes, _analyzedFiles,
+            _analysisClock.Elapsed.TotalSeconds);
         ProgressFraction = progress.Fraction;
-        if (IsScanning && _totalFiles > 0)
+        if (_worklistCount > 0)
         {
             var eta = progress.EtaSeconds is { } s ? $" · ~{FormatEta(s)} left" : "";
-            StatusText = $"Scanning · {_doneFiles} of {_totalFiles} · {_problems} problems{eta}{CacheNote()}";
+            StatusText =
+                $"Analyzing · {_doneFiles} of {_worklistCount} · {_problems} problems{eta}{CacheNote()}";
         }
     }
 
-    private string ComposeDone() =>
-        $"{_totalFiles} files · {_problems} problems · {_cachedFiles} from cache{CacheNote()}";
+    private void ApplyEntry(AuditEntry entry)
+    {
+        var path = entry.Target.Path;
+        var row = new FolderRow(entry);
+        if (_rowIndex.TryGetValue(path, out var i))
+        {
+            Rows[i] = row;
+        }
+        else
+        {
+            _rowIndex[path] = Rows.Count;
+            Rows.Add(row);
+        }
+        if (_fileByPath.TryGetValue(path, out var node))
+            node.Entry = entry;
+    }
+
+    private void MarkRollupDirty(string path, HashSet<FolderNodeViewModel> touched)
+    {
+        if (!_fileByPath.TryGetValue(path, out var file))
+            return;
+        var ancestor = file.Parent as FolderNodeViewModel;
+        while (ancestor is not null)
+        {
+            touched.Add(ancestor);
+            ancestor = ancestor.Parent as FolderNodeViewModel;
+        }
+    }
+
+    private void SetSummaryStatus() =>
+        StatusText =
+            $"{_treeTotal:N0} files · {Rows.Count:N0} analyzed · {_problems} problems{CacheNote()}";
 
     private string CacheNote() => _cacheUnavailable ? " · cache unavailable" : "";
 
