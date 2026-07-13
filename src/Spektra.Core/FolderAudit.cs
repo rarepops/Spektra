@@ -84,6 +84,20 @@ public static class FolderAudit
         return new AuditResult(report, integrity, integrityError);
     }
 
+    /// Read-only positional cache lookup for a tree drop: one slot per target,
+    /// the cached entry on a hit and null on a miss/stale/null-cache. Never
+    /// runs ffmpeg, so the drop paints known verdicts instantly.
+    public static AuditEntry?[] HydrateFromCache(
+        AuditCache? cache, IReadOnlyList<AuditTarget> targets)
+    {
+        var entries = new AuditEntry?[targets.Count];
+        if (cache is null)
+            return entries;
+        for (var i = 0; i < targets.Count; i++)
+            entries[i] = cache.TryGet(targets[i]);
+        return entries;
+    }
+
     /// Runs the combined bandwidth + integrity audit over the targets, in
     /// parallel (bounded by `jobs`), returning entries in input order.
     /// Cache hits (unless `fresh`) replay first, in input order, without

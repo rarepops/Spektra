@@ -184,4 +184,27 @@ public class FolderAuditTests
         await Assert.That(r.HasProblem).IsTrue();
         await Assert.That(r.Report.Error is not null || r.Integrity?.Status == IntegrityStatus.Corrupt).IsTrue();
     }
+
+    [Test]
+    public async Task Run_AnalyzesOnlyTheGivenSubset_AndCachesOnlyThose()
+    {
+        using var cache = AuditCache.Open(NewTempDb());
+        AuditTarget[] all =
+        [
+            T("chirp.wav"), T("noise.wav"), T("sine-1khz.wav"),
+            T("sine-1khz.mp3"), T("sine-1khz.flac"),
+        ];
+        AuditTarget[] worklist = [all[0], all[1]];
+
+        var entries = FolderAudit.Run(Ff, worklist, jobs: 2, cache);
+
+        await Assert.That(entries.Length).IsEqualTo(2);
+        await Assert.That(entries.Select(e => e.Target.Path)
+            .SequenceEqual(worklist.Select(t => t.Path))).IsTrue();
+        await Assert.That(cache.TryGet(all[0])).IsNotNull();
+        await Assert.That(cache.TryGet(all[1])).IsNotNull();
+        await Assert.That(cache.TryGet(all[2])).IsNull();
+        await Assert.That(cache.TryGet(all[3])).IsNull();
+        await Assert.That(cache.TryGet(all[4])).IsNull();
+    }
 }
