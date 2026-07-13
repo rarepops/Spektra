@@ -42,6 +42,11 @@ public sealed class FolderRow(AuditEntry entry, string rootFolder)
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";
 
+    /// The File cell's marker dot: the row's whole verdict, same rule and
+    /// palette as the tree's file dot (the Integrity dot colors integrity
+    /// alone, so without this the tree could look "worse" than the grid).
+    public IBrush SeverityBrush { get; } = NodeMarkers.ForEntry(entry);
+
     /// The integrity cell's marker dot, using the same palette as the tree.
     public IBrush IntegrityBrush => Row.Integrity switch
     {

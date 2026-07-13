@@ -56,12 +56,8 @@ public sealed class FileNodeViewModel(string name, string fullPath)
 
     public RowSeverity? Severity => _entry is null ? null : FolderAudit.Severity(_entry);
 
-    public override IBrush MarkerBrush => _entry switch
-    {
-        null => NodeMarkers.NotAnalyzed,
-        { Row.Bandwidth: "Upsampled" } => NodeMarkers.Upsampled,
-        _ => NodeMarkers.For(FolderAudit.Severity(_entry)),
-    };
+    public override IBrush MarkerBrush =>
+        _entry is null ? NodeMarkers.NotAnalyzed : NodeMarkers.ForEntry(_entry);
 }
 
 /// A folder node. Checking it cascades down to every descendant node (files
@@ -198,4 +194,13 @@ public static class NodeMarkers
         RowSeverity.Suspect => Suspect,
         _ => Clean,
     };
+
+    /// The one whole-row marker rule, shared by the tree's file dot and the
+    /// grid's File-column dot so the two can never disagree: violet for an
+    /// upsampled verdict, else the overall severity color (worst of
+    /// bandwidth and integrity).
+    public static IBrush ForEntry(AuditEntry entry) =>
+        entry.Row.Bandwidth is "Upsampled"
+            ? Upsampled
+            : For(FolderAudit.Severity(entry));
 }
