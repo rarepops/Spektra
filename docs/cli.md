@@ -38,7 +38,7 @@ Possible verdicts: **Lossless** (full-band), **Suspicious** (rolloff that could 
 ## check: integrity (corruption / missing data)
 
     $ spektra check download.flac
-      [CORRUPT] download.flac - Likely corrupt or incomplete: 3 decode error(s), truncated (1:02 of 3:45).
+      [CORRUPT] download.flac - Likely corrupt or incomplete · 3 decode errors, truncated (1:02 of 3:45).
 
     1 files: 0 ok, 0 suspect, 1 corrupt.
 

@@ -100,22 +100,29 @@ public sealed class IntegrityScanner(FfmpegPaths ffmpeg)
         if (status == IntegrityStatus.Ok)
             return dropouts.Count == 0
                 ? "No integrity problems detected."
-                : $"No damage detected; {dropouts.Count} silent gap(s) totaling "
+                : $"No damage detected; {Gaps(dropouts)} totaling "
                   + $"{dropouts.Sum(d => d.DurationSeconds):0.0}s (first at {Time(dropouts[0].StartSeconds)}).";
         var parts = new List<string>();
-        if (errors > 0) parts.Add($"{errors} decode error(s)");
+        if (errors > 0) parts.Add($"{errors} decode error{Plural(errors)}");
         if (decodeFailed) parts.Add("decoding failed partway");
         if (truncated) parts.Add($"truncated ({Time(decoded)} of {Time(expected)})");
         if (dropouts.Count > 0)
         {
             var total = dropouts.Sum(d => d.DurationSeconds);
-            parts.Add($"{dropouts.Count} silent gap(s) totaling {total:0.0}s (first at {Time(dropouts[0].StartSeconds)})");
+            parts.Add($"{Gaps(dropouts)} totaling {total:0.0}s (first at {Time(dropouts[0].StartSeconds)})");
         }
+        // A middot, not a colon: the GUI banner and CLI rows prefix this with
+        // "Integrity:" already, and two colons stack badly.
         var lead = status == IntegrityStatus.Corrupt
-            ? "Likely corrupt or incomplete: "
-            : "Worth a listen: ";
+            ? "Likely corrupt or incomplete · "
+            : "Worth a listen · ";
         return lead + string.Join(", ", parts) + ".";
     }
+
+    private static string Plural(int n) => n == 1 ? "" : "s";
+
+    private static string Gaps(IReadOnlyList<DropoutRegion> dropouts) =>
+        $"{dropouts.Count} silent gap{Plural(dropouts.Count)}";
 
     private static string Time(double seconds) =>
         AudioMetadata.FormatDuration(TimeSpan.FromSeconds(Math.Max(0, seconds)));
