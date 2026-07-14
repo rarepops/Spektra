@@ -33,6 +33,26 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task FolderLayout_DefaultsNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.FolderColumnWidths).IsNull();
+        await Assert.That(defaults.FolderTreeWidth).IsNull();
+
+        var s = new AppSettings
+        {
+            FolderColumnWidths = new() { ["File"] = 340.5, ["Integrity"] = 90 },
+            FolderTreeWidth = 275,
+        };
+        SettingsStore.Save(SettingsPath, s);
+
+        var r = SettingsStore.Load(SettingsPath);
+        await Assert.That(r.FolderTreeWidth).IsEqualTo(275);
+        await Assert.That(r.FolderColumnWidths!["File"]).IsEqualTo(340.5);
+        await Assert.That(r.FolderColumnWidths["Integrity"]).IsEqualTo(90);
+    }
+
+    [Test]
     public async Task ShowCrosshair_DefaultsOn_AndRoundTrips()
     {
         // Built-ins only: keep the test independent of the user's palette folder.

@@ -62,7 +62,7 @@
                    Height="8" Margin="12,0,12,0" VerticalAlignment="Center" />
     </DockPanel>
     <Border DockPanel.Dock="Top" Height="1" Background="#2E2E2E" />
-    <Grid ColumnDefinitions="320,4,*">
+    <Grid x:Name="Split" ColumnDefinitions="320,4,*">
       <Border Grid.Column="0" Padding="4,4,4,0"
               BorderBrush="#2E2E2E" BorderThickness="0,0,1,0">
         <DockPanel>
@@ -97,6 +97,7 @@
         </Border>
         <DataGrid x:Name="Grid" IsReadOnly="True" AutoGenerateColumns="False"
                   CanUserSortColumns="True" CanUserReorderColumns="False"
+                  CanUserResizeColumns="True"
                   Background="#111111" FontSize="12"
                   DoubleTapped="OnRowDoubleTapped" KeyDown="OnGridKeyDown">
           <DataGrid.Columns>

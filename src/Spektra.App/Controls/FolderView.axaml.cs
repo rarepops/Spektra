@@ -22,6 +22,49 @@ public partial class FolderView : UserControl
         InitializeComponent();
     }
 
+    private AppSettings? _settings;
+
+    /// Wired once by the shell; applies any saved folder layout. The one
+    /// FolderView instance is shared by every folder tab, so the layout is
+    /// global: HarvestLayout snapshots it back before the shell saves.
+    public AppSettings? Settings
+    {
+        get => _settings;
+        set
+        {
+            _settings = value;
+            ApplyLayout();
+        }
+    }
+
+    private void ApplyLayout()
+    {
+        if (_settings is null) return;
+        if (_settings.FolderTreeWidth is { } tree)
+            Split.ColumnDefinitions[0].Width = new GridLength(Math.Clamp(tree, 120, 1200));
+        if (_settings.FolderColumnWidths is { } widths)
+            foreach (var column in Grid.Columns)
+                if (column.Header is string header && widths.TryGetValue(header, out var px))
+                    column.Width = new DataGridLength(Math.Clamp(px, 40, 4000));
+    }
+
+    /// Snapshot the current layout into settings; the shell persists them
+    /// on close.
+    public void HarvestLayout()
+    {
+        if (_settings is null) return;
+        // Never shown this session means never measured (ActualWidth 0):
+        // keep whatever layout is already saved.
+        var tree = Split.ColumnDefinitions[0].ActualWidth;
+        if (double.IsNaN(tree) || tree <= 0) return;
+        _settings.FolderTreeWidth = tree;
+        var widths = new Dictionary<string, double>();
+        foreach (var column in Grid.Columns)
+            if (column.Header is string header && column.ActualWidth > 0)
+                widths[header] = column.ActualWidth;
+        if (widths.Count > 0) _settings.FolderColumnWidths = widths;
+    }
+
     public void Attach(FolderViewModel? vm)
     {
         if (_vm is not null) _vm.PropertyChanged -= OnVmPropertyChanged;

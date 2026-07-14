@@ -22,6 +22,7 @@ public partial class MainWindow : Window
         _vm.RecentFilesChanged += RebuildRecentMenu;
         RestoreWindowPlacement();
         RebuildRecentMenu();
+        FolderViewCtl.Settings = _vm.Settings;
 
         PositionChanged += (_, e) =>
         {
@@ -31,7 +32,11 @@ public partial class MainWindow : Window
         {
             if (WindowState == WindowState.Normal) _normalSize = e.NewSize;
         };
-        Closing += (_, _) => SaveWindowPlacement();
+        Closing += (_, _) =>
+        {
+            FolderViewCtl.HarvestLayout();
+            SaveWindowPlacement();
+        };
 
         Opened += async (_, _) =>
         {

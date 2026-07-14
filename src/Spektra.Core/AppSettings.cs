@@ -10,6 +10,13 @@ public sealed class AppSettings
     public List<string> RecentFiles { get; set; } = [];
     public int FftSize { get; set; } = 2048;
 
+    // Folder tab layout, harvested when the window closes. Column widths in
+    // px keyed by header (a header absent from the map keeps its default
+    // width, so new columns are unaffected by old files); null = never
+    // customized, keep the XAML defaults.
+    public Dictionary<string, double>? FolderColumnWidths { get; set; }
+    public double? FolderTreeWidth { get; set; }
+
     // Analysis
     public WindowFunctionKind WindowFunction { get; set; } = WindowFunctionKind.Hann;
     // Scheduling for the folder tab's Analyze; read when a run starts.
