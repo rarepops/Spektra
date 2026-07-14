@@ -112,10 +112,18 @@ public sealed class SpectrogramView : Control
 
     // Verdict-tier colours (the folder-grid marker palette): red = lossy wall,
     // violet = upsample edge, amber = suspicious rolloff. The 0xC0 alpha keeps
-    // the line subtle over the colormap while staying legible.
-    private static readonly IPen CutoffLossyPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0x80, 0x80)), 1);
-    private static readonly IPen CutoffUpsampledPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xB0, 0x8F, 0xD8)), 1);
-    private static readonly IPen CutoffSuspiciousPen = new Pen(new SolidColorBrush(Color.FromArgb(0xC0, 0xD8, 0xB0, 0x60)), 1);
+    // the line subtle over the colormap while staying legible; the ruler tick
+    // is thicker and longer than the ruler's own 4 px ticks, so the cutoff
+    // stands out in the kHz gutter instead of passing for one more tick.
+    private static readonly IBrush CutoffLossyBrush = new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0x80, 0x80));
+    private static readonly IBrush CutoffUpsampledBrush = new SolidColorBrush(Color.FromArgb(0xC0, 0xB0, 0x8F, 0xD8));
+    private static readonly IBrush CutoffSuspiciousBrush = new SolidColorBrush(Color.FromArgb(0xC0, 0xD8, 0xB0, 0x60));
+    private static readonly IPen CutoffLossyPen = new Pen(CutoffLossyBrush, 1);
+    private static readonly IPen CutoffUpsampledPen = new Pen(CutoffUpsampledBrush, 1);
+    private static readonly IPen CutoffSuspiciousPen = new Pen(CutoffSuspiciousBrush, 1);
+    private static readonly IPen CutoffLossyTick = new Pen(CutoffLossyBrush, 3);
+    private static readonly IPen CutoffUpsampledTick = new Pen(CutoffUpsampledBrush, 3);
+    private static readonly IPen CutoffSuspiciousTick = new Pen(CutoffSuspiciousBrush, 3);
 
     // A thin line across the plot at the detected cutoff frequency, plus a
     // matching tick in the frequency gutter, so the wall is visible against the
@@ -132,14 +140,15 @@ public sealed class SpectrogramView : Control
         if (q < vp.F0 || q > vp.F1) return; // cutoff outside the visible span
         var freq = new FreqAxis(vp.F0, vp.F1, _display.LogFrequency, nyquist);
         var y = plot.Bottom - freq.PosOf(q) * plot.Height;
-        var pen = _vm.Verdict?.Kind switch
+        var (pen, tick) = _vm.Verdict?.Kind switch
         {
-            VerdictKind.Upsampled => CutoffUpsampledPen,
-            VerdictKind.Suspicious => CutoffSuspiciousPen,
-            _ => CutoffLossyPen,
+            VerdictKind.Upsampled => (CutoffUpsampledPen, CutoffUpsampledTick),
+            VerdictKind.Suspicious => (CutoffSuspiciousPen, CutoffSuspiciousTick),
+            _ => (CutoffLossyPen, CutoffLossyTick),
         };
         ctx.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
-        ctx.DrawLine(pen, new Point(plot.Left - 5, y), new Point(plot.Left, y));
+        // 8 px reaches exactly to where the ruler labels end (plot.Left - 8).
+        ctx.DrawLine(tick, new Point(plot.Left - 8, y), new Point(plot.Left, y));
     }
 
     private static readonly IBrush PeakBrush = new SolidColorBrush(Color.FromArgb(90, 180, 210, 255));
