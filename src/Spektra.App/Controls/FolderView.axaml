@@ -115,7 +115,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Bandwidth" SortMemberPath="Bandwidth" Width="Auto">
+            <DataGridTemplateColumn Header="Bandwidth" SortMemberPath="Bandwidth" Width="Auto" MinWidth="96">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBlock Classes="cell" Classes.bad="{Binding BandwidthIsBad}"
@@ -135,7 +135,7 @@
                                 SortMemberPath="DurationSeconds" Width="Auto" />
             <DataGridTextColumn Header="Errors" Binding="{Binding DecodeErrors}" Width="Auto" />
             <DataGridTextColumn Header="Dropouts" Binding="{Binding Dropouts}" Width="Auto" />
-            <DataGridTemplateColumn Header="Integrity" SortMemberPath="Integrity" Width="Auto">
+            <DataGridTemplateColumn Header="Integrity" SortMemberPath="Integrity" Width="Auto" MinWidth="96">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0">
