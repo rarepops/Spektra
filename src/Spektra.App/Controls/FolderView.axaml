@@ -76,6 +76,7 @@
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
               <Button Content="Drilldown" FontSize="12" Click="OnDrilldownClicked"
+                      IsEnabled="{Binding CanDrilldown}"
                       ToolTip.Tip="Scope the grid to the selected folder" />
               <Button Content="Up" FontSize="12" Click="OnDrillUpClicked"
                       IsEnabled="{Binding IsScoped}"
@@ -83,6 +84,7 @@
             </StackPanel>
           </Grid>
           <TreeView x:Name="Tree" ItemsSource="{Binding Roots}" Background="Transparent"
+                    SelectedItem="{Binding SelectedTreeItem, Mode=TwoWay}"
                     DoubleTapped="OnTreeDoubleTapped" />
         </DockPanel>
       </Border>

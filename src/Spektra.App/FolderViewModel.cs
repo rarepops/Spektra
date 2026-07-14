@@ -167,6 +167,22 @@ public sealed class FolderViewModel : TabViewModelBase
         ? ""
         : "Scope: " + Reporting.RelativeFile(FolderPath, _scopeFolder);
 
+    private object? _selectedTreeItem;
+    /// The tree's current selection, mirrored in by the view; a folder
+    /// selection is what arms Drilldown.
+    public object? SelectedTreeItem
+    {
+        get => _selectedTreeItem;
+        set
+        {
+            if (!Set(ref _selectedTreeItem, value))
+                return;
+            RaisePropertyChanged(nameof(CanDrilldown));
+        }
+    }
+
+    public bool CanDrilldown => _selectedTreeItem is FolderNodeViewModel;
+
     public void Drilldown(string folder) => ScopeFolder = folder;
     public void ShowAll() => ScopeFolder = null;
 
