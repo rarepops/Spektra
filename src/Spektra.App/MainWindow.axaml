@@ -82,7 +82,7 @@
         <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#888888" FontSize="12" />
         <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}"
                   MinWidth="84" MinHeight="24" Padding="8,2" FontSize="12" VerticalAlignment="Center"
-                  ToolTip.Tip="FFT window size: frequency buckets = size / 2 + 1. Re-analyzes on change." />
+                  ToolTip.Tip="Frequency buckets = size / 2 + 1 · re-analyzes on change" />
       </StackPanel>
       <Menu>
         <MenuItem Header="_File">
@@ -258,7 +258,7 @@
         <NumericUpDown ShowButtonSpinner="False" Width="72" FontSize="12"
                        Minimum="-5500" Maximum="5500" Increment="1" FormatString="+0;-0"
                        Value="{Binding OffsetMs, Mode=TwoWay}"
-                       ToolTip.Tip="Total offset in ms (type an exact value)" />
+                       ToolTip.Tip="Offset in ms" />
         <Button Content="▶" Click="OnNudgeOffsetRight" Padding="9,2" VerticalAlignment="Center"
                 ToolTip.Tip="Shift B 1 ms later" />
         <TextBlock VerticalAlignment="Center" Foreground="#888888" Text="ms" />

@@ -204,6 +204,10 @@ public sealed class FolderViewModel : TabViewModelBase
         OpenFileRequested?.Invoke(row.FullPath,
             row.Integrity is "Corrupt" or "Suspect" || row.Dropouts > 0);
 
+    /// The grid row for a path, when that file has been analyzed.
+    public FolderRow? RowFor(string path) =>
+        _rowIndex.TryGetValue(path, out var i) ? Rows[i] : null;
+
     /// Export mirrors the grid: File carries the path relative to the
     /// audited root, not the bare name, so rows can be located again.
     public IReadOnlyList<AuditRow> ExportRows() =>

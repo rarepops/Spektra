@@ -20,7 +20,7 @@
       <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch"
                 ItemsSource="{Binding FolderAnalysisOrders}"
                 SelectedIndex="{Binding FolderAnalysisOrderIndex, Mode=TwoWay}"
-                ToolTip.Tip="How the folder tab schedules checked files when you press Analyze; analysis stays parallel either way. Applies from the next run" />
+                ToolTip.Tip="Scheduling only (analysis stays parallel) · applies from the next run" />
     </Grid>
 
     <Border Height="1" Background="#2E2E2E" />
@@ -39,7 +39,7 @@
                    VerticalAlignment="Center" Text="{Binding Tightness, StringFormat='{}{0:0.00}'}" />
         <Slider Minimum="0.5" Maximum="2.5" TickFrequency="0.05" IsSnapToTickEnabled="True"
                 Value="{Binding Tightness, Mode=TwoWay}"
-                ToolTip.Tip="Higher = quiet detail stays darker so peaks read tighter; lower = bloomier. 1.00 leaves the palette untouched" />
+                ToolTip.Tip="Higher = tighter peaks, lower = bloomier · 1.00 = untouched" />
       </DockPanel>
 
       <TextBlock Grid.Row="2" Grid.Column="0" Text="Dynamic range floor" Foreground="#C9C9C9"
@@ -63,7 +63,7 @@
     <TextBlock Text="Updates" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
     <CheckBox Content="Check for updates on startup" Foreground="#C9C9C9"
               IsChecked="{Binding CheckForUpdatesOnStartup, Mode=TwoWay}"
-              ToolTip.Tip="Contacts GitHub at most once a day to see if a newer release exists" />
+              ToolTip.Tip="Checks GitHub at most once a day" />
 
     <Border Height="1" Background="#2E2E2E" />
 
