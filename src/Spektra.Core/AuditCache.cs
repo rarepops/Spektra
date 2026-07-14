@@ -20,7 +20,10 @@ public sealed class AuditCache : IDisposable
     ///    +crccheck+buffer flags marked whole libraries of quirky-encoder
     ///    mp3s (bits_left padding, bogus frame CRCs) Corrupt though they
     ///    decode clean.
-    public const int AnalysisVersion = 6;
+    /// 7: high-cutoff suspicion zone: a sharp wall at or above 20 kHz reads
+    ///    Suspicious (was full-band Lossless at 44.1 kHz, accusatory Lossy
+    ///    elsewhere), so cached Bandwidth verdicts and cutoffs change.
+    public const int AnalysisVersion = 7;
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

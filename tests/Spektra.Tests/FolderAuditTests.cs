@@ -181,6 +181,30 @@ public class FolderAuditTests
         finally { Directory.Delete(dir, recursive: true); }
     }
 
+    private static AuditEntry Entry(string? codec, string bandwidth, double? cutoffHz) =>
+        new(new AuditTarget("x", 1, 1),
+            new AuditRow("x", codec, 44100, 2, 900_000, 60, bandwidth, cutoffHz, "Ok", 0, 0, false, null),
+            HasProblem: false, FromCache: false);
+
+    [Test]
+    public async Task Severity_SuspiciousHighWall_FlagsLossless_NotHonestLossy()
+    {
+        // The same 20.5 kHz Suspicious wall: in FLAC it is worth a look
+        // (yellow), in an mp3 it is just a top-bitrate encode's own low-pass.
+        await Assert.That(FolderAudit.Severity(Entry("flac", "Suspicious", 20_500)))
+            .IsEqualTo(RowSeverity.Suspect);
+        await Assert.That(FolderAudit.Severity(Entry("mp3", "Suspicious", 20_500)))
+            .IsEqualTo(RowSeverity.Clean);
+    }
+
+    [Test]
+    public async Task Severity_SuspiciousBelowTheLine_StaysSuspect_EvenWhenLossy()
+    {
+        // A 16 kHz rolloff in an mp3 is ordinary suspicion, not a high wall.
+        await Assert.That(FolderAudit.Severity(Entry("mp3", "Suspicious", 16_000)))
+            .IsEqualTo(RowSeverity.Suspect);
+    }
+
     [Test]
     public async Task AnalyzeFile_SilentGap_DetectsDropoutAndKeepsVerdict()
     {

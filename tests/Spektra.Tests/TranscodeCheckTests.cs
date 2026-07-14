@@ -56,4 +56,15 @@ public sealed class TranscodeCheckTests
     [Arguments("mp3", 320_000L, 2, null)]      // no cutoff
     public async Task MissingData_IsNeverSuspect(string? codec, long? bitrate, int? channels, double? cutoff) =>
         await Assert.That(TranscodeCheck.IsSuspectLossy(codec, bitrate, channels, cutoff)).IsFalse();
+
+    [Test]
+    [Arguments("mp3", 20_500.0, true)]    // a top-bitrate encode's own wall
+    [Arguments("aac", 21_000.0, true)]
+    [Arguments(null, 20_500.0, true)]     // missing codec never accuses
+    [Arguments("flac", 20_500.0, false)]  // a wall should not be there at all
+    [Arguments("mp3", 16_000.0, false)]   // below the line: ordinary suspicion
+    [Arguments("mp3", null, false)]       // missing cutoff never excuses
+    public async Task IsHonestHighCutoff_ExcusesLossyContainersAboveTheLine(
+        string? codec, double? cutoffHz, bool expected) =>
+        await Assert.That(TranscodeCheck.IsHonestHighCutoff(codec, cutoffHz)).IsEqualTo(expected);
 }

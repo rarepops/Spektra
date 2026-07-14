@@ -156,9 +156,43 @@ public class CutoffAnalyzerTests
     public async Task GenuineCdRate_SharpCutoff20k_StaysLossy_NotUpsampled()
     {
         // Declared 44.1 kHz with a 20 kHz wall: no base-rate match, no step-up.
+        // The wall lands at ~19983 Hz, just under the high-cutoff line, so it
+        // is still a plain Lossy verdict.
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(22050, 20000)], 44100);
         await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossy);
         await Assert.That(v.CodecGuess).IsNotNull();
+    }
+
+    [Test]
+    public async Task CdRate_SharpWallAt20k6_IsSuspicious_NotClearedAsFullBand()
+    {
+        // An MP3-320-class wall (~20.5 kHz) sits above the 92% full-band line,
+        // which used to clear it as lossless. High-bitrate lossy and honestly
+        // band-limited masters are indistinguishable up here: Suspicious.
+        var v = CutoffAnalyzer.Analyze([SyntheticColumn(22050, 20600)], 44100);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Suspicious);
+        await Assert.That(v.CutoffHz).IsNotNull();
+        await Assert.That(v.CutoffHz!.Value).IsBetween(20300, 20800);
+        await Assert.That(v.CodecGuess).IsEqualTo("MP3 320 / AAC 256+");
+    }
+
+    [Test]
+    public async Task CdRate_SharpWallJustUnderNyquist_IsLossless_ItsOwnAntiAliasFilter()
+    {
+        // A wall in the last ~3% below Nyquist is the stream's own anti-alias
+        // filter (a good resampler silences about the top 2%), not an encoder.
+        var v = CutoffAnalyzer.Analyze([SyntheticColumn(22050, 21700)], 44100);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossless);
+        await Assert.That(v.CutoffHz).IsNull();
+    }
+
+    [Test]
+    public async Task FortyEightK_SharpWallAt20k5_IsSuspicious_TheLineIsAbsoluteNotRelative()
+    {
+        // Encoders low-pass in Hz, not in fractions of Nyquist: a 20.5 kHz wall
+        // in a 48 kHz stream is the same MP3-320-or-master ambiguity as at 44.1.
+        var v = CutoffAnalyzer.Analyze([SyntheticColumn(24000, 20500)], 48000);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Suspicious);
     }
 
     [Test]
@@ -174,9 +208,11 @@ public class CutoffAnalyzerTests
     [Test]
     public async Task FortyEightK_BrickWallAt22k05_NotUpsampled_StepUpTooSmall()
     {
-        // 44.1→48 kHz is a 1.09× step: must NOT read as upsampled.
+        // 44.1→48 kHz is a 1.09× step: must NOT read as upsampled. The wall
+        // sits above the high-cutoff line, so it reads Suspicious rather than
+        // accusing a genuine resample of being a transcode.
         var v = CutoffAnalyzer.Analyze([SyntheticColumn(24000, 22050)], 48000);
-        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Lossy);
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Suspicious);
     }
 
     /// Emulates ffmpeg's default (swr) resampler: passband to `sourceNyquistHz`,

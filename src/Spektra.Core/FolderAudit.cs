@@ -42,9 +42,15 @@ public static class FolderAudit
 {
     public static RowSeverity Severity(AuditEntry entry) =>
         entry.HasProblem ? RowSeverity.Problem
-        : entry.Row.Integrity is "Suspect" || entry.Row.Bandwidth is "Suspicious"
+        : entry.Row.Integrity is "Suspect" || IsSuspectBandwidth(entry.Row)
             ? RowSeverity.Suspect
             : RowSeverity.Clean;
+
+    // A Suspicious verdict colors the row yellow, unless it is an honest
+    // lossy file's own high-bitrate wall (nothing a listener can act on).
+    private static bool IsSuspectBandwidth(AuditRow row) =>
+        row.Bandwidth is "Suspicious"
+        && !TranscodeCheck.IsHonestHighCutoff(row.Codec, row.CutoffHz);
 
     /// Enumerates a folder's audio files with the size/mtime identity the
     /// cache keys on (one stat per file). The folder is canonicalized first:

@@ -35,6 +35,15 @@ public static class TranscodeCheck
         _ => null,
     };
 
+    /// True when a Suspicious bandwidth verdict needs no row flag: a sharp
+    /// wall at or above the high-cutoff line (20 kHz) inside an honestly
+    /// lossy file is just a top-bitrate encode's own low-pass (MP3 320 cuts
+    /// ~20.5 kHz), and the codec already declares the file lossy. The same
+    /// wall in a lossless container stays flagged: it should not be there at
+    /// all. A missing codec never accuses; a missing cutoff never excuses.
+    public static bool IsHonestHighCutoff(string? codec, double? cutoffHz) =>
+        !IsLosslessCodec(codec) && cutoffHz >= CutoffAnalyzer.HighCutoffSuspicionHz;
+
     /// True when a Lossy verdict on this file is a problem: any lossy wall in
     /// a lossless container, or an mp3/aac cutoff below the floor for its
     /// bitrate. Bitrates normalize to stereo-equivalent (mono at 64 kbps is

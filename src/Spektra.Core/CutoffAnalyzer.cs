@@ -13,7 +13,9 @@ public sealed record LosslessVerdict(
 /// whether a lossy low-pass cutoff is present. Heuristic: lossy encoders zero
 /// out everything above a codec/bitrate-dependent frequency, leaving a hard
 /// brick wall well below Nyquist. Natural high-frequency rolloff can look
-/// similar, so an ambiguous rolloff is reported as `Suspicious`, not `Lossy`.
+/// similar, so an ambiguous rolloff is reported as `Suspicious`, not `Lossy`;
+/// so is a sharp wall at or above 20 kHz, where the top lossy bitrates and
+/// honestly band-limited masters coincide.
 public static class CutoffAnalyzer
 {
     // A bin counts as carrying "real" energy when its peak-hold level is within
@@ -37,6 +39,19 @@ public static class CutoffAnalyzer
     // (rather than a gradual, natural high-frequency rolloff).
     private const float DeadDropDb = 18f;
     private const double SharpTransitionHz = 900.0;
+
+    // A sharp wall at or above this frequency stops being proof of lossy
+    // encoding: the top lossy bitrates low-pass here (MP3 320 at ~20.5 kHz),
+    // and so do honestly band-limited masters, so the zone reads Suspicious
+    // instead of Lossy - and instead of Lossless, which the full-band ratio
+    // alone would grant it at 44.1 kHz. TranscodeCheck.IsHonestHighCutoff
+    // keys on the same line.
+    internal const double HighCutoffSuspicionHz = 20000.0;
+
+    // A wall within this fraction of Nyquist reads as the anti-alias filter
+    // of the stream's own sample rate (a good resampler silences roughly the
+    // top 2%), not as an encoder's low-pass: still Lossless.
+    private const double AntiAliasEdgeRatio = 0.97;
 
     // Upsampled-source detection: a sharp wall sitting at another standard
     // rate's Nyquist, inside a container declared at least MinStepUpFactor
@@ -98,14 +113,6 @@ public static class CutoffAnalyzer
         var cutoffHz = cutoffBin * hzPerBin;
         var ratio = cutoffHz / nyquist;
 
-        if (ratio >= FullBandRatio)
-            return new LosslessVerdict(VerdictKind.Lossless, null,
-                $"Full-band to {Khz(nyquist)}. No cutoff detected; consistent with lossless.", null);
-
-        if (cutoffHz < MinLossyCutoffHz)
-            return new LosslessVerdict(VerdictKind.Unknown, cutoffHz,
-                $"Band-limited to {Khz(cutoffHz)}; too little high-frequency content to judge encoding.", null);
-
         // How quickly does the top of the band collapse into dead air? A codec
         // brick wall drops within a few hundred Hz; a natural rolloff takes kHz.
         var deadLine = active - DeadDropDb;
@@ -113,10 +120,26 @@ public static class CutoffAnalyzer
         for (var k = cutoffBin + 1; k < peak.Length; k++)
             if (peak[k] < deadLine) { firstDeadBin = k; break; }
 
-        var guess = GuessCodec(cutoffHz);
         var transitionHz = firstDeadBin < 0 ? double.PositiveInfinity : (firstDeadBin - cutoffBin) * hzPerBin;
+        var sharpWall = transitionHz <= SharpTransitionHz;
 
-        if (transitionHz <= SharpTransitionHz)
+        // The edge-of-hearing zone: a sharp wall from the high-cutoff line up
+        // to just short of Nyquist. Overrides the full-band ratio (which would
+        // clear it) but yields to the anti-alias edge and, below, to a matched
+        // upsample.
+        var highWall = sharpWall && cutoffHz >= HighCutoffSuspicionHz && ratio < AntiAliasEdgeRatio;
+
+        if (ratio >= FullBandRatio && !highWall)
+            return new LosslessVerdict(VerdictKind.Lossless, null,
+                $"Full-band to {Khz(nyquist)}. No cutoff detected; consistent with lossless.", null);
+
+        if (cutoffHz < MinLossyCutoffHz)
+            return new LosslessVerdict(VerdictKind.Unknown, cutoffHz,
+                $"Band-limited to {Khz(cutoffHz)}; too little high-frequency content to judge encoding.", null);
+
+        var guess = GuessCodec(cutoffHz);
+
+        if (sharpWall)
         {
             var passbandLine = globalPeak - PassbandSpanDb;
             var passbandBin = 0;
@@ -128,6 +151,11 @@ public static class CutoffAnalyzer
                 return new LosslessVerdict(VerdictKind.Upsampled, edgeHz,
                     $"Bandwidth ends near {Khz(edgeHz)}; matches a {RateKhz(baseRateHz)} " +
                     $"source upsampled to {RateKhz(sampleRate)}.", null);
+
+            if (highWall)
+                return new LosslessVerdict(VerdictKind.Suspicious, cutoffHz,
+                    $"Sharp cutoff at {Khz(cutoffHz)}. Could be high-bitrate lossy ({guess}) or a band-limited master.",
+                    guess);
 
             return new LosslessVerdict(VerdictKind.Lossy, cutoffHz,
                 $"Sharp cutoff at {Khz(cutoffHz)}. Consistent with lossy encoding ({guess}).", guess);

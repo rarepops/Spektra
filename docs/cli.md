@@ -22,7 +22,7 @@ A hi-res file whose content stops at a lower standard rate is called out as upsa
       vinyl-96k.flac — FLAC · 96 kHz · 24-bit · 2 ch · 4:02 · 2116 kbps
       Bandwidth ends near 22.0 kHz; matches a 44.1 kHz source upsampled to 96 kHz.
 
-Possible verdicts: **Lossless** (full-band), **Suspicious** (rolloff that could be natural), **Lossy** (sharp codec cutoff, with a codec/bitrate guess), **Upsampled** (bandwidth matches a lower standard rate's Nyquist), **Unknown** (too quiet / too band-limited to judge).
+Possible verdicts: **Lossless** (full-band), **Suspicious** (a rolloff that could be natural, or a sharp wall at 20 kHz or above, which high-bitrate lossy and band-limited masters share), **Lossy** (sharp codec cutoff, with a codec/bitrate guess), **Upsampled** (bandwidth matches a lower standard rate's Nyquist), **Unknown** (too quiet / too band-limited to judge).
 
 ## scan: compact library sweep
 
