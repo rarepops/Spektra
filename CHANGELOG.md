@@ -4,6 +4,21 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.5] - 2026-07-13
+
+### Added
+- Double-clicking a file in the folder tree jumps to its row in the grid, when the row exists and the current filter and scope show it (the reverse of double-clicking a row to open the file as a tab).
+- The folder grid's columns can be resized by dragging their header edges, and the layout (column widths plus the tree pane width) is saved when the app closes and restored on the next start.
+
+### Changed
+- The integrity summary separates its lead with a middot instead of a second colon ("Integrity: Worth a listen · 2 decode errors.") and counts pluralize properly instead of "error(s)".
+- The cutoff marker's tick on the frequency ruler is now thicker and longer than the ruler's own ticks, so the marker reads as an anchor instead of one more tick.
+- The wordiest tooltips across the folder view, the FFT selector, the compare strip, and Preferences are trimmed to their point.
+
+### Fixed
+- The Bandwidth and Integrity columns no longer clip a long verdict when the first screenful of rows happens to hold only short ones; both columns now have a minimum width that fits their widest value.
+- CLI output is written as UTF-8 regardless of the console codepage, so middots and the compare view's delta glyph survive redirects and pipes.
+
 ## [0.13.4] - 2026-07-13
 
 ### Added
