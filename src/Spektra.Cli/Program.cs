@@ -14,6 +14,12 @@ internal static class Program
 
     public static int Main(string[] args)
     {
+        // UTF-8 output regardless of the console's legacy codepage: summaries
+        // and compare lines carry middots and Δ, which the OEM codepage
+        // mangles in redirects and pipes.
+        try { Console.OutputEncoding = System.Text.Encoding.UTF8; }
+        catch (IOException) { /* no console to configure */ }
+
         if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
             return Usage(args.Length == 0 ? 1 : 0);
 
