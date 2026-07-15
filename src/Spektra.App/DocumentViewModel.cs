@@ -279,7 +279,16 @@ public sealed class DocumentViewModel : TabViewModelBase
         _computingIndex = -1;
         _computingDoc = null;
         var cts = _computeCts = new CancellationTokenSource();
-        if (_computeLoop is { } previous) await previous;
+        if (_computeLoop is { } previous)
+        {
+            // The await is sequencing only, so decodes never overlap. The loop
+            // catches cancellation and decode errors itself, so an unexpected
+            // fault (an ffmpeg spawn failure, say) lives in the task: rethrown
+            // here it would kill this restart, which is usually fire-and-forget
+            // and would die unobserved, hanging the tab on "Analyzing…".
+            try { await previous; }
+            catch (Exception e) when (e is not OutOfMemoryException) { }
+        }
         if (cts.Token.IsCancellationRequested) return;
         _computeLoop = RunComputeLoopAsync(meta, cts.Token);
     }
