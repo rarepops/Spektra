@@ -4,6 +4,18 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.6] - 2026-07-15
+
+### Added
+- A sharp bandwidth cutoff at or above 20 kHz now reads Suspicious (amber banner, yellow dot) instead of clean, even in a lossless file: MP3-320-class encodes and honestly band-limited masters look identical up there, so it is worth a look rather than a pass or an accusation. A wall in the last few percent below Nyquist still counts as the file's own anti-alias filter and stays green, an honest lossy file's own high wall stays neutral in the folder grid, and a 44.1 kHz recording resampled to 48 kHz is no longer accused as a red transcode.
+
+### Changed
+- The Drilldown button above the folder tree is greyed out until a folder is selected.
+- The audit cache invalidates itself once (analysis version bump): cached bandwidth verdicts change under the new high-cutoff rule, so the next audit re-analyzes instead of replaying stale ones.
+
+### Fixed
+- A file tab could hang on "Analyzing…" forever: when a channel overview failed with something other than a decode error, the failure resurfaced inside the next re-analysis (channel switch, FFT change) and silently killed it.
+
 ## [0.13.5] - 2026-07-13
 
 ### Added
