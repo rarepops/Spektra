@@ -46,6 +46,10 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         var s = streams[0];
         var format = root.TryGetProperty("format", out var f) ? f : default;
 
+        var formatTags = format.ValueKind == JsonValueKind.Object && format.TryGetProperty("tags", out var ft) ? ft : default;
+        var streamTags = s.TryGetProperty("tags", out var st) ? st : default;
+        string? Tag(string name) => TagIn(formatTags, name) ?? TagIn(streamTags, name);
+
         return new AudioMetadata(
             Codec: Str(s, "codec_name") ?? "unknown",
             SampleRate: Int(Str(s, "sample_rate")) ?? 0,
@@ -54,7 +58,10 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
             BitRateBps: NonZero(Long(Str(s, "bit_rate")) ?? Long(Str(format, "bit_rate"))),
             Duration: TimeSpan.FromSeconds(
                 Dbl(Str(format, "duration")) ?? Dbl(Str(s, "duration")) ?? 0),
-            DurationIsEstimated: stderr.Contains("Estimating duration from bitrate"));
+            DurationIsEstimated: stderr.Contains("Estimating duration from bitrate"),
+            Artist: Tag("artist"),
+            Title: Tag("title"),
+            Album: Tag("album"));
     }
 
     private static JsonDocument ParseDocument(string stdout, string stderr)
@@ -76,6 +83,15 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v)
             ? v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString()
             : null;
+
+    private static string? TagIn(JsonElement tags, string name)
+    {
+        if (tags.ValueKind != JsonValueKind.Object) return null;
+        foreach (var p in tags.EnumerateObject())
+            if (string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                return p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() : p.Value.ToString();
+        return null;
+    }
 
     private static int? IntProp(JsonElement e, string name)
     {

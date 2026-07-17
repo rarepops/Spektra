@@ -76,4 +76,43 @@ public class FfprobeMetadataReaderTests
         var lossy = new AudioMetadata("mp3", 48000, 2, null, null, TimeSpan.FromSeconds(3661));
         await Assert.That(lossy.ToDisplayLine("x.mp3")).IsEqualTo("x.mp3 — MP3 · 48 kHz · 2 ch · 1:01:01");
     }
+
+    [Test]
+    public async Task Parse_ReadsFormatTags_CaseInsensitively()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0","tags":{"ARTIST":"Nightwish","Title":"Amaranth","album":"Dark Passion Play"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.Artist).IsEqualTo("Nightwish");
+        await Assert.That(meta.Title).IsEqualTo("Amaranth");
+        await Assert.That(meta.Album).IsEqualTo("Dark Passion Play");
+    }
+
+    [Test]
+    public async Task Parse_StreamTags_FillInWhenFormatTagsMissing()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"vorbis","sample_rate":"44100","channels":2,
+                         "tags":{"artist":"Solar Fields","title":"Sol"}}],
+             "format":{"duration":"10.0"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.Artist).IsEqualTo("Solar Fields");
+        await Assert.That(meta.Title).IsEqualTo("Sol");
+        await Assert.That(meta.Album).IsNull();
+    }
+
+    [Test]
+    public async Task Parse_NoTags_YieldsNulls()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.Artist).IsNull();
+        await Assert.That(meta.Title).IsNull();
+    }
 }

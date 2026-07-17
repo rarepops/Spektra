@@ -5,9 +5,11 @@ namespace Spektra.Core;
 /// `DurationIsEstimated`: the container carries no authoritative length and
 /// ffprobe guessed it from bitrate and file size (classic no-Xing mp3), so
 /// `Duration` cannot be trusted for truncation judgments.
+/// Artist/Title/Album come from container tags where present; null means untagged.
 public sealed record AudioMetadata(
     string Codec, int SampleRate, int Channels, int? BitsPerSample,
-    long? BitRateBps, TimeSpan Duration, bool DurationIsEstimated = false)
+    long? BitRateBps, TimeSpan Duration, bool DurationIsEstimated = false,
+    string? Artist = null, string? Title = null, string? Album = null)
 {
     public string ToDisplayLine(string fileName)
     {
