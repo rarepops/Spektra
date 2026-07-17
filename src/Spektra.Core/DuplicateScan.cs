@@ -29,9 +29,16 @@ public static class DuplicateScan
     /// reported as not analyzed rather than silently dropped.
     public const double MinDurationSeconds = 20.0;
 
-    /// At or below this many usable files, candidate pairs are generated
-    /// directly (see the comment at the call site) instead of through
-    /// FingerprintIndex; the naive pair count stays cheap (~2000 matches).
+    /// Total-corpus-size cutoff, not a per-word cap: at or below this many
+    /// usable files, candidate pairs are generated directly (see the comment
+    /// at the call site) instead of through FingerprintIndex, because the
+    /// naive O(n^2) all-pairs comparison is trivially cheap at this size (the
+    /// pair count stays around 2000) so building the index buys nothing.
+    /// This value is INDEPENDENT of and unrelated to
+    /// FingerprintIndex.MaxPostingFanout (a per-word posting-list length cap
+    /// that answers a different question); the two happen to share the
+    /// number 64 by coincidence, not by design. Changing either one must not
+    /// be assumed to affect the other's justification.
     private const int AllPairsBelow = 64;
 
     public static DupesResult Run(
@@ -72,10 +79,6 @@ public static class DuplicateScan
         }
         ct.ThrowIfCancellationRequested();
 
-        var index = new FingerprintIndex();
-        foreach (var i in usable)
-            index.Add(artifacts[i].Fp!.Fingerprint); // index id == position in `usable`
-
         // The word index is a candidate-generation PRE-FILTER, not a precision
         // gate (FingerprintMatcher's own MinVotes/MidThreshold below is that);
         // it exists so a large library never pays an all-pairs match. Below
@@ -87,7 +90,18 @@ public static class DuplicateScan
         // fewer than DefaultMinSharedWords of them even though the direct
         // matcher clears MidThreshold comfortably, so the index would silently
         // drop a real match before the matcher ever sees the pair.
-        var candidates = usable.Count <= AllPairsBelow ? AllPairs(usable.Count) : index.CandidatePairs();
+        IReadOnlyList<(int A, int B)> candidates;
+        if (usable.Count <= AllPairsBelow)
+        {
+            candidates = AllPairs(usable.Count);
+        }
+        else
+        {
+            var index = new FingerprintIndex();
+            foreach (var i in usable)
+                index.Add(artifacts[i].Fp!.Fingerprint); // index id == position in `usable`
+            candidates = index.CandidatePairs();
+        }
 
         var pairs = new List<(int A, int B, FingerprintMatcher.MatchResult Match)>();
         var checked_ = 0;
