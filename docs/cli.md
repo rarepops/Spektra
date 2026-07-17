@@ -6,7 +6,7 @@ The `spektra` command-line tool reuses the desktop app's analysis engine. It wri
 
 - A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy or upsampled, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `diff` the files differ. Requires ffmpeg + ffprobe on `PATH`.
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy or upsampled, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. Requires ffmpeg + ffprobe on `PATH`.
 
 ## report: bandwidth verdict per file
 
@@ -58,6 +58,30 @@ A `Lossy` verdict counts as a problem only when it should not be there: lossy co
 When the argument is a folder, the `File` column holds each file's path relative to it (nested rows read `Album/CD2/03.flac`), in text, CSV, and JSON output alike; explicit file arguments keep the bare name.
 
 Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db` (keyed by size and modified time), so repeat runs of the same library only analyze new or changed files. Pass `--fresh` to ignore the cache and re-analyze everything; results are written back either way. The cache is disposable: deleting the file just means the next audit starts cold. The `audit` command analyzes immediately and in full, while the desktop app's folder tab is the fine-grained counterpart (browse, pick which files to check, then analyze); both share this same on-disk cache, so a file analyzed in one is already cached for the other.
+
+## dupes: find duplicate songs, keep the best
+
+    $ spektra dupes Music
+    Group 1 · Song Title · 2 files · sameness High · reclaim 3.2 MB
+      * Music/Album/01 Song Title.flac  [FLAC · Lossless · Ok] sameness 1.00
+        Music/Downloads/song title (v2).mp3  [MP3 · Lossy 16.0k · Ok] sameness 0.97  found by audio
+        quality High: winner is full-band lossless (FLAC), runner-up is MP3 cut at 16.0 kHz.
+
+    1 group(s) · 2 files · reclaimable 3.2 MB · 214 scanned
+
+Matches audio fingerprints across every folder given on the command line, so duplicates are found by what they sound like rather than by filename, tags, or folder layout; a renamed, retagged, or relocated copy still matches (`found by audio` marks a member whose name doesn't share any word with the group's label). Give two or more folders to also catch duplicates that live in separate libraries, e.g. `spektra dupes Music Downloads`.
+
+Inside a group the winner (marked with `*`; a tie can mark more than one) is the copy worth keeping, ranked by the same bandwidth and integrity facts `audit` reports: full-band lossless beats a lossless file with a suspicious wall at or above 20 kHz, which beats honest lossy ranked by cutoff, which beats a proven transcode or upsampled container; corrupt members drop to the bottom outright and suspect integrity costs one class. The `quality` line names the winner and runner-up and says how sure the ranking is (`High`, `Medium`, or `Low`); treat `Low` as "look before you delete."
+
+Files too short to fingerprint reliably are listed as not analyzed instead of silently dropped:
+
+    ! not analyzed: Music/Jingles/station-id.wav (shorter than 20 s)
+
+**Stated limits, by design:** candidates must land within 15 seconds of each other's decoded duration, so a radio edit will not pair with the extended mix; files under 20 seconds are excluded outright, since that is too little audio to fingerprint with confidence; and matching is on audio content, not intent, so a remix, live version, or edit of a song is a different recording and will not group with the original even though a person would call them "the same song."
+
+`dupes` rides the same on-disk cache as `audit` (`%APPDATA%\Spektra\audit-cache.db`, keyed by size and modified time), so a file already audited or duped once is not re-decoded for the other command. Fingerprints re-extract automatically whenever `FingerprintVersion` bumps, independent of the bandwidth/integrity cache, so an algorithm change never mixes old and new fingerprints. Pass `--fresh` to ignore the cache and re-analyze everything. `dupes` is view-only: it never renames, moves, or deletes a file, no matter which copy wins.
+
+**Exit codes:** `0` no duplicate groups found, `1` one or more duplicate groups found, `2` usage or environment error (no folder given, or an argument is not an existing directory).
 
 ## loudness: LUFS, true peak, dynamics
 

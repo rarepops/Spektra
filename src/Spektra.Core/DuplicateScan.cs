@@ -15,6 +15,14 @@ public sealed record DupesResult(
     IReadOnlyList<DupesGroupReport> Groups, IReadOnlyList<NotAnalyzedFile> NotAnalyzed,
     int FilesScanned, long ReclaimableBytes);
 
+/// Flat, stable export row: one per group member, winners first. Lives in Core
+/// (not the CLI) so the desktop app's future Duplicates window can reuse the
+/// same builder for its own grid/export instead of re-flattening DupesResult.
+public sealed record DupesRow(
+    int Group, string Label, string SamenessTier, string File, string? Codec,
+    double? CutoffKhz, string Bandwidth, string Integrity, long SizeBytes,
+    double Sameness, bool FoundByAudio, bool Winner, string QualityConfidence, string QualityReason);
+
 /// The Dedup Destroyer engine: enumerate roots, get every file's audit row and
 /// fingerprint (cached; one decode covers both when neither is cached), match
 /// fingerprints, group, rank quality. View-only by design: nothing here ever
@@ -152,6 +160,18 @@ public static class DuplicateScan
             [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
             notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes));
     }
+
+    /// Flat export rows, one per member, winners first inside each group.
+    public static IReadOnlyList<DupesRow> ToRows(DupesResult result) =>
+        [.. result.Groups.SelectMany(g => g.Group.Members
+            .OrderByDescending(m => g.Quality.Winners.Contains(m.Path))
+            .ThenBy(m => m.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(m => new DupesRow(
+                g.Group.Id, g.Group.Label, g.Group.SamenessTier, m.Path,
+                g.Rows[m.Path].Codec, g.Rows[m.Path].CutoffHz / 1000.0,
+                g.Rows[m.Path].Bandwidth, g.Rows[m.Path].Integrity, g.Sizes[m.Path],
+                m.Sameness, m.FoundByAudio, g.Quality.Winners.Contains(m.Path),
+                g.Quality.Confidence, g.Quality.Reason)))];
 
     private static (string, string) PairKey(string x, string y) =>
         string.CompareOrdinal(x, y) <= 0 ? (x, y) : (y, x);

@@ -96,6 +96,7 @@ Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the a
     spektra scan <folder>              Compact bandwidth scan of a library.
     spektra check <file|folder> ...    Integrity check (corruption / missing data).
     spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
+    spektra dupes <folder> ...         Find duplicate songs across folders and formats; mark the best copy.
     spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
     spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
     spektra image <file>               Render the spectrogram to a PNG (no window).

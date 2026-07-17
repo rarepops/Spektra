@@ -46,6 +46,7 @@ internal static class Program
                 "--scan" or "scan" => Scan(ffmpeg, rest, fmt, jobs),
                 "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
                 "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
+                "--dupes" or "dupes" => Dupes(ffmpeg, rest, fmt, jobs),
                 "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
                 "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
                 "--image" or "image" => Image(ffmpeg, rest, fmt),
@@ -319,6 +320,74 @@ internal static class Program
         return results.Any(r => r.HasProblem) ? 1 : 0;
     }
 
+    private static int Dupes(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
+    {
+        var fresh = args.Contains("--fresh");
+        var roots = args.Where(a => a is not "--fresh").ToArray();
+        if (roots.Length == 0 || !roots.All(Directory.Exists))
+        {
+            Console.Error.WriteLine("spektra dupes: give one or more existing folders.");
+            return 2;
+        }
+
+        AuditCache? cache = null;
+        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Console.Error.WriteLine($"spektra dupes: cache unavailable ({ex.Message}); analyzing everything.");
+        }
+
+        DupesResult result;
+        try
+        {
+            var progress = new Progress<DupesProgress>(p =>
+            {
+                if (!Console.IsErrorRedirected)
+                    Console.Error.Write($"\r{p.Phase} {p.Done}/{p.Total}    ");
+            });
+            result = DuplicateScan.Run(ffmpeg, roots, jobs, cache, fresh, progress);
+            if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r");
+        }
+        finally { cache?.Dispose(); }
+
+        if (fmt != OutFormat.Text)
+        {
+            Emit(DuplicateScan.ToRows(result), fmt);
+            return result.Groups.Count > 0 ? 1 : 0;
+        }
+
+        foreach (var g in result.Groups)
+        {
+            Console.WriteLine(
+                $"Group {g.Group.Id} · {g.Group.Label} · {g.Group.Members.Count} files · " +
+                $"sameness {g.Group.SamenessTier} · reclaim {Bytes(g.ReclaimableBytes)}");
+            foreach (var m in g.Group.Members)
+            {
+                var row = g.Rows[m.Path];
+                var mark = g.Quality.Winners.Contains(m.Path) ? "*" : " ";
+                var audio = m.FoundByAudio ? "  found by audio" : "";
+                Console.WriteLine(
+                    $"  {mark} {m.Path}  [{row.Codec} · {row.Bandwidth}" +
+                    $"{(row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "")} · {row.Integrity}] " +
+                    $"sameness {m.Sameness:0.00}{audio}");
+            }
+            Console.WriteLine($"    quality {g.Quality.Confidence}: {g.Quality.Reason}");
+        }
+        foreach (var na in result.NotAnalyzed)
+            Console.WriteLine($"  ! not analyzed: {na.Path} ({na.Reason})");
+        Console.WriteLine(
+            $"{result.Groups.Count} group(s) · {result.Groups.Sum(g => g.Group.Members.Count)} files · " +
+            $"reclaimable {Bytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned");
+        return result.Groups.Count > 0 ? 1 : 0;
+    }
+
+    private static string Bytes(long b) => b switch
+    {
+        >= 1L << 30 => $"{b / (double)(1L << 30):0.0} GB",
+        >= 1L << 20 => $"{b / (double)(1L << 20):0.0} MB",
+        _ => $"{b / 1024.0:0.0} KB",
+    };
+
     private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
@@ -506,6 +575,7 @@ internal static class Program
               spektra scan <folder>              Compact bandwidth scan of a library.
               spektra check <file|folder> ...    Integrity check (corruption / missing data).
               spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
+              spektra dupes <folder> ...         Find duplicate songs; mark the best copy (cached).
               spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
               spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
               spektra image <file>               Render the spectrogram to a PNG (no window).
@@ -521,6 +591,11 @@ internal static class Program
             audit caches results per file (keyed by size + mtime) in the app data
             folder, so repeat runs only analyze new or changed files; --fresh re-analyzes.
 
+            dupes finds the same recording across folders and formats (audio
+            fingerprint match, not filename), rides the same cache as audit, and
+            marks each group's best copy; give two or more folders to also find
+            duplicates that live in different libraries. --fresh re-analyzes.
+
             diff aligns the files automatically; pin an offset with --offset <ms>
             (positive = B later than A) and tune the verdict with --threshold-db <N>
             (default 40: the null depth needed to count as SAME).
@@ -534,9 +609,10 @@ internal static class Program
 
             Exit code is 1 on findings (report/scan: lossy or upsampled; check:
             corrupt files; audit: a transcode, an upsample, or corruption - an
-            honest lossy file is not a problem; loudness: a file could not be
-            measured; diff: the files differ), 2 on setup errors (including an
-            unknown or malformed option).
+            honest lossy file is not a problem; dupes: one or more duplicate
+            groups found; loudness: a file could not be measured; diff: the
+            files differ), 2 on setup errors (including an unknown or
+            malformed option; dupes: no existing folder given).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
