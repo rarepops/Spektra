@@ -70,7 +70,11 @@ public static class FolderAudit
     /// stream is teed through the spectrogram engine (bandwidth verdict) and the
     /// silence scan (dropouts + truncation) at once, so only the separate
     /// error-count pass decodes a second time (two decodes total, not three).
-    public static AuditResult AnalyzeFile(FfmpegPaths ffmpeg, string path, CancellationToken ct = default)
+    /// The optional chunkObserver sees every decoded mono chunk before column
+    /// merging; the dupes scan feeds its fingerprint extractor through it,
+    /// keeping bandwidth, integrity, and fingerprint on ONE decode.
+    public static AuditResult AnalyzeFile(
+        FfmpegPaths ffmpeg, string path, CancellationToken ct = default, Action<float[]>? chunkObserver = null)
     {
         var session = new AnalysisSession(ffmpeg);
         AudioMetadata meta;
@@ -81,7 +85,8 @@ public static class FolderAudit
         {
             meta = session.ReadMetadata(path);
             var settings = new SpectrogramSettings(WindowSize: 2048);
-            (columns, dropouts, decodedSamples) = session.AnalyzeColumnsWithSilence(path, meta, settings, ct);
+            (columns, dropouts, decodedSamples) =
+                session.AnalyzeColumnsWithSilence(path, meta, settings, ct, chunkObserver);
         }
         catch (Exception ex) when (ex is AudioDecodeException or IOException or InvalidOperationException)
         {

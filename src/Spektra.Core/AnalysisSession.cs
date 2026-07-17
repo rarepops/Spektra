@@ -23,7 +23,8 @@ public sealed class AnalysisSession(FfmpegPaths ffmpeg)
     /// integrity dropouts plus a decoded-sample count). The folder audit uses
     /// this so bandwidth and integrity share one decode instead of two.
     public (List<float[]> Columns, IReadOnlyList<DropoutRegion> Dropouts, long DecodedSamples)
-        AnalyzeColumnsWithSilence(string path, AudioMetadata meta, SpectrogramSettings settings, CancellationToken ct)
+        AnalyzeColumnsWithSilence(string path, AudioMetadata meta, SpectrogramSettings settings,
+            CancellationToken ct, Action<float[]>? chunkObserver = null)
     {
         var decoder = new AudioDecoder(ffmpeg.FfmpegPath);
         var engine = new SpectrogramEngine(settings);
@@ -35,6 +36,7 @@ public sealed class AnalysisSession(FfmpegPaths ffmpeg)
             foreach (var chunk in decoder.DecodeMonoChunks(path, ct))
             {
                 scanner.Feed(chunk);
+                chunkObserver?.Invoke(chunk);
                 yield return chunk;
             }
         }

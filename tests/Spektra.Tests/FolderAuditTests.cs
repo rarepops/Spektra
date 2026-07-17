@@ -249,4 +249,17 @@ public class FolderAuditTests
         await Assert.That(cache.TryGet(all[3])).IsNull();
         await Assert.That(cache.TryGet(all[4])).IsNull();
     }
+
+    [Test]
+    public async Task AnalyzeFile_ChunkObserver_SeesTheWholeDecode()
+    {
+        long observed = 0;
+        var r = FolderAudit.AnalyzeFile(Ff, P("chirp.wav"), CancellationToken.None,
+            chunk => Interlocked.Add(ref observed, chunk.Length));
+        await Assert.That(r.Report.Error).IsNull();
+
+        var meta = new AnalysisSession(Ff).ReadMetadata(P("chirp.wav"));
+        var expected = meta.Duration.TotalSeconds * meta.SampleRate;
+        await Assert.That(Math.Abs(observed - expected) < meta.SampleRate * 0.2).IsTrue();
+    }
 }
