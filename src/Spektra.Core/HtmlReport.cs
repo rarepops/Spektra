@@ -1,0 +1,110 @@
+using System.Text;
+
+namespace Spektra.Core;
+
+/// Self-contained HTML reports: one file, inline CSS, no external requests,
+/// dark theme matching the app (background #111, the tree-marker palette for
+/// verdict colors). Two document kinds share the scaffold: the Dedup
+/// Destroyer duplicate groups and the folder-audit table (AuditDocument,
+/// added beside DupesDocument). Every data-derived string goes through
+/// Escape; nothing from a file name or tag may reach the page raw.
+public static class HtmlReport
+{
+    public static string DupesDocument(DupesResult result, string title)
+    {
+        var body = new StringBuilder();
+        body.Append($"<h1>{Escape(title)}</h1>");
+        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Dedup Destroyer · view-only report</p>");
+        body.Append("<div class=\"stats\">");
+        body.Append($"<span class=\"stat\"><b>{result.Groups.Count}</b>groups</span>");
+        body.Append($"<span class=\"stat\"><b>{result.Groups.Sum(g => g.Group.Members.Count)}</b>duplicate files</span>");
+        body.Append($"<span class=\"stat\"><b>{Bytes(result.ReclaimableBytes)}</b>reclaimable</span>");
+        body.Append($"<span class=\"stat\"><b>{result.FilesScanned}</b>scanned</span>");
+        body.Append("</div>");
+
+        foreach (var g in result.Groups)
+        {
+            var open = g.Group.Members.Count <= 3 ? " open" : "";
+            body.Append($"<details{open}><summary>{Escape(g.Group.Label)}");
+            body.Append($" · {g.Group.Members.Count} files · <span class=\"badge\">sameness {g.Group.SamenessTier}</span>");
+            body.Append($" · reclaim {Bytes(g.ReclaimableBytes)}</summary>");
+            body.Append("<table><tbody>");
+            foreach (var m in g.Group.Members)
+            {
+                var row = g.Rows[m.Path];
+                var winner = g.Quality.Winners.Contains(m.Path);
+                var cutoff = row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
+                body.Append("<tr>");
+                body.Append($"<td class=\"win\">{(winner ? "★" : "")}</td>");
+                body.Append($"<td>{Escape(m.Path)}</td>");
+                body.Append($"<td>{Escape(row.Codec)}</td>");
+                body.Append($"<td>{Escape(row.Bandwidth)}{cutoff}</td>");
+                body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");
+                body.Append($"<td>{Bytes(g.Sizes[m.Path])}</td>");
+                body.Append($"<td>sameness {m.Sameness:0.00}</td>");
+                body.Append($"<td>{(m.FoundByAudio ? "<span class=\"audio\">found by audio</span>" : "")}</td>");
+                body.Append("</tr>");
+            }
+            body.Append("</tbody></table>");
+            body.Append($"<p class=\"quality\">quality {Escape(g.Quality.Confidence)}: {Escape(g.Quality.Reason)}</p>");
+            body.Append("</details>");
+        }
+
+        if (result.NotAnalyzed.Count > 0)
+        {
+            body.Append($"<details><summary>{result.NotAnalyzed.Count} file(s) not analyzed</summary><table><tbody>");
+            foreach (var n in result.NotAnalyzed)
+                body.Append($"<tr><td>{Escape(n.Path)}</td><td>{Escape(n.Reason)}</td></tr>");
+            body.Append("</tbody></table></details>");
+        }
+
+        return Page(title, body.ToString());
+    }
+
+    private static string IntegrityClass(string integrity) => integrity switch
+    {
+        "Ok" => "ok",
+        "Suspect" => "sus",
+        "Corrupt" or "Error" => "bad",
+        _ => "",
+    };
+
+    internal static string Escape(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+    }
+
+    private static string Bytes(long b) => b switch
+    {
+        >= 1L << 30 => $"{b / (double)(1L << 30):0.0} GB",
+        >= 1L << 20 => $"{b / (double)(1L << 20):0.0} MB",
+        _ => $"{b / 1024.0:0.0} KB",
+    };
+
+    /// The shared page scaffold: dark theme, tree-marker verdict palette,
+    /// generic table styling that both document kinds use.
+    private static string Page(string title, string body) => $$"""
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"><title>{{Escape(title)}}</title><style>
+        body{background:#111111;color:#cccccc;font:14px 'Segoe UI',sans-serif;margin:24px;max-width:1200px}
+        h1{color:#eeeeee;font-size:20px;margin:0 0 4px 0}
+        .gen{color:#777777;font-size:12px;margin:0 0 16px 0}
+        .stats{display:flex;gap:28px;margin:0 0 18px 0}
+        .stat b{display:block;color:#eeeeee;font-size:20px}
+        .stat{color:#999999;font-size:12px}
+        details{border:1px solid #2e2e2e;border-radius:4px;margin:8px 0;padding:6px 12px}
+        summary{cursor:pointer;color:#eeeeee}
+        table{border-collapse:collapse;width:100%;margin:8px 0}
+        td,th{padding:3px 10px;text-align:left;border-bottom:1px solid #222222;font-size:13px}
+        th{color:#eeeeee;cursor:pointer}
+        .badge{border:1px solid #444444;border-radius:8px;padding:0 8px;font-size:12px}
+        .quality{color:#999999;font-size:12px;margin:2px 0 4px 0}
+        .win{color:#d8b060;width:18px}
+        .audio{color:#6fb3e8;font-size:12px}
+        .ok{color:#4a7a4a}.sus{color:#d8b060}.bad{color:#e08080}.up{color:#b08fd8}
+        </style></head><body>
+        {{body}}
+        </body></html>
+        """;
+}
