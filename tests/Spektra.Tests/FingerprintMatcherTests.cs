@@ -45,6 +45,25 @@ public sealed class FingerprintMatcherTests
     }
 
     [Test]
+    public async Task AlignedButDifferentAudio_IsScored_BelowTheMidBar()
+    {
+        // The fixture negatives above never reach scoring (too few votes), so
+        // this is the only cover for the BER path on a pair that aligns
+        // without being the same recording: 10 shared anchor words carry the
+        // offset-0 vote past MinVotes, while the rest of the overlap (30
+        // words per side, all-1s vs. all-0s bit patterns) disagrees on every
+        // bit.
+        uint[] anchors = [.. Enumerable.Range(1, 10).Select(n => (uint)n)];
+        var a = new Fingerprint(8, [.. anchors, .. Enumerable.Repeat(0x55555555u, 30)]);
+        var b = new Fingerprint(8, [.. anchors, .. Enumerable.Repeat(0xAAAAAAAAu, 30)]);
+
+        var m = FingerprintMatcher.Match(a, b);
+        await Assert.That(m).IsNotNull();
+        await Assert.That(m!.OffsetFrames).IsEqualTo(0);
+        await Assert.That(m.Similarity).IsLessThan(FingerprintMatcher.MidThreshold);
+    }
+
+    [Test]
     public async Task EmptyOrMismatchedRate_IsNull()
     {
         await Assert.That(FingerprintMatcher.Match(new Fingerprint(8, []), new Fingerprint(8, [1u]))).IsNull();
