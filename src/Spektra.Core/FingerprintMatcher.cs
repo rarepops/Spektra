@@ -18,7 +18,11 @@ public static class FingerprintMatcher
     /// Fewer aligned word votes than this is noise, not an alignment.
     public const int MinVotes = 8;
 
-    /// Overlap below this fraction of the shorter file caps the pair at Medium.
+    /// The aligned overlap must cover at least this fraction of the shorter
+    /// file for a pair to group at all (DuplicateGrouper drops it otherwise).
+    /// Calibrated on the first real-library run: different songs routinely
+    /// align a shared section at high similarity over a small fraction of the
+    /// track, and admitting those links chained unrelated tracks together.
     public const double FullConfidenceOverlap = 0.70;
 
     public sealed record MatchResult(double Similarity, int OffsetFrames, double OverlapFraction);

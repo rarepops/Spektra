@@ -24,13 +24,23 @@ public static partial class DuplicateGrouper
         IReadOnlyList<FileIdentity> files,
         IReadOnlyList<(int A, int B, FingerprintMatcher.MatchResult Match)> pairs)
     {
+        // Admission gate, calibrated on the first real-library run
+        // (2026-07-15, 402 files): different songs routinely align a shared
+        // section (an intro, a beat, a fade) at high similarity over a small
+        // fraction of the track, and those links chained dozens of tracks
+        // into one blob. Full-length overlap is what separates a twin from a
+        // coincidence, so it gates admission; similarity alone sets the tier.
+        var admitted = pairs
+            .Where(p => p.Match.OverlapFraction >= FingerprintMatcher.FullConfidenceOverlap)
+            .ToList();
+
         var parent = Enumerable.Range(0, files.Count).ToArray();
         int Find(int i) { while (parent[i] != i) i = parent[i] = parent[parent[i]]; return i; }
-        foreach (var (a, b, _) in pairs)
+        foreach (var (a, b, _) in admitted)
             parent[Find(a)] = Find(b);
 
         var best = new Dictionary<int, (double Sim, string Tier)>();
-        foreach (var (a, b, m) in pairs)
+        foreach (var (a, b, m) in admitted)
         {
             var tier = TierOf(m);
             foreach (var i in (ReadOnlySpan<int>)[a, b])

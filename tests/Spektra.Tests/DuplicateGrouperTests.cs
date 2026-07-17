@@ -29,11 +29,29 @@ public sealed class DuplicateGrouperTests
     }
 
     [Test]
-    public async Task ShallowOverlap_CapsThePairAtMedium()
+    public async Task ShallowOverlap_DoesNotGroupAtAll()
     {
+        // Calibrated on the first real-library run (2026-07-15): different
+        // songs routinely align a shared section (an intro, a beat, a fade)
+        // at high similarity over a small fraction of the track. Full-length
+        // overlap is what separates a twin from a coincidence, so it gates
+        // admission, not just the confidence badge.
         var files = new[] { F(@"C:\a.wav"), F(@"C:\b.wav") };
         var groups = DuplicateGrouper.Group(files, [(0, 1, M(0.9, overlap: 0.5))]);
-        await Assert.That(groups[0].SamenessTier).IsEqualTo("Medium");
+        await Assert.That(groups).IsEmpty();
+    }
+
+    [Test]
+    public async Task ShallowOverlapLink_CannotChainTwoRealPairsTogether()
+    {
+        // The real-library blob failure in miniature: A-B and C-D are true
+        // twins; B-C is a high-similarity fragment coincidence. Two groups of
+        // two, never one blob of four.
+        var files = new[] { F(@"C:\a.wav"), F(@"C:\b.wav"), F(@"C:\c.wav"), F(@"C:\d.wav") };
+        var groups = DuplicateGrouper.Group(files,
+            [(0, 1, M(0.95)), (1, 2, M(0.9, overlap: 0.3)), (2, 3, M(0.95))]);
+        await Assert.That(groups.Count).IsEqualTo(2);
+        await Assert.That(groups.All(g => g.Members.Count == 2)).IsTrue();
     }
 
     [Test]
