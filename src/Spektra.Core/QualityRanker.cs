@@ -50,7 +50,9 @@ public static class QualityRanker
                 : gap == 1 ? "Medium"
                 : Math.Abs(EffectiveCutoff(top.Row) - EffectiveCutoff(runnerUp.Row)) >= CutoffMarginHz ? "Medium"
                 : "Low";
-            reason = $"winner is {Describe(top.Row)}, runner-up is {Describe(runnerUp.Row)}";
+            reason = winners.Count > 1
+                ? $"{winners.Count} identical top copies (keep either); runner-up is {Describe(runnerUp.Row)}"
+                : $"winner is {Describe(top.Row)}, runner-up is {Describe(runnerUp.Row)}";
         }
 
         if (topClass == HighWallClass) confidence = Cap(confidence, "Medium");

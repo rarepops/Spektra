@@ -85,4 +85,21 @@ public sealed class QualityRankerTests
         await Assert.That(r.Winners.Single()).IsEqualTo("a.mp3");
         await Assert.That(r.Confidence).IsEqualTo("Low");
     }
+
+    [Test]
+    public async Task IdenticalCopiesPlusALesserFile_StillSaysKeepEither()
+    {
+        // The common real-library shape: two identical lossless copies plus a
+        // lossy version. The tie hint must not vanish just because a
+        // runner-up exists (plan 1 final-review finding #2).
+        var r = QualityRanker.Rank(
+            [(@"C:\a.flac", Row("flac", "Lossless", null)),
+             (@"C:\b.flac", Row("flac", "Lossless", null)),
+             ("c.mp3", Row("mp3", "Lossy", 16_000, bitrateBps: 128_000))],
+            (x, y) => x.EndsWith(".flac") && y.EndsWith(".flac") ? 0.99 : 0);
+        await Assert.That(r.Winners.Count).IsEqualTo(2);
+        await Assert.That(r.Reason).Contains("keep either");
+        await Assert.That(r.Reason).Contains("runner-up");
+        await Assert.That(r.Confidence).IsEqualTo("High");
+    }
 }
