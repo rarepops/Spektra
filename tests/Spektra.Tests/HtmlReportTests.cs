@@ -8,12 +8,12 @@ public sealed class HtmlReportTests
         double? cutoffHz = null, string integrity = "Ok") =>
         new(file, codec, 44100, 2, 900_000, 60, bandwidth, cutoffHz, integrity, 0, 0, false, null);
 
-    private static DupesResult OneGroup(string pathA, string pathB) =>
+    private static DupesResult OneGroup(string pathA, string pathB, string tier = "High") =>
         new(
             [new DupesGroupReport(
-                new DuplicateGroup(1, "song label", "High",
-                    [new DuplicateMember(pathA, 1.0, "High", false),
-                     new DuplicateMember(pathB, 0.9, "High", true)]),
+                new DuplicateGroup(1, "song label", tier,
+                    [new DuplicateMember(pathA, 1.0, tier, false),
+                     new DuplicateMember(pathB, 0.9, tier, true)]),
                 new QualityRanking([pathA], "High", "winner is full-band lossless (flac), runner-up is mp3 cut at 16.0 kHz", [pathA, pathB]),
                 new Dictionary<string, AuditRow> { [pathA] = Row(pathA), [pathB] = Row(pathB, "mp3", "Lossy", 16_000) },
                 new Dictionary<string, long> { [pathA] = 30_000_000, [pathB] = 5_000_000 },
@@ -35,10 +35,12 @@ public sealed class HtmlReportTests
     [Test]
     public async Task DupesDocument_EscapesDataDerivedText()
     {
-        var html = HtmlReport.DupesDocument(OneGroup(@"C:\m\<script>alert(1)</script>.flac", @"C:\m\b&c.mp3"), "T");
+        var html = HtmlReport.DupesDocument(OneGroup(@"C:\m\<script>alert(1)</script>.flac", @"C:\m\b&c.mp3", "<High>"), "T");
         await Assert.That(html).DoesNotContain("<script>alert");
         await Assert.That(html).Contains("&lt;script&gt;");
         await Assert.That(html).Contains("b&amp;c.mp3");
+        await Assert.That(html).DoesNotContain("<High>");
+        await Assert.That(html).Contains("&lt;High&gt;");
     }
 
     [Test]

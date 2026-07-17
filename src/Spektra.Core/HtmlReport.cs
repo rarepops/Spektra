@@ -26,7 +26,7 @@ public static class HtmlReport
         {
             var open = g.Group.Members.Count <= 3 ? " open" : "";
             body.Append($"<details{open}><summary>{Escape(g.Group.Label)}");
-            body.Append($" · {g.Group.Members.Count} files · <span class=\"badge\">sameness {g.Group.SamenessTier}</span>");
+            body.Append($" · {g.Group.Members.Count} files · <span class=\"badge\">sameness {Escape(g.Group.SamenessTier)}</span>");
             body.Append($" · reclaim {Bytes(g.ReclaimableBytes)}</summary>");
             body.Append("<table><tbody>");
             foreach (var m in g.Group.Members)
