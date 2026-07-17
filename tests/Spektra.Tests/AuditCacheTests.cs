@@ -136,4 +136,40 @@ public sealed class AuditCacheTests : IDisposable
         for (var i = 0; i < 100; i++)
             await Assert.That(cache.TryGet(Target($@"C:\music\{i}.flac"))).IsNotNull();
     }
+
+    [Test]
+    public async Task Fingerprint_RoundTrips_AndStalesOnIdentityChange()
+    {
+        var db = Path.Combine(Directory.CreateTempSubdirectory("spektra-fp").FullName, "cache.db");
+        using var cache = AuditCache.Open(db);
+        var target = new AuditTarget(@"C:\m\a.flac", 100, 200);
+        cache.PutFingerprint(target, new Fingerprint(8, [1u, 2u, 3u]), 12.5, "Artist", "Title");
+
+        var hit = cache.TryGetFingerprint(target);
+        await Assert.That(hit).IsNotNull();
+        await Assert.That(hit!.Fingerprint.Words.SequenceEqual(new uint[] { 1, 2, 3 })).IsTrue();
+        await Assert.That(hit.DurationSeconds).IsEqualTo(12.5);
+        await Assert.That(hit.Artist).IsEqualTo("Artist");
+        await Assert.That(hit.Title).IsEqualTo("Title");
+        await Assert.That(cache.TryGetFingerprint(target with { SizeBytes = 101 })).IsNull();
+        await Assert.That(cache.TryGetFingerprint(target with { MtimeTicks = 201 })).IsNull();
+    }
+
+    [Test]
+    public async Task PruneFolder_AlsoPrunesFingerprints()
+    {
+        var db = Path.Combine(Directory.CreateTempSubdirectory("spektra-fp2").FullName, "cache.db");
+        using var cache = AuditCache.Open(db);
+        var dead = new AuditTarget(@"C:\m\dead.mp3", 1, 1);
+        var live = new AuditTarget(@"C:\m\live.mp3", 1, 1);
+        var outside = new AuditTarget(@"C:\other\keep.mp3", 1, 1);
+        foreach (var t in new[] { dead, live, outside })
+            cache.PutFingerprint(t, new Fingerprint(8, [7u]), 1, null, null);
+
+        cache.PruneFolder(@"C:\m", [live.Path]);
+
+        await Assert.That(cache.TryGetFingerprint(dead)).IsNull();
+        await Assert.That(cache.TryGetFingerprint(live)).IsNotNull();
+        await Assert.That(cache.TryGetFingerprint(outside)).IsNotNull();
+    }
 }

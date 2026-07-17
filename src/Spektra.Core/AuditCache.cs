@@ -25,6 +25,11 @@ public sealed class AuditCache : IDisposable
     ///    elsewhere), so cached Bandwidth verdicts and cutoffs change.
     public const int AnalysisVersion = 7;
 
+    /// Bump whenever FingerprintExtractor's bits change shape or meaning, so
+    /// stale fingerprints re-extract. Independent of AnalysisVersion: verdict
+    /// bumps must not throw fingerprints away, nor the reverse.
+    public const int FingerprintVersion = 1;
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Spektra", "audit-cache.db");
@@ -78,6 +83,15 @@ public sealed class AuditCache : IDisposable
                     analysis_version INTEGER NOT NULL,
                     has_problem INTEGER NOT NULL,
                     row_json TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS fingerprints(
+                    path TEXT PRIMARY KEY,
+                    size INTEGER NOT NULL,
+                    mtime_ticks INTEGER NOT NULL,
+                    fp_version INTEGER NOT NULL,
+                    duration_s REAL NOT NULL,
+                    artist TEXT NULL,
+                    title TEXT NULL,
+                    fp BLOB NOT NULL);
                 """;
             cmd.ExecuteNonQuery();
             return new AuditCache(db);
@@ -140,6 +154,55 @@ public sealed class AuditCache : IDisposable
         }
     }
 
+    public FingerprintEntry? TryGetFingerprint(AuditTarget target)
+    {
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT size, mtime_ticks, fp_version, duration_s, artist, title, fp
+                FROM fingerprints WHERE path = $path
+                """;
+            cmd.Parameters.AddWithValue("$path", target.Path);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            if (r.GetInt64(0) != target.SizeBytes
+                || r.GetInt64(1) != target.MtimeTicks
+                || r.GetInt32(2) != FingerprintVersion)
+                return null;
+            var fp = Fingerprint.FromBlob((byte[])r[6]);
+            return fp is null ? null : new FingerprintEntry(
+                fp, r.GetDouble(3),
+                r.IsDBNull(4) ? null : r.GetString(4),
+                r.IsDBNull(5) ? null : r.GetString(5));
+        }
+    }
+
+    public void PutFingerprint(
+        AuditTarget target, Fingerprint fp, double durationSeconds, string? artist, string? title)
+    {
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO fingerprints(path, size, mtime_ticks, fp_version, duration_s, artist, title, fp)
+                VALUES($path, $size, $mtime, $ver, $dur, $artist, $title, $fp)
+                ON CONFLICT(path) DO UPDATE SET
+                    size = $size, mtime_ticks = $mtime, fp_version = $ver,
+                    duration_s = $dur, artist = $artist, title = $title, fp = $fp
+                """;
+            cmd.Parameters.AddWithValue("$path", target.Path);
+            cmd.Parameters.AddWithValue("$size", target.SizeBytes);
+            cmd.Parameters.AddWithValue("$mtime", target.MtimeTicks);
+            cmd.Parameters.AddWithValue("$ver", FingerprintVersion);
+            cmd.Parameters.AddWithValue("$dur", durationSeconds);
+            cmd.Parameters.AddWithValue("$artist", (object?)artist ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$fp", fp.ToBlob());
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// Deletes rows for files under `folder` that no longer exist there
     /// (`livePaths` is the current enumeration). Rows for other folders are
     /// untouched, so entries for unmounted drives survive. Call only after a
@@ -149,27 +212,38 @@ public sealed class AuditCache : IDisposable
         var live = new HashSet<string>(livePaths, StringComparer.OrdinalIgnoreCase);
         lock (_gate)
         {
-            var stale = new List<string>();
-            using (var select = _db.CreateCommand())
+            PruneTable("files", folder, live);
+            PruneTable("fingerprints", folder, live);
+        }
+    }
+
+    private void PruneTable(string table, string folder, HashSet<string> live)
+    {
+        var stale = new List<string>();
+        using (var select = _db.CreateCommand())
+        {
+            select.CommandText = $"SELECT path FROM {table}";
+            using var r = select.ExecuteReader();
+            while (r.Read())
             {
-                select.CommandText = "SELECT path FROM files";
-                using var r = select.ExecuteReader();
-                while (r.Read())
-                {
-                    var p = r.GetString(0);
-                    if (PathScope.IsUnder(p, folder) && !live.Contains(p))
-                        stale.Add(p);
-                }
+                var p = r.GetString(0);
+                if (PathScope.IsUnder(p, folder) && !live.Contains(p))
+                    stale.Add(p);
             }
-            foreach (var p in stale)
-            {
-                using var delete = _db.CreateCommand();
-                delete.CommandText = "DELETE FROM files WHERE path = $path";
-                delete.Parameters.AddWithValue("$path", p);
-                delete.ExecuteNonQuery();
-            }
+        }
+        foreach (var p in stale)
+        {
+            using var delete = _db.CreateCommand();
+            delete.CommandText = $"DELETE FROM {table} WHERE path = $path";
+            delete.Parameters.AddWithValue("$path", p);
+            delete.ExecuteNonQuery();
         }
     }
 
     public void Dispose() => _db.Dispose();
 }
+
+/// One cached fingerprint with the display metadata that rides along with it
+/// (tags are seasoning for labels and confidence, never grouping authority).
+public sealed record FingerprintEntry(
+    Fingerprint Fingerprint, double DurationSeconds, string? Artist, string? Title);
