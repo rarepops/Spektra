@@ -174,10 +174,15 @@ public partial class FolderView : UserControl
         if (_vm is null || TopLevel.GetTopLevel(this) is not { } top) return;
         var rows = _vm.ExportRows();
         if (rows.Count == 0) return;
+        // Sanitize: a drive-root tab title is "Z:\", whose ':' and '\' are
+        // illegal in a file name and break the save dialog (every other export
+        // sanitizes the same way).
+        var stem = _vm.TabTitle;
+        foreach (var c in Path.GetInvalidFileNameChars()) stem = stem.Replace(c, '_');
         var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export folder report",
-            SuggestedFileName = _vm.TabTitle + "-report.csv",
+            SuggestedFileName = stem + "-report.csv",
             DefaultExtension = "csv",
             FileTypeChoices =
             [

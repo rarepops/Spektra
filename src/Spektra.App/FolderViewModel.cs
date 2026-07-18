@@ -102,6 +102,7 @@ public sealed class FolderViewModel : TabViewModelBase
         if (TabTitle.Length == 0) TabTitle = folderPath; // drive roots like Z:\
         _flushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _flushTimer.Tick += (_, _) => Flush();
+        Rows.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(CanExport));
     }
 
     public override string TabTitle { get; }
@@ -129,9 +130,14 @@ public sealed class FolderViewModel : TabViewModelBase
         if (!Set(ref _isAnalyzing, value, nameof(IsAnalyzing)))
             return;
         RaisePropertyChanged(nameof(CanAnalyze));
+        RaisePropertyChanged(nameof(CanExport));
     }
 
     public bool CanAnalyze => !IsAnalyzing;
+
+    /// Export is available only when the grid has rows and no run is live, so
+    /// the button dims instead of silently doing nothing on an empty grid.
+    public bool CanExport => !IsAnalyzing && Rows.Count > 0;
 
     // The folder tab currently running Analyze, if any: one run at a time
     // across every tab, since a run already fans ffmpeg out across most
