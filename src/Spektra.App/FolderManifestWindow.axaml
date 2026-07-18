@@ -40,8 +40,9 @@
       </Grid>
     </Border>
 
-    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Text="{Binding FooterText}"
-               Foreground="#999999" FontSize="12" />
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,6,0,0" Text="{Binding FooterText}"
+               Foreground="#888888" FontSize="11" />
+    <Border DockPanel.Dock="Bottom" Height="1" Background="#2E2E2E" Margin="0,8,0,0" />
 
     <TreeView ItemsSource="{Binding RootItems}" Background="Transparent">
       <TreeView.Styles>

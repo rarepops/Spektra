@@ -79,7 +79,7 @@
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}" Height="8" />
     </DockPanel>
 
-    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0" Spacing="4">
       <Expander IsVisible="{Binding !!NotAnalyzed.Count}" HorizontalAlignment="Stretch">
         <Expander.Header>
           <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}"
@@ -95,8 +95,11 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </Expander>
-      <TextBlock Text="{Binding FooterText}" Foreground="#999999" FontSize="12" />
+      <TextBlock Text="{Binding FooterText}" Foreground="#888888" FontSize="11" />
     </StackPanel>
+
+    <!-- Splits the results from the footer, mirroring the top-bar divider. -->
+    <Border DockPanel.Dock="Bottom" Height="1" Background="#2E2E2E" Margin="0,8,0,0" />
 
     <ScrollViewer>
       <ItemsControl ItemsSource="{Binding Groups}">
