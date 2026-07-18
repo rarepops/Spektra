@@ -84,12 +84,9 @@ public partial class FolderView : UserControl
         Grid.ItemsSource = _view;
     }
 
-    // A row shows when it meets the severity tier and, when the grid is scoped,
-    // lives under the scope folder.
-    private bool Passes(FolderRow row) =>
-        _vm is not null
-        && row.Severity >= (RowSeverity)_vm.FilterIndex
-        && (_vm.ScopeFolder is null || PathScope.IsUnder(row.FullPath, _vm.ScopeFolder));
+    // Delegates to the view model's rule so the grid and Export share one
+    // definition of "visible" (severity tier + drilldown scope).
+    private bool Passes(FolderRow row) => _vm is not null && _vm.IsRowVisible(row);
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

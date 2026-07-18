@@ -117,7 +117,11 @@ public sealed class FolderViewModel : TabViewModelBase
     private int _filterIndex;
     /// Index into FilterOptions; doubles as the minimum RowSeverity to show
     /// (a tier shows itself and everything worse).
-    public int FilterIndex { get => _filterIndex; set => Set(ref _filterIndex, value); }
+    public int FilterIndex
+    {
+        get => _filterIndex;
+        set { if (Set(ref _filterIndex, value)) RaisePropertyChanged(nameof(CanExport)); }
+    }
 
     private double _progressFraction;
     public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }
@@ -135,9 +139,10 @@ public sealed class FolderViewModel : TabViewModelBase
 
     public bool CanAnalyze => !IsAnalyzing;
 
-    /// Export is available only when the grid has rows and no run is live, so
-    /// the button dims instead of silently doing nothing on an empty grid.
-    public bool CanExport => !IsAnalyzing && Rows.Count > 0;
+    /// Export is available only when a row is actually visible (after the filter
+    /// and scope) and no run is live, so the button dims instead of writing an
+    /// empty report when the current view has nothing.
+    public bool CanExport => !IsAnalyzing && Rows.Any(IsRowVisible);
 
     // The folder tab currently running Analyze, if any: one run at a time
     // across every tab, since a run already fans ffmpeg out across most
@@ -164,6 +169,7 @@ public sealed class FolderViewModel : TabViewModelBase
                 return;
             RaisePropertyChanged(nameof(IsScoped));
             RaisePropertyChanged(nameof(ScopeBreadcrumb));
+            RaisePropertyChanged(nameof(CanExport));
         }
     }
 
@@ -225,10 +231,17 @@ public sealed class FolderViewModel : TabViewModelBase
     public FolderRow? RowFor(string path) =>
         _rowIndex.TryGetValue(path, out var i) ? Rows[i] : null;
 
-    /// Export mirrors the grid: File carries the path relative to the
-    /// audited root, not the bare name, so rows can be located again.
+    /// The grid's visibility rule (severity tier + drilldown scope), shared by
+    /// the DataGrid's filter and Export so the two can never disagree.
+    public bool IsRowVisible(FolderRow row) =>
+        row.Severity >= (RowSeverity)FilterIndex
+        && (ScopeFolder is null || PathScope.IsUnder(row.FullPath, ScopeFolder));
+
+    /// Export mirrors the grid exactly: only the rows currently shown (severity
+    /// filter + drilldown scope), each carrying the path relative to the audited
+    /// root, not the bare name, so rows can be located again.
     public IReadOnlyList<AuditRow> ExportRows() =>
-        Rows.Select(r => r.Row with { File = r.File }).ToList();
+        Rows.Where(IsRowVisible).Select(r => r.Row with { File = r.File }).ToList();
 
     /// Drop entry point: walk the folder, build the tree, and paint any cached
     /// verdicts. No ffmpeg runs here; analysis waits for Analyze.
