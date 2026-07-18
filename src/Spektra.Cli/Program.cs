@@ -95,6 +95,18 @@ internal static class Program
             : throw new OptionException($"{flag} must be a number, got '{v}'.");
     }
 
+    /// Pulls "--html <path>" out of a verb's argument list; null when absent.
+    private static string? TakeHtml(ref string[] args)
+    {
+        var i = Array.IndexOf(args, "--html");
+        if (i < 0) return null;
+        if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
+            throw new OptionException("--html needs a file path.");
+        var path = args[i + 1];
+        args = [.. args[..i], .. args[(i + 2)..]];
+        return path;
+    }
+
     private static (OutFormat fmt, int jobs, string[] rest) TakeOptions(string[] args)
     {
         var fmt = OutFormat.Text;
@@ -266,6 +278,7 @@ internal static class Program
     {
         var fresh = paths.Contains("--fresh");
         paths = paths.Where(p => p != "--fresh").ToArray();
+        var html = TakeHtml(ref paths);
         var folder = paths.Length == 1 && Directory.Exists(paths[0]) ? paths[0] : null;
         var targets = folder is not null
             ? FolderAudit.CollectTargets(folder)
@@ -302,15 +315,17 @@ internal static class Program
             ? r.Row
             : r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) };
 
+        var rows = results.Select(RowFor).ToList();
+        if (html is not null) File.WriteAllText(html, HtmlReport.AuditDocument(rows, "Spektra audit"));
+
         if (fmt != OutFormat.Text)
         {
-            Emit(results.Select(RowFor).ToList(), fmt);
+            Emit(rows, fmt);
             return results.Any(r => r.HasProblem) ? 1 : 0;
         }
 
-        foreach (var r in results)
+        foreach (var row in rows)
         {
-            var row = RowFor(r);
             var bw = row.Error is not null ? "error"
                 : $"{row.Bandwidth}{(row.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
             var integ = row.Error is not null ? "ERROR" : row.Integrity;
@@ -324,6 +339,7 @@ internal static class Program
     {
         var fresh = args.Contains("--fresh");
         var roots = args.Where(a => a is not "--fresh").ToArray();
+        var html = TakeHtml(ref roots);
         if (roots.Length == 0 || !roots.All(Directory.Exists))
         {
             Console.Error.WriteLine("spektra dupes: give one or more existing folders.");
@@ -349,6 +365,8 @@ internal static class Program
             if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r");
         }
         finally { cache?.Dispose(); }
+
+        if (html is not null) File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Dedup Destroyer"));
 
         if (fmt != OutFormat.Text)
         {
@@ -590,11 +608,13 @@ internal static class Program
 
             audit caches results per file (keyed by size + mtime) in the app data
             folder, so repeat runs only analyze new or changed files; --fresh re-analyzes.
+            Add --html out.html to also write the results as a self-contained HTML page.
 
             dupes finds the same recording across folders and formats (audio
             fingerprint match, not filename), rides the same cache as audit, and
             marks each group's best copy; give two or more folders to also find
             duplicates that live in different libraries. --fresh re-analyzes.
+            Add --html out.html to also write the groups as a self-contained HTML page.
 
             diff aligns the files automatically; pin an offset with --offset <ms>
             (positive = B later than A) and tune the verdict with --threshold-db <N>

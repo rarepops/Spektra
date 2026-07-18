@@ -59,6 +59,8 @@ When the argument is a folder, the `File` column holds each file's path relative
 
 Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db` (keyed by size and modified time), so repeat runs of the same library only analyze new or changed files. Pass `--fresh` to ignore the cache and re-analyze everything; results are written back either way. The cache is disposable: deleting the file just means the next audit starts cold. The `audit` command analyzes immediately and in full, while the desktop app's folder tab is the fine-grained counterpart (browse, pick which files to check, then analyze); both share this same on-disk cache, so a file analyzed in one is already cached for the other.
 
+Add --html report.html to also write the audit as a self-contained dark HTML page (sortable table).
+
 ## dupes: find duplicate songs, keep the best
 
     $ spektra dupes Music
@@ -80,6 +82,8 @@ Files too short to fingerprint reliably are listed as not analyzed instead of si
 **Stated limits, by design:** candidates must land within 15 seconds of each other's decoded duration, so a radio edit will not pair with the extended mix; files under 20 seconds are excluded outright, since that is too little audio to fingerprint with confidence; the aligned match must cover most of the shorter file, so two tracks that merely share a section (a sample, a common intro or beat) do not pair; and matching is on audio content, not intent, so a remix, live version, or edit of a song is a different recording and will not group with the original even though a person would call them "the same song." Two copies sourced from noticeably different masters (say, a streaming rip and a differently mastered release of the same track) may also fail to pair: the fingerprint judges them different audio, which errs on the safe side.
 
 `dupes` rides the same on-disk cache as `audit` (`%APPDATA%\Spektra\audit-cache.db`, keyed by size and modified time), so a file already audited or duped once is not re-decoded for the other command. Fingerprints re-extract automatically whenever `FingerprintVersion` bumps, independent of the bandwidth/integrity cache, so an algorithm change never mixes old and new fingerprints. Pass `--fresh` to ignore the cache and re-analyze everything. `dupes` is view-only: it never renames, moves, or deletes a file, no matter which copy wins.
+
+Add --html report.html to also write the groups as a self-contained dark HTML page (collapsible groups, winners starred).
 
 **Exit codes:** `0` no duplicate groups found, `1` one or more duplicate groups found, `2` usage or environment error (no folder given, or an argument is not an existing directory).
 
