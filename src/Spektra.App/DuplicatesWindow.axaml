@@ -119,7 +119,7 @@
             <Expander IsExpanded="{Binding IsSmall}" Margin="0,3" HorizontalAlignment="Stretch"
                       BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
               <Expander.Header>
-                <TextBlock Text="{Binding Headline}" Foreground="#EEEEEE" />
+                <TextBlock Text="{Binding Headline}" Foreground="#DDDDDD" />
               </Expander.Header>
               <StackPanel>
                 <ItemsControl ItemsSource="{Binding Members}">
