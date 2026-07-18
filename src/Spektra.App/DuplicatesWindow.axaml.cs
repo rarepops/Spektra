@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -13,6 +14,8 @@ public partial class DuplicatesWindow : Window
 {
     private readonly DuplicatesViewModel _vm;
     private readonly AppSettings _settings;
+    private PixelPoint _normalPosition;
+    private Size _normalSize;
 
     // Parameterless constructor for the XAML previewer/loader only (Avalonia's
     // AVLN3001 wants one); real callers always use the (vm, settings) overload,
@@ -27,15 +30,34 @@ public partial class DuplicatesWindow : Window
         DataContext = vm;
         if (settings.DuplicatesWindow is { } p)
         {
-            Position = new Avalonia.PixelPoint(p.X, p.Y);
-            Width = p.Width;
-            Height = p.Height;
-            if (p.Maximized) WindowState = WindowState.Maximized;
+            // Position is physical px, Width/Height logical; the intersect test
+            // is approximate across DPI scales, which is fine for "is it on-screen".
+            var target = new PixelRect(p.X, p.Y, Math.Max(400, p.Width), Math.Max(300, p.Height));
+            if (Screens.All.Any(s => s.Bounds.Intersects(target)))
+            {
+                Position = new PixelPoint(p.X, p.Y);
+                Width = Math.Max(400, p.Width);
+                Height = Math.Max(300, p.Height);
+                if (p.Maximized) WindowState = WindowState.Maximized;
+                _normalPosition = Position;
+                _normalSize = new Size(Width, Height);
+            }
         }
+        PositionChanged += (_, e) =>
+        {
+            if (WindowState == WindowState.Normal) _normalPosition = e.Point;
+        };
+        SizeChanged += (_, e) =>
+        {
+            if (WindowState == WindowState.Normal) _normalSize = e.NewSize;
+        };
         Closing += (_, _) =>
         {
-            _settings.DuplicatesWindow = new WindowPlacement(
-                Position.X, Position.Y, (int)Width, (int)Height, WindowState == WindowState.Maximized);
+            var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
+            var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
+            if (size.Width >= 100 && size.Height >= 100)
+                _settings.DuplicatesWindow = new WindowPlacement(
+                    pos.X, pos.Y, (int)size.Width, (int)size.Height, WindowState == WindowState.Maximized);
             // Roots and placement are this window's to persist; Task 6's view
             // model deliberately never saves (view + export only).
             if (!SettingsStore.Save(SettingsStore.DefaultPath, _settings))
