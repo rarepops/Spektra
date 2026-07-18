@@ -33,7 +33,10 @@ static class SpectrogramDraw
     // Minimum on-screen spacing between ticks. The tick budget is the axis
     // length divided by these, so a longer axis fills in more ticks and a
     // shorter one thins them out instead of using one fixed count everywhere.
-    private const double TimeTickMinPx = 70, FreqTickMinPx = 34;
+    // Frequency is the roomiest so the vertical scale reads uncrowded.
+    private const double TimeTickMinPx = 70, FreqTickMinPx = 50, LegendTickMinPx = 26;
+    // "Nice" dB label steps for the legend, coarsest last (see PickStep).
+    private static readonly double[] DbSteps = [10.0, 20, 30, 60, 120];
 
     public static Rect PlotRect(Rect bounds) => new(
         RulerLeft, Pad,
@@ -167,7 +170,8 @@ static class SpectrogramDraw
         for (var i = 0; i < LegendSteps; i++)
             ctx.FillRectangle(brushes[i], new Rect(x, barTop + i * h, w, h + 1));
         float floor = display.DbFloor, ceil = display.DbCeil;
-        for (var db = (int)ceil; db >= floor; db -= 30)
+        var dbStep = (int)PickStep(DbSteps, ceil - floor, Math.Max(2, barH / LegendTickMinPx));
+        for (var db = (int)ceil; db >= floor; db -= dbStep)
         {
             var y = barTop + (ceil - db) / (ceil - floor) * barH;
             Text(ctx, $"{db}", x + w + 4, y - 7);
