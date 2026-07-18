@@ -38,11 +38,8 @@ public partial class DuplicatesWindow : Window
                 Position.X, Position.Y, (int)Width, (int)Height, WindowState == WindowState.Maximized);
             // Roots and placement are this window's to persist; Task 6's view
             // model deliberately never saves (view + export only).
-            try { SettingsStore.Save(SettingsStore.DefaultPath, _settings); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                _vm.SetError($"Could not save settings: {ex.Message}");
-            }
+            if (!SettingsStore.Save(SettingsStore.DefaultPath, _settings))
+                _vm.SetError("Could not save the Dedup Destroyer settings.");
         };
     }
 
