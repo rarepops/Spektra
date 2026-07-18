@@ -110,6 +110,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         IsScanning = true;
         Groups.Clear();
         NotAnalyzed.Clear();
+        LastResult = null;
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
