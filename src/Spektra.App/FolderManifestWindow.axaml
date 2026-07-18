@@ -5,7 +5,9 @@
         Title="Folder Manifest" Width="760" Height="640"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
-  <DockPanel Margin="12">
+  <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
+       whose status line sits 4px off the edge. -->
+  <DockPanel Margin="12,12,12,4">
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Folder}" Foreground="#EEEEEE"
                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
@@ -47,7 +49,7 @@
                  TextAlignment="Right" />
     </Grid>
 
-    <TextBlock DockPanel.Dock="Bottom" Margin="0,6,0,0" Text="{Binding FooterText}"
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,4,0,0" Text="{Binding FooterText}"
                Foreground="#888888" FontSize="11" />
     <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 

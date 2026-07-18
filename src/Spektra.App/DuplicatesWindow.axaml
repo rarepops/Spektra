@@ -36,7 +36,9 @@
       <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
   </Window.Styles>
-  <DockPanel Margin="12">
+  <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
+       whose status line sits 4px off the edge. -->
+  <DockPanel Margin="12,12,12,4">
     <!-- Row 0 is the star row: the roots list absorbs any slack height (the
          buttons column is usually the tallest thing here), so the path box
          below keeps its compact height instead of stretching. -->
@@ -88,7 +90,7 @@
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}" Height="8" />
     </DockPanel>
 
-    <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0" Spacing="4">
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,4,0,0" Spacing="4">
       <Expander IsVisible="{Binding !!NotAnalyzed.Count}" HorizontalAlignment="Stretch">
         <Expander.Header>
           <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}"
