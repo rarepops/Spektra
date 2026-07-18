@@ -9,8 +9,16 @@
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
       <ListBox x:Name="RootsList" Grid.Row="0" Grid.Column="0" ItemsSource="{Binding Roots}"
                MaxHeight="92" Background="#181818"
-               ToolTip.Tip="Folders the scan walks; duplicates are found across all of them" />
+               ToolTip.Tip="Folders the scan walks; duplicates are found across all of them">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="MinHeight" Value="22" />
+            <Setter Property="Padding" Value="8,2" />
+          </Style>
+        </ListBox.Styles>
+      </ListBox>
       <TextBox x:Name="RootPathBox" Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
+               MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnRootPathKeyDown"
                ToolTip.Tip="Adds the folder as a scan root; dragging folders from Explorer works too" />
