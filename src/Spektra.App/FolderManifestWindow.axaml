@@ -25,7 +25,8 @@
       <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                        ToolTip.Tip="Save the tree as HTML, CSV, or JSON">
+                        PointerEntered="OnExportHover"
+                        ToolTip.Tip="Hover to pick HTML, CSV, or JSON">
           <DropDownButton.Flyout>
             <MenuFlyout>
               <MenuItem Header="HTML page" Tag="html" Click="OnExportFormatClicked" />

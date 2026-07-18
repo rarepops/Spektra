@@ -68,7 +68,8 @@
         <Button Content="Cancel" Click="OnCancelClicked" IsVisible="{Binding IsScanning}"
                 HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                        ToolTip.Tip="Save the groups as HTML, CSV, or JSON">
+                        PointerEntered="OnExportHover"
+                        ToolTip.Tip="Hover to pick HTML, CSV, or JSON">
           <DropDownButton.Flyout>
             <MenuFlyout>
               <MenuItem Header="HTML page" Tag="html" Click="OnExportFormatClicked" />

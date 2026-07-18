@@ -132,6 +132,13 @@ public partial class DuplicatesWindow : Window
     private static DupeMemberItem? MemberFrom(object? sender) =>
         (sender as MenuItem)?.DataContext as DupeMemberItem;
 
+    // Open the format flyout on hover, so the three options are one move away
+    // with no click. ShowAt just re-anchors if it is already open.
+    private void OnExportHover(object? sender, PointerEventArgs e)
+    {
+        if ((sender as Button)?.Flyout is { } flyout) flyout.ShowAt((Control)sender!);
+    }
+
     // One handler per format, chosen from the Export dropdown (the Tag carries
     // the extension). The format is explicit up front, so the save dialog only
     // offers that one type instead of hiding the choice behind the extension.

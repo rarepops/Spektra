@@ -100,6 +100,13 @@ public partial class FolderManifestWindow : Window
             _vm.SetError("Drop a folder to list it; single files are ignored.");
     }
 
+    // Open the format flyout on hover, so the three options are one move away
+    // with no click. ShowAt just re-anchors if it is already open.
+    private void OnExportHover(object? sender, PointerEventArgs e)
+    {
+        if ((sender as Button)?.Flyout is { } flyout) flyout.ShowAt((Control)sender!);
+    }
+
     // One handler per format, chosen from the Export dropdown (the Tag carries
     // the extension). The suggested name is the folder's path made
     // filename-legal (D:\Music\Zotify becomes D-Music-Zotify.html) plus the
