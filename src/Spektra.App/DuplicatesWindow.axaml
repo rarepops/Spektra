@@ -5,6 +5,19 @@
         Title="Duplicate Destroyer" Width="980" Height="680"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
+  <!-- The Fluent Expander is generous by default (48px header, wide content
+       padding); these compact every expander in the window: the group boxes
+       and the not-analyzed foldout. Padding reaches the content border via
+       TemplateBinding; the template's only ToggleButton is the header. -->
+  <Window.Styles>
+    <Style Selector="Expander">
+      <Setter Property="Padding" Value="6,2" />
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton">
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+  </Window.Styles>
   <DockPanel Margin="12">
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
       <ListBox x:Name="RootsList" Grid.Row="0" Grid.Column="0" ItemsSource="{Binding Roots}"
