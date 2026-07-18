@@ -70,6 +70,9 @@
       </StackPanel>
     </Grid>
 
+    <!-- Splits the input bar (roots + path + buttons) from the results below. -->
+    <Border DockPanel.Dock="Top" Height="1" Background="#2E2E2E" Margin="0,0,0,8" />
+
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding IsScanning}">
       <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Margin="12,0,0,0"
                  VerticalAlignment="Center" Foreground="#999999" FontSize="12" />
