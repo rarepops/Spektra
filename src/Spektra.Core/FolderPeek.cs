@@ -26,7 +26,17 @@ public static class FolderPeek
     /// node and the walk continues; a bad root yields one Unreadable root.
     public static PeekFolder Build(string root, AuditCache? cache)
     {
-        var full = Path.GetFullPath(root);
+        string full;
+        try
+        {
+            full = Path.GetFullPath(root);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // A root that cannot even be resolved is the same story as one
+            // that cannot be enumerated: one unreadable node, never a throw.
+            return new PeekFolder(root, root, [], [], "unreadable", Unreadable: true);
+        }
         return BuildNode(full, NameOf(full), cache).Node;
     }
 
@@ -97,9 +107,9 @@ public static class FolderPeek
                     name, path, hit.Row.Codec?.ToLowerInvariant() ?? kind,
                     FolderAudit.RowSeverityOf(hit.Row), size);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
-            // stat failed mid-walk: keep the extension chip and a zero size
+            // stat or cache hiccup mid-walk: keep the extension chip and a zero size
         }
         return new PeekFile(name, path, kind, Severity: null, size);
     }

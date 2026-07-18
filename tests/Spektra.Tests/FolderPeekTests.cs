@@ -81,7 +81,9 @@ public sealed class FolderPeekTests
         var dbPath = Path.Combine(d, "cache.db");
         try
         {
-            var audio = Path.Combine(d, "mislabeled.flac");
+            // uppercase extension: exercises the cache-decoration branch's
+            // case-insensitive audio detection, not just the lowercase path
+            var audio = Path.Combine(d, "MISLABELED.FLAC");
             File.WriteAllBytes(audio, new byte[2048]);
             var info = new FileInfo(audio);
             var target = new AuditTarget(audio, info.Length, info.LastWriteTimeUtc.Ticks);
@@ -90,9 +92,14 @@ public sealed class FolderPeekTests
                 // cached truth: it is really an mp3 transcode hiding in a flac
                 cache.Put(target, Row(Path.GetFileName(audio), codec: "mp3", bandwidth: "Lossy", cutoffHz: 16_000), hasProblem: true);
                 var root = FolderPeek.Build(d, cache);
-                var file = root.Files.Single(f => f.Name == "mislabeled.flac");
+                var file = root.Files.Single(f => f.Name == "MISLABELED.FLAC");
                 await Assert.That(file.Kind).IsEqualTo("mp3");
                 await Assert.That(file.Severity).IsEqualTo(RowSeverity.Problem);
+
+                // pins the enum-to-string severity conversion in PeekRow
+                var rows = FolderPeek.ToRows(root);
+                var row = rows.Single(r => r.Name == "MISLABELED.FLAC");
+                await Assert.That(row.Severity).IsEqualTo("Problem");
             }
         }
         finally { Directory.Delete(d, recursive: true); }
@@ -131,6 +138,16 @@ public sealed class FolderPeekTests
     {
         var missing = Path.Combine(Path.GetTempPath(), "spektra-peek-missing-" + Guid.NewGuid().ToString("N"));
         var root = FolderPeek.Build(missing, cache: null);
+        await Assert.That(root.Unreadable).IsTrue();
+        await Assert.That(root.Rollup).IsEqualTo("unreadable");
+        await Assert.That(root.Folders).IsEmpty();
+        await Assert.That(root.Files).IsEmpty();
+    }
+
+    [Test]
+    public async Task MalformedRoot_YieldsUnreadableNode_NotAThrow()
+    {
+        var root = FolderPeek.Build("", cache: null);
         await Assert.That(root.Unreadable).IsTrue();
         await Assert.That(root.Rollup).IsEqualTo("unreadable");
         await Assert.That(root.Folders).IsEmpty();
