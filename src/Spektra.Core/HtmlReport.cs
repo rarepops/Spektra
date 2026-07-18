@@ -4,10 +4,11 @@ namespace Spektra.Core;
 
 /// Self-contained HTML reports: one file, inline CSS, no external requests,
 /// dark theme matching the app (background #111, the tree-marker palette for
-/// verdict colors). Two document kinds share the scaffold: the Duplicate
-/// Destroyer duplicate groups and the folder-audit table (AuditDocument,
-/// added beside DupesDocument). Every data-derived string goes through
-/// Escape; nothing from a file name or tag may reach the page raw.
+/// verdict colors). Three document kinds share the scaffold: the Duplicate
+/// Destroyer duplicate groups, the folder-audit table (AuditDocument, added
+/// beside DupesDocument), and the Folder Peek collapsible tree (PeekDocument).
+/// Every data-derived string goes through Escape; nothing from a file name or
+/// tag may reach the page raw.
 public static class HtmlReport
 {
     public static string DupesDocument(DupesResult result, string title)
@@ -87,6 +88,38 @@ public static class HtmlReport
         return Page(title, body.ToString(), SortScript);
     }
 
+    /// Folder Peek: one collapsible tree, folders as nested details/summary
+    /// (root and its direct children open, deeper levels start closed), files
+    /// as rows with a kind chip colored by cached severity.
+    public static string PeekDocument(PeekFolder root, string title)
+    {
+        var body = new StringBuilder();
+        body.Append($"<h1>{Escape(title)}</h1>");
+        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Folder Peek · view-only report</p>");
+        body.Append($"<p class=\"gen\">{Escape(root.Path)}</p>");
+        AppendPeekFolder(body, root, depth: 0);
+        return Page(title, body.ToString());
+    }
+
+    private static void AppendPeekFolder(StringBuilder body, PeekFolder f, int depth)
+    {
+        body.Append(depth <= 1 ? "<details open>" : "<details>");
+        body.Append($"<summary>{Escape(f.Name)} <span class=\"badge\">{Escape(f.Rollup)}</span></summary>");
+        foreach (var sub in f.Folders) AppendPeekFolder(body, sub, depth + 1);
+        foreach (var file in f.Files)
+        {
+            var cls = file.Severity switch
+            {
+                RowSeverity.Problem => "kind bad",
+                RowSeverity.Suspect => "kind sus",
+                RowSeverity.Clean => "kind ok",
+                _ => "kind",
+            };
+            body.Append($"<div class=\"peek-file\">{Escape(file.Name)} <span class=\"{cls}\">{Escape(file.Kind)}</span> <span class=\"peek-size\">{Bytes(file.SizeBytes)}</span></div>");
+        }
+        body.Append("</details>");
+    }
+
     private const string SortScript = """
         function sortBy(th){const t=th.closest('table'),i=[...th.parentNode.children].indexOf(th),
         asc=th.dataset.asc!=='1';th.dataset.asc=asc?'1':'0';
@@ -117,7 +150,7 @@ public static class HtmlReport
     };
 
     /// The shared page scaffold: dark theme, tree-marker verdict palette,
-    /// generic table styling that both document kinds use. A non-empty
+    /// generic table styling that all three document kinds use. A non-empty
     /// `script` (the audit table's sort handler) is inlined before </body>.
     private static string Page(string title, string body, string script = "") => $$"""
         <!DOCTYPE html>
@@ -138,6 +171,11 @@ public static class HtmlReport
         .win{color:#d8b060;width:18px}
         .audio{color:#6fb3e8;font-size:12px}
         .ok{color:#4a7a4a}.sus{color:#d8b060}.bad{color:#e08080}.up{color:#b08fd8}
+        details details{margin-left:1.25em}
+        .peek-file{padding:3px 10px;border-bottom:1px solid #222222;font-size:13px}
+        .kind{border:1px solid #444444;border-radius:8px;padding:0 8px;font-size:12px;color:#999999}
+        .kind.ok{color:#4a7a4a}.kind.sus{color:#d8b060}.kind.bad{color:#e08080}
+        .peek-size{color:#999999;font-size:12px}
         </style></head><body>
         {{body}}
         {{(script.Length > 0 ? $"<script>{script}</script>" : "")}}

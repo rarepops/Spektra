@@ -76,4 +76,47 @@ public sealed class HtmlReportTests
         await Assert.That(html).DoesNotContain("<img src=x>");
         await Assert.That(html).Contains("&lt;img src=x&gt;");
     }
+
+    private static PeekFolder PeekTree() =>
+        new("<img src=x>", @"C:\lib",
+            [new PeekFolder("disc1", @"C:\lib\disc1",
+                [new PeekFolder("art", @"C:\lib\disc1\art", [],
+                    [new PeekFile("front.jpg", @"C:\lib\disc1\art\front.jpg", "jpg", null, 100_000)],
+                    "1 jpg", false)],
+                [new PeekFile("<script>.mp3", @"C:\lib\disc1\<script>.mp3", "mp3", RowSeverity.Suspect, 5_000_000)],
+                "1 mp3 · 1 jpg", false)],
+            [new PeekFile("notes.nfo", @"C:\lib\notes.nfo", "nfo", null, 2_000)],
+            "1 mp3 · 1 jpg · 1 nfo", false);
+
+    [Test]
+    public async Task PeekDocument_EscapesHostileNames_AndStaysSelfContained()
+    {
+        var html = HtmlReport.PeekDocument(PeekTree(), "Spektra Folder Peek");
+        await Assert.That(html).DoesNotContain("<img src=x>");
+        await Assert.That(html).Contains("&lt;img src=x&gt;");
+        await Assert.That(html).DoesNotContain("<script>.mp3");
+        await Assert.That(html).Contains("&lt;script&gt;.mp3");
+        await Assert.That(html).DoesNotContain("http://");
+        await Assert.That(html).DoesNotContain("https://");
+    }
+
+    [Test]
+    public async Task PeekDocument_OpensTopLevels_DeeperStartClosed()
+    {
+        var html = HtmlReport.PeekDocument(PeekTree(), "t");
+        // root (depth 0) and disc1 (depth 1) render open; art (depth 2) starts closed
+        var open = html.Split("<details open>").Length - 1;
+        var closed = html.Split("<details>").Length - 1;
+        await Assert.That(open).IsEqualTo(2);
+        await Assert.That(closed).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task PeekDocument_ShowsRollupsAndSizes()
+    {
+        var html = HtmlReport.PeekDocument(PeekTree(), "t");
+        await Assert.That(html).Contains("1 mp3 · 1 jpg · 1 nfo");
+        await Assert.That(html).Contains("4.8 MB");
+        await Assert.That(html).Contains("2.0 KB");
+    }
 }
