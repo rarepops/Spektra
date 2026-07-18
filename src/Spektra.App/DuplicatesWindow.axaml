@@ -72,7 +72,10 @@
                 <ItemsControl ItemsSource="{Binding Members}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="app:DupeMemberItem">
-                      <Grid ColumnDefinitions="18,12,*,Auto" Margin="4,2"
+                      <!-- One line per copy: the path fills the row and the
+                           verdict facts sit in fixed lanes, so they read as
+                           columns across every group. -->
+                      <Grid ColumnDefinitions="18,12,*,60,110,64,76,104,96" Margin="4,2"
                             Background="Transparent" DoubleTapped="OnMemberDoubleTapped"
                             ToolTip.Tip="{Binding Path}">
                         <Grid.ContextMenu>
@@ -82,15 +85,25 @@
                           </ContextMenu>
                         </Grid.ContextMenu>
                         <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
-                                   IsVisible="{Binding IsWinner}"
+                                   VerticalAlignment="Center" IsVisible="{Binding IsWinner}"
                                    ToolTip.Tip="The copy worth keeping" />
                         <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
                                  Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
-                        <StackPanel Grid.Column="2" Margin="8,0,0,0">
-                          <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding Detail}" Foreground="#999999" FontSize="12" />
-                        </StackPanel>
-                        <TextBlock Grid.Column="3" Text="found by audio" Foreground="#6FB3E8"
+                        <TextBlock Grid.Column="2" Text="{Binding Path}" Margin="8,0,8,0"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Text="{Binding Codec}" Foreground="#999999"
+                                   FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="{Binding Bandwidth}" Foreground="#999999"
+                                   FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="5" Text="{Binding Integrity}"
+                                   Foreground="{Binding IntegrityBrush}" FontSize="12"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="6" Text="{Binding SizeText}" Foreground="#999999"
+                                   FontSize="12" TextAlignment="Right" Margin="0,0,16,0"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="7" Text="{Binding SamenessText}" Foreground="#999999"
+                                   FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="8" Text="found by audio" Foreground="#6FB3E8"
                                    FontSize="12" VerticalAlignment="Center"
                                    IsVisible="{Binding FoundByAudio}"
                                    ToolTip.Tip="Matched by fingerprint despite an unrelated name" />

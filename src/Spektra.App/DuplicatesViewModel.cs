@@ -16,6 +16,8 @@ public sealed class DupeGroupItem(DupesGroupReport report)
     public bool IsSmall { get; } = report.Group.Members.Count <= 3;
 }
 
+/// The verdict facts are separate properties (not one composed line) so the
+/// window can lay them out as fixed-width lanes that align across rows.
 public sealed class DupeMemberItem
 {
     public DupeMemberItem(DuplicateMember member, DupesGroupReport report)
@@ -25,8 +27,11 @@ public sealed class DupeMemberItem
         IsWinner = report.Quality.Winners.Contains(member.Path);
         FoundByAudio = member.FoundByAudio;
         var cutoff = row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
-        Detail = $"{row.Codec} · {row.Bandwidth}{cutoff} · {row.Integrity} · "
-            + $"{Format.Bytes(report.Sizes[member.Path])} · sameness {member.Sameness:0.00}";
+        Codec = row.Codec ?? "";
+        Bandwidth = $"{row.Bandwidth}{cutoff}";
+        Integrity = row.Integrity;
+        SizeText = Format.Bytes(report.Sizes[member.Path]);
+        SamenessText = $"sameness {member.Sameness:0.00}";
         IntegrityBrush = row.Integrity switch
         {
             "Ok" => NodeMarkers.Clean,
@@ -37,7 +42,11 @@ public sealed class DupeMemberItem
     }
 
     public string Path { get; }
-    public string Detail { get; }
+    public string Codec { get; }
+    public string Bandwidth { get; }
+    public string Integrity { get; }
+    public string SizeText { get; }
+    public string SamenessText { get; }
     public bool IsWinner { get; }
     public bool FoundByAudio { get; }
     public IBrush IntegrityBrush { get; }
