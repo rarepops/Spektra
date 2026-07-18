@@ -40,13 +40,16 @@
           <TextBlock Text="{Binding Header}" Foreground="#EEEEEE" />
         </TreeDataTemplate>
         <DataTemplate DataType="app:PeekFileItem">
-          <StackPanel Orientation="Horizontal" Spacing="8" ToolTip.Tip="{Binding Path}">
-            <TextBlock Text="{Binding Name}" />
-            <TextBlock Text="{Binding Kind}" Foreground="{Binding KindBrush}" FontSize="12"
-                       VerticalAlignment="Center" />
-            <TextBlock Text="{Binding SizeText}" Foreground="#999999" FontSize="12"
-                       VerticalAlignment="Center" />
-          </StackPanel>
+          <!-- MinWidths are the shared lane widths: kind and size line up in
+               columns across rows instead of trailing each filename. -->
+          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,4,0" ToolTip.Tip="{Binding Path}">
+            <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="0,0,8,0"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Kind}" Foreground="{Binding KindBrush}"
+                       FontSize="12" MinWidth="56" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="#999999" FontSize="12"
+                       MinWidth="68" TextAlignment="Right" VerticalAlignment="Center" />
+          </Grid>
         </DataTemplate>
       </TreeView.DataTemplates>
     </TreeView>
