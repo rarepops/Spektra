@@ -183,6 +183,7 @@ public partial class FolderView : UserControl
             [
                 new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
                 new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
+                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
             ],
         });
         if (file is null) return;
