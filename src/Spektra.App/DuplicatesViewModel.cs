@@ -145,9 +145,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         {
             FooterText = "Scan cancelled · completed analysis stays cached";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            FooterText = $"Scan failed: {ex.Message}";
+            SetError($"Scan failed: {ex.Message}");
         }
         finally
         {
