@@ -72,6 +72,25 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task FolderPeekState_DefaultsNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.FolderPeekFolder).IsNull();
+        await Assert.That(defaults.FolderPeekWindow).IsNull();
+
+        var s = new AppSettings
+        {
+            FolderPeekFolder = @"D:\Music",
+            FolderPeekWindow = new WindowPlacement(20, 40, 900, 600, false),
+        };
+        SettingsStore.Save(SettingsPath, s);
+
+        var r = SettingsStore.Load(SettingsPath);
+        await Assert.That(r.FolderPeekFolder).IsEqualTo(@"D:\Music");
+        await Assert.That(r.FolderPeekWindow).IsEqualTo(new WindowPlacement(20, 40, 900, 600, false));
+    }
+
+    [Test]
     public async Task ShowCrosshair_DefaultsOn_AndRoundTrips()
     {
         // Built-ins only: keep the test independent of the user's palette folder.
