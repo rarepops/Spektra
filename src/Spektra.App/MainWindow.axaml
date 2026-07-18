@@ -78,10 +78,10 @@
   </Window.Styles>
   <DockPanel>
     <DockPanel DockPanel.Dock="Top">
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,10,0" Spacing="6">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,6,10,6" Spacing="6">
         <TextBlock Text="FFT" VerticalAlignment="Center" Foreground="#888888" FontSize="12" />
         <ComboBox ItemsSource="{Binding FftSizes}" SelectedItem="{Binding FftSize, Mode=TwoWay}"
-                  MinWidth="84" MinHeight="24" Padding="8,2" FontSize="12" VerticalAlignment="Center"
+                  MinWidth="68" MinHeight="24" Padding="8,2" FontSize="12" VerticalAlignment="Center"
                   ToolTip.Tip="Frequency buckets = size / 2 + 1 · re-analyzes on change" />
       </StackPanel>
       <Menu>
