@@ -37,9 +37,12 @@
     </Style>
   </Window.Styles>
   <DockPanel Margin="12">
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+    <!-- Row 0 is the star row: the roots list absorbs any slack height (the
+         buttons column is usually the tallest thing here), so the path box
+         below keeps its compact height instead of stretching. -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" RowDefinitions="*,Auto" Margin="0,0,0,8">
       <ListBox x:Name="RootsList" Grid.Row="0" Grid.Column="0" ItemsSource="{Binding Roots}"
-               MaxHeight="92" Background="#181818"
+               MaxHeight="120" Background="#181818"
                ToolTip.Tip="Folders the scan walks; duplicates are found across all of them">
         <ListBox.Styles>
           <Style Selector="ListBoxItem">
@@ -53,7 +56,9 @@
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnRootPathKeyDown"
                ToolTip.Tip="Adds the folder as a scan root; dragging folders from Explorer works too" />
-      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
+      <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2E2E2E"
+              Margin="10,0" />
+      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
         <Button Content="Add folder…" Click="OnAddFolderClicked" HorizontalAlignment="Stretch" />
         <Button Content="Remove" Click="OnRemoveFolderClicked" HorizontalAlignment="Stretch" />
         <Button Content="Scan" Click="OnScanClicked" IsEnabled="{Binding CanScan}"
