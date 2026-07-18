@@ -5,17 +5,35 @@
         Title="Duplicate Detective" Width="980" Height="680"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
-  <!-- The Fluent Expander is generous by default (48px header, wide content
-       padding); these compact every expander in the window: the group boxes
-       and the not-analyzed foldout. Padding reaches the content border via
-       TemplateBinding; the template's only ToggleButton is the header. -->
+  <!-- Every expander in the window (group boxes, not-analyzed foldout) gets a
+       compact custom header: chevron LEFT of the title (Fluent puts it right),
+       both vertically centered. Retemplating the header ToggleButton drops the
+       Fluent band, so headers read as section titles above the bordered
+       content; the hover tint keeps them feeling clickable. -->
   <Window.Styles>
     <Style Selector="Expander">
       <Setter Property="Padding" Value="6,2" />
     </Style>
     <Style Selector="Expander /template/ ToggleButton">
-      <Setter Property="MinHeight" Value="30" />
-      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="Template">
+        <ControlTemplate TargetType="ToggleButton">
+          <Border Name="HeaderBand" Background="Transparent" MinHeight="30" Padding="10,4"
+                  CornerRadius="4" Cursor="Hand">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <Path Name="PART_Chevron" Data="M 0 0 L 4 4 L 8 0" Stroke="#999999"
+                    StrokeThickness="1.5" VerticalAlignment="Center"
+                    RenderTransformOrigin="50%,50%" />
+              <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton:pointerover /template/ Border#HeaderBand">
+      <Setter Property="Background" Value="#1E1E1E" />
+    </Style>
+    <Style Selector="Expander /template/ ToggleButton:checked /template/ Path#PART_Chevron">
+      <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
   </Window.Styles>
   <DockPanel Margin="12">
