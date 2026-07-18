@@ -87,8 +87,8 @@ public partial class MainWindow
 
     private async void OnExportReportClicked(object? sender, RoutedEventArgs e) => await ExportReportAsync();
 
-    /// Exports the active document's bandwidth + integrity audit as one CSV or
-    /// JSON row. Reuses the verdict already computed on load; runs the
+    /// Exports the active document's bandwidth + integrity audit as one CSV,
+    /// JSON, or HTML row. Reuses the verdict already computed on load; runs the
     /// integrity check first if it hasn't been run yet.
     private async Task ExportReportAsync()
     {
