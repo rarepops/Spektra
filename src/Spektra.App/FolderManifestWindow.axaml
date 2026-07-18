@@ -22,6 +22,19 @@
       </StackPanel>
     </Grid>
 
+    <!-- Column headers: the lane widths (64/68 plus the row grid's 4px right
+         margin and the item's 2px padding) mirror the file-row template below,
+         so the labels sit over the chips and sizes. -->
+    <Border DockPanel.Dock="Top" BorderBrush="#2E2E2E" BorderThickness="0,0,0,1"
+            Padding="0,0,0,3" Margin="0,0,0,3">
+      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,6,0">
+        <TextBlock Grid.Column="0" Text="Name" Foreground="#777777" FontSize="11" />
+        <TextBlock Grid.Column="1" Text="Kind" Foreground="#777777" FontSize="11" Width="64" />
+        <TextBlock Grid.Column="2" Text="Size" Foreground="#777777" FontSize="11" Width="68"
+                   TextAlignment="Right" />
+      </Grid>
+    </Border>
+
     <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Text="{Binding FooterText}"
                Foreground="#999999" FontSize="12" />
 
@@ -40,15 +53,16 @@
           <TextBlock Text="{Binding Header}" Foreground="#EEEEEE" />
         </TreeDataTemplate>
         <DataTemplate DataType="app:ManifestFileItem">
-          <!-- MinWidths are the shared lane widths: kind and size line up in
-               columns across rows instead of trailing each filename. -->
+          <!-- Fixed lane widths keep every row's kind and size under the
+               column headers above the tree. -->
           <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,4,0" ToolTip.Tip="{Binding Path}">
             <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="0,0,8,0"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Text="{Binding Kind}" Foreground="{Binding KindBrush}"
-                       FontSize="12" MinWidth="56" VerticalAlignment="Center" />
+                       FontSize="12" Width="64" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" />
             <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="#999999" FontSize="12"
-                       MinWidth="68" TextAlignment="Right" VerticalAlignment="Center" />
+                       Width="68" TextAlignment="Right" VerticalAlignment="Center" />
           </Grid>
         </DataTemplate>
       </TreeView.DataTemplates>
