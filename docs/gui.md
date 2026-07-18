@@ -24,10 +24,10 @@ Zoom with the wheel (time) and Shift+wheel (frequency), drag to pan, double-clic
 
 ## Export a report
 
-**File → Export** is a submenu that lists the formats directly, so you pick before the save dialog rather than through its extension field:
+Two report commands sit in the File menu, each a submenu that lists the formats directly so you pick before the save dialog rather than through its extension field:
 
-- **This File as HTML / CSV / JSON** saves the current file's audit (metadata, bandwidth/upsampling verdict, integrity) as one row. If the integrity check hasn't been run yet, it runs first. HTML is the default (Ctrl+Shift+S).
-- **Folder as HTML / CSV / JSON** picks a folder, analyzes every audio file in it in parallel (progress dialog with Cancel), then saves one row per file. Cancelling writes nothing.
+- **File → Export → HTML / CSV / JSON** saves the current file's audit (metadata, bandwidth/upsampling verdict, integrity) as one row; if the integrity check hasn't been run yet, it runs first. HTML is the default (Ctrl+Shift+S). The Export submenu is disabled until a file is open, since it acts on the current tab.
+- **File → Audit Folder → HTML / CSV / JSON** picks any folder, analyzes every audio file in it in parallel (progress dialog with Cancel), then saves one row per file; cancelling writes nothing. It is always available because it chooses its own folder rather than acting on an open tab.
 
 The schema matches the CLI's `audit --csv/--json` exactly, so GUI and scripted sweeps are interchangeable. The HTML flavor is a dark, sortable page for reading rather than scripting.
 
