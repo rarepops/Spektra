@@ -38,6 +38,11 @@ public sealed class AppSettings
     public bool CheckForUpdatesOnStartup { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
 
+    // Dedup Destroyer window state: scan roots and window placement persist
+    // across sessions. Null = the window has never been used.
+    public List<string>? DuplicateRoots { get; set; }
+    public WindowPlacement? DuplicatesWindow { get; set; }
+
     /// The registry resolves the palette name (built-in or custom) to a baked
     /// LUT; db-pinned custom stops resolve against the current floor.
     public DisplaySettings ToDisplaySettings(PaletteRegistry palettes) => new(

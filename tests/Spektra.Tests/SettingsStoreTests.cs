@@ -53,6 +53,25 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task DedupDestroyerState_DefaultsNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.DuplicateRoots).IsNull();
+        await Assert.That(defaults.DuplicatesWindow).IsNull();
+
+        var s = new AppSettings
+        {
+            DuplicateRoots = [@"C:\Music", @"E:\More"],
+            DuplicatesWindow = new WindowPlacement(10, 20, 900, 600, false),
+        };
+        SettingsStore.Save(SettingsPath, s);
+
+        var r = SettingsStore.Load(SettingsPath);
+        await Assert.That(r.DuplicateRoots!.SequenceEqual([@"C:\Music", @"E:\More"])).IsTrue();
+        await Assert.That(r.DuplicatesWindow).IsEqualTo(new WindowPlacement(10, 20, 900, 600, false));
+    }
+
+    [Test]
     public async Task ShowCrosshair_DefaultsOn_AndRoundTrips()
     {
         // Built-ins only: keep the test independent of the user's palette folder.
