@@ -94,7 +94,7 @@ public partial class MainWindow
                 e.Handled = true;
                 break;
             case Key.S when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
-                _ = ExportReportAsync();
+                _ = ExportReportAsync("html");
                 e.Handled = true;
                 break;
             case Key.S:

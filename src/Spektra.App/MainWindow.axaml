@@ -94,8 +94,15 @@
           <MenuItem Header="_Save Image…" Click="OnSaveImageClicked" InputGesture="Ctrl+S" />
           <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
           <Separator />
-          <MenuItem Header="Expor_t Report…" Click="OnExportReportClicked" InputGesture="Ctrl+Shift+S" />
-          <MenuItem Header="Export Fol_der Report…" Click="OnExportFolderReportClicked" />
+          <MenuItem Header="Expor_t">
+            <MenuItem Header="This File as _HTML…" Tag="html" Click="OnExportReportClicked" InputGesture="Ctrl+Shift+S" />
+            <MenuItem Header="This File as C_SV…" Tag="csv" Click="OnExportReportClicked" />
+            <MenuItem Header="This File as _JSON…" Tag="json" Click="OnExportReportClicked" />
+            <Separator />
+            <MenuItem Header="Folder as HT_ML…" Tag="html" Click="OnExportFolderReportClicked" />
+            <MenuItem Header="Folder as CS_V…" Tag="csv" Click="OnExportFolderReportClicked" />
+            <MenuItem Header="Folder as JSO_N…" Tag="json" Click="OnExportFolderReportClicked" />
+          </MenuItem>
           <Separator />
           <MenuItem Header="E_xit" Click="OnExitClicked" />
         </MenuItem>

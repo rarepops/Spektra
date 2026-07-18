@@ -85,12 +85,17 @@ public partial class MainWindow
         return name;
     }
 
-    private async void OnExportReportClicked(object? sender, RoutedEventArgs e) => await ExportReportAsync();
+    // The Export submenu items carry their format in Tag; missing/unknown
+    // falls back to CSV (the historical default).
+    private static string ExportFormat(object? sender) => (sender as MenuItem)?.Tag as string ?? "csv";
+
+    private async void OnExportReportClicked(object? sender, RoutedEventArgs e) =>
+        await ExportReportAsync(ExportFormat(sender));
 
     /// Exports the active document's bandwidth + integrity audit as one CSV,
     /// JSON, or HTML row. Reuses the verdict already computed on load; runs the
     /// integrity check first if it hasn't been run yet.
-    private async Task ExportReportAsync()
+    private async Task ExportReportAsync(string fmt)
     {
         if (_vm.Selected is not DocumentViewModel doc || doc.Metadata is null)
         {
@@ -107,14 +112,9 @@ public partial class MainWindow
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export report",
-            SuggestedFileName = SanitizeFileName(Path.GetFileNameWithoutExtension(doc.TabTitle)) + "-report.csv",
-            DefaultExtension = "csv",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
-                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
-                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
-            ],
+            SuggestedFileName = SanitizeFileName(Path.GetFileNameWithoutExtension(doc.TabTitle)) + $"-report.{fmt}",
+            DefaultExtension = fmt,
+            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
         });
         if (file is null) return;
 
@@ -131,9 +131,9 @@ public partial class MainWindow
     }
 
     private async void OnExportFolderReportClicked(object? sender, RoutedEventArgs e) =>
-        await ExportFolderReportAsync();
+        await ExportFolderReportAsync(ExportFormat(sender));
 
-    private async Task ExportFolderReportAsync()
+    private async Task ExportFolderReportAsync(string fmt)
     {
         if (_vm.Ffmpeg is not { } ffmpeg)
         {
@@ -159,18 +159,13 @@ public partial class MainWindow
         if (dialog.Results is not { } results) return; // cancelled: write nothing
 
         var suggested = SanitizeFileName(
-            Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))) + "-report.csv";
+            Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))) + $"-report.{fmt}";
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export folder report",
             SuggestedFileName = suggested,
-            DefaultExtension = "csv",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
-                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
-                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
-            ],
+            DefaultExtension = fmt,
+            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
         });
         if (file is null) return;
         try
