@@ -106,7 +106,10 @@ public partial class FolderManifestWindow : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export folder manifest",
-            SuggestedFileName = "folder-manifest.html",
+            // The folder's path made filename-legal (D:\Music\Zotify becomes
+            // D-Music-Zotify.html), so exports of different folders don't collide.
+            SuggestedFileName = string.Join("-",
+                root.Path.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)) + ".html",
             DefaultExtension = "html",
             FileTypeChoices =
             [
