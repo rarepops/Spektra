@@ -27,22 +27,21 @@
       </StackPanel>
     </Grid>
 
-    <!-- Column headers: the lane widths (64/68 plus the row grid's 4px right
-         margin and the item's 2px padding) mirror the file-row template below,
-         so the labels sit over the chips and sizes. -->
-    <Border DockPanel.Dock="Top" BorderBrush="#2E2E2E" BorderThickness="0,0,0,1"
-            Padding="0,0,0,3" Margin="0,0,0,3">
-      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,6,0">
-        <TextBlock Grid.Column="0" Text="Name" Foreground="#777777" FontSize="11" />
-        <TextBlock Grid.Column="1" Text="Kind" Foreground="#777777" FontSize="11" Width="64" />
-        <TextBlock Grid.Column="2" Text="Size" Foreground="#777777" FontSize="11" Width="68"
-                   TextAlignment="Right" />
-      </Grid>
-    </Border>
+    <!-- Full-width divider between the input bar and the listing; the negative
+         horizontal margin cancels the DockPanel's 12px inset so the line reaches
+         both window edges like the main view. The column headers' lane widths
+         (64/68 plus the row grid's 4px right margin) mirror the file rows. -->
+    <Border DockPanel.Dock="Top" Height="1" Background="#2A2A2A" Margin="-12,0,-12,6" />
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,6,6">
+      <TextBlock Grid.Column="0" Text="Name" Foreground="#777777" FontSize="11" />
+      <TextBlock Grid.Column="1" Text="Kind" Foreground="#777777" FontSize="11" Width="64" />
+      <TextBlock Grid.Column="2" Text="Size" Foreground="#777777" FontSize="11" Width="68"
+                 TextAlignment="Right" />
+    </Grid>
 
     <TextBlock DockPanel.Dock="Bottom" Margin="0,6,0,0" Text="{Binding FooterText}"
                Foreground="#888888" FontSize="11" />
-    <Border DockPanel.Dock="Bottom" Height="1" Background="#2E2E2E" Margin="0,8,0,0" />
+    <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
     <TreeView ItemsSource="{Binding RootItems}" Background="Transparent">
       <TreeView.Styles>

@@ -56,7 +56,7 @@
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnRootPathKeyDown"
                ToolTip.Tip="Adds the folder as a scan root; dragging folders from Explorer works too" />
-      <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2E2E2E"
+      <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2A2A2A"
               Margin="10,0" />
       <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
         <Button Content="Add folder…" Click="OnAddFolderClicked" HorizontalAlignment="Stretch" />
@@ -70,8 +70,9 @@
       </StackPanel>
     </Grid>
 
-    <!-- Splits the input bar (roots + path + buttons) from the results below. -->
-    <Border DockPanel.Dock="Top" Height="1" Background="#2E2E2E" Margin="0,0,0,8" />
+    <!-- Splits the input bar (roots + path + buttons) from the results below;
+         full-width via the negative margin that cancels the 12px inset. -->
+    <Border DockPanel.Dock="Top" Height="1" Background="#2A2A2A" Margin="-12,0,-12,8" />
 
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding IsScanning}">
       <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Margin="12,0,0,0"
@@ -99,7 +100,7 @@
     </StackPanel>
 
     <!-- Splits the results from the footer, mirroring the top-bar divider. -->
-    <Border DockPanel.Dock="Bottom" Height="1" Background="#2E2E2E" Margin="0,8,0,0" />
+    <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
     <ScrollViewer>
       <ItemsControl ItemsSource="{Binding Groups}">
