@@ -22,8 +22,16 @@
                ToolTip.Tip="Shows only files whose kind or extension matches; folders without matches disappear and Export writes exactly what is shown" />
       <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
-        <Button Content="Export…" Click="OnExportClicked" HorizontalAlignment="Stretch"
-                ToolTip.Tip="Save the tree as HTML, CSV, or JSON" />
+        <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        ToolTip.Tip="Save the tree as HTML, CSV, or JSON">
+          <DropDownButton.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="HTML page" Tag="html" Click="OnExportFormatClicked" />
+              <MenuItem Header="CSV rows" Tag="csv" Click="OnExportFormatClicked" />
+              <MenuItem Header="JSON rows" Tag="json" Click="OnExportFormatClicked" />
+            </MenuFlyout>
+          </DropDownButton.Flyout>
+        </DropDownButton>
       </StackPanel>
     </Grid>
 

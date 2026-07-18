@@ -65,8 +65,16 @@
                 IsVisible="{Binding !IsScanning}" HorizontalAlignment="Stretch" />
         <Button Content="Cancel" Click="OnCancelClicked" IsVisible="{Binding IsScanning}"
                 HorizontalAlignment="Stretch" />
-        <Button Content="Export…" Click="OnExportClicked" HorizontalAlignment="Stretch"
-                ToolTip.Tip="Save the groups as HTML, CSV, or JSON" />
+        <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        ToolTip.Tip="Save the groups as HTML, CSV, or JSON">
+          <DropDownButton.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="HTML page" Tag="html" Click="OnExportFormatClicked" />
+              <MenuItem Header="CSV rows" Tag="csv" Click="OnExportFormatClicked" />
+              <MenuItem Header="JSON rows" Tag="json" Click="OnExportFormatClicked" />
+            </MenuFlyout>
+          </DropDownButton.Flyout>
+        </DropDownButton>
       </StackPanel>
     </Grid>
 

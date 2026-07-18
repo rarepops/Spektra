@@ -132,30 +132,29 @@ public partial class DuplicatesWindow : Window
     private static DupeMemberItem? MemberFrom(object? sender) =>
         (sender as MenuItem)?.DataContext as DupeMemberItem;
 
-    private async void OnExportClicked(object? sender, RoutedEventArgs e)
+    // One handler per format, chosen from the Export dropdown (the Tag carries
+    // the extension). The format is explicit up front, so the save dialog only
+    // offers that one type instead of hiding the choice behind the extension.
+    private async void OnExportFormatClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm.LastResult is not { } result) return;
+        if ((sender as MenuItem)?.Tag is not string fmt) return;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export duplicate report",
-            SuggestedFileName = "duplicate-detective-report.html",
-            DefaultExtension = "html",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
-                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
-                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
-            ],
+            SuggestedFileName = $"duplicate-detective-report.{fmt}",
+            DefaultExtension = fmt,
+            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
         });
         if (file is null) return;
         try
         {
-            var ext = Path.GetExtension(file.Name);
-            var text = ext.Equals(".html", StringComparison.OrdinalIgnoreCase)
-                ? HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")
-                : ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
-                    ? Reporting.ToJson(DuplicateScan.ToRows(result))
-                    : Reporting.ToCsv(DuplicateScan.ToRows(result));
+            var text = fmt switch
+            {
+                "csv" => Reporting.ToCsv(DuplicateScan.ToRows(result)),
+                "json" => Reporting.ToJson(DuplicateScan.ToRows(result)),
+                _ => HtmlReport.DupesDocument(result, "Spektra Duplicate Detective"),
+            };
             await using var stream = await file.OpenWriteAsync();
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(text);

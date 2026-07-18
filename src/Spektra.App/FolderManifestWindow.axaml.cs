@@ -100,36 +100,34 @@ public partial class FolderManifestWindow : Window
             _vm.SetError("Drop a folder to list it; single files are ignored.");
     }
 
-    private async void OnExportClicked(object? sender, RoutedEventArgs e)
+    // One handler per format, chosen from the Export dropdown (the Tag carries
+    // the extension). The suggested name is the folder's path made
+    // filename-legal (D:\Music\Zotify becomes D-Music-Zotify.html) plus the
+    // active filter's kinds, so exports of different folders and filters do not
+    // collide; only the chosen type is offered in the save dialog.
+    private async void OnExportFormatClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm.LastRoot is not { } root) return;
+        if ((sender as MenuItem)?.Tag is not string fmt) return;
+        var baseName = string.Join("-",
+                root.Path.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries))
+            + (_vm.ActiveKinds.Count == 0 ? "" : "-" + string.Join("-", _vm.ActiveKinds));
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export folder manifest",
-            // The folder's path made filename-legal (D:\Music\Zotify becomes
-            // D-Music-Zotify.html), plus the active filter's kinds, so exports
-            // of different folders and different filters don't collide.
-            SuggestedFileName = string.Join("-",
-                    root.Path.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries))
-                + (_vm.ActiveKinds.Count == 0 ? "" : "-" + string.Join("-", _vm.ActiveKinds))
-                + ".html",
-            DefaultExtension = "html",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
-                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
-                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
-            ],
+            SuggestedFileName = $"{baseName}.{fmt}",
+            DefaultExtension = fmt,
+            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
         });
         if (file is null) return;
         try
         {
-            var ext = Path.GetExtension(file.Name);
-            var text = ext.Equals(".html", StringComparison.OrdinalIgnoreCase)
-                ? HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")
-                : ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
-                    ? Reporting.ToJson(FolderManifest.ToRows(root))
-                    : Reporting.ToCsv(FolderManifest.ToRows(root));
+            var text = fmt switch
+            {
+                "csv" => Reporting.ToCsv(FolderManifest.ToRows(root)),
+                "json" => Reporting.ToJson(FolderManifest.ToRows(root)),
+                _ => HtmlReport.ManifestDocument(root, "Spektra Folder Manifest"),
+            };
             await using var stream = await file.OpenWriteAsync();
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(text);
