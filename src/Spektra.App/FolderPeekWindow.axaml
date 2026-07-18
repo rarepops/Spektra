@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:Spektra.App"
+        x:Class="Spektra.App.FolderPeekWindow"
+        Title="Folder Peek" Width="760" Height="640"
+        Background="#111111" Foreground="#CCCCCC" FontSize="13"
+        DragDrop.AllowDrop="True">
+  <DockPanel Margin="12">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Folder}" Foreground="#EEEEEE"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                 ToolTip.Tip="{Binding Folder}" />
+      <TextBox x:Name="PeekPathBox" Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
+               MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               PlaceholderText="Paste or type a folder path and press Enter"
+               KeyDown="OnPeekPathKeyDown"
+               ToolTip.Tip="Peeks the folder; dragging a folder from Explorer works too" />
+      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
+        <Button Content="Peek…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
+        <Button Content="Export…" Click="OnExportClicked" HorizontalAlignment="Stretch"
+                ToolTip.Tip="Save the tree as HTML, CSV, or JSON" />
+      </StackPanel>
+    </Grid>
+
+    <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Text="{Binding FooterText}"
+               Foreground="#999999" FontSize="12" />
+
+    <TreeView ItemsSource="{Binding RootItems}" Background="Transparent">
+      <TreeView.Styles>
+        <Style Selector="TreeViewItem">
+          <Setter Property="MinHeight" Value="22" />
+          <Setter Property="Padding" Value="2,1" />
+        </Style>
+        <Style Selector="TreeView > TreeViewItem">
+          <Setter Property="IsExpanded" Value="True" />
+        </Style>
+      </TreeView.Styles>
+      <TreeView.DataTemplates>
+        <TreeDataTemplate DataType="app:PeekFolderItem" ItemsSource="{Binding Children}">
+          <TextBlock Text="{Binding Header}" Foreground="#EEEEEE" />
+        </TreeDataTemplate>
+        <DataTemplate DataType="app:PeekFileItem">
+          <StackPanel Orientation="Horizontal" Spacing="8" ToolTip.Tip="{Binding Path}">
+            <TextBlock Text="{Binding Name}" />
+            <TextBlock Text="{Binding Kind}" Foreground="{Binding KindBrush}" FontSize="12"
+                       VerticalAlignment="Center" />
+            <TextBlock Text="{Binding SizeText}" Foreground="#999999" FontSize="12"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </DataTemplate>
+      </TreeView.DataTemplates>
+    </TreeView>
+  </DockPanel>
+</Window>

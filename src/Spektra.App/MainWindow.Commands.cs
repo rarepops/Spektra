@@ -196,4 +196,19 @@ public partial class MainWindow
         _dupesWindow.Closed += (_, _) => _dupesWindow = null;
         _dupesWindow.Show(this);
     }
+
+    private FolderPeekWindow? _peekWindow;
+
+    private void OnFolderPeekClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_peekWindow is not null)
+        {
+            _peekWindow.Activate();
+            return;
+        }
+        // No ffmpeg gate: peeking never decodes, it only lists and reads cache.
+        _peekWindow = new FolderPeekWindow(new FolderPeekViewModel(_vm.Settings), _vm.Settings);
+        _peekWindow.Closed += (_, _) => _peekWindow = null;
+        _peekWindow.Show(this);
+    }
 }
