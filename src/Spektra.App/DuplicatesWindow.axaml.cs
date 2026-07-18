@@ -8,7 +8,7 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-/// The Duplicate Destroyer window: modeless, one instance (MainWindow manages
+/// The Duplicate Detective window: modeless, one instance (MainWindow manages
 /// that), view and export only. Placement persists via AppSettings.
 public partial class DuplicatesWindow : Window
 {
@@ -62,7 +62,7 @@ public partial class DuplicatesWindow : Window
             // Roots and placement are this window's to persist; Task 6's view
             // model deliberately never saves (view + export only).
             if (!SettingsStore.Save(SettingsStore.DefaultPath, _settings))
-                _vm.SetError("Could not save the Duplicate Destroyer settings.");
+                _vm.SetError("Could not save the Duplicate Detective settings.");
         };
     }
 
@@ -138,7 +138,7 @@ public partial class DuplicatesWindow : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export duplicate report",
-            SuggestedFileName = "duplicate-destroyer-report.html",
+            SuggestedFileName = "duplicate-detective-report.html",
             DefaultExtension = "html",
             FileTypeChoices =
             [
@@ -152,7 +152,7 @@ public partial class DuplicatesWindow : Window
         {
             var ext = Path.GetExtension(file.Name);
             var text = ext.Equals(".html", StringComparison.OrdinalIgnoreCase)
-                ? HtmlReport.DupesDocument(result, "Spektra Duplicate Destroyer")
+                ? HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")
                 : ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
                     ? Reporting.ToJson(DuplicateScan.ToRows(result))
                     : Reporting.ToCsv(DuplicateScan.ToRows(result));

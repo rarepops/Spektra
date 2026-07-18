@@ -178,7 +178,7 @@ public partial class MainWindow
 
     private DuplicatesWindow? _dupesWindow;
 
-    private void OnDuplicateDestroyerClicked(object? sender, RoutedEventArgs e)
+    private void OnDuplicateDetectiveClicked(object? sender, RoutedEventArgs e)
     {
         if (_dupesWindow is not null)
         {

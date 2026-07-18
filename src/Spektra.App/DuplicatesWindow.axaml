@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:app="clr-namespace:Spektra.App"
         x:Class="Spektra.App.DuplicatesWindow"
-        Title="Duplicate Destroyer" Width="980" Height="680"
+        Title="Duplicate Detective" Width="980" Height="680"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
   <!-- The Fluent Expander is generous by default (48px header, wide content

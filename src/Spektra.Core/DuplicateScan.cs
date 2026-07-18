@@ -23,7 +23,7 @@ public sealed record DupesRow(
     double? CutoffKhz, string Bandwidth, string Integrity, long SizeBytes,
     double Sameness, bool FoundByAudio, bool Winner, string QualityConfidence, string QualityReason);
 
-/// The Duplicate Destroyer engine: enumerate roots, get every file's audit row and
+/// The Duplicate Detective engine: enumerate roots, get every file's audit row and
 /// fingerprint (cached; one decode covers both when neither is cached), match
 /// fingerprints, group, rank quality. View-only by design: nothing here ever
 /// touches the files themselves.

@@ -53,7 +53,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
-    public async Task DuplicateDestroyerState_DefaultsNull_AndRoundTrips()
+    public async Task DuplicateDetectiveState_DefaultsNull_AndRoundTrips()
     {
         var defaults = SettingsStore.Load(SettingsPath);
         await Assert.That(defaults.DuplicateRoots).IsNull();
