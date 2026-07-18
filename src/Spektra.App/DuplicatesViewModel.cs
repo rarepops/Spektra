@@ -53,7 +53,7 @@ internal static class Format
     };
 }
 
-/// The Dedup Destroyer window's state: scan roots, one run at a time, groups
+/// The Duplicate Destroyer window's state: scan roots, one run at a time, groups
 /// sorted by reclaimable bytes. View and export only; nothing here can touch
 /// the files themselves.
 public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings) : ObservableObject

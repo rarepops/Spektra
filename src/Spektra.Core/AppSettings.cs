@@ -38,7 +38,7 @@ public sealed class AppSettings
     public bool CheckForUpdatesOnStartup { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
 
-    // Dedup Destroyer window state: scan roots and window placement persist
+    // Duplicate Destroyer window state: scan roots and window placement persist
     // across sessions. Null = the window has never been used.
     public List<string>? DuplicateRoots { get; set; }
     public WindowPlacement? DuplicatesWindow { get; set; }

@@ -376,7 +376,7 @@ internal static class Program
 
         if (html is not null)
         {
-            try { File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Dedup Destroyer")); }
+            try { File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Duplicate Destroyer")); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Console.Error.WriteLine($"spektra dupes: {ex.Message}");

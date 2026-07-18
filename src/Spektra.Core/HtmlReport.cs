@@ -4,7 +4,7 @@ namespace Spektra.Core;
 
 /// Self-contained HTML reports: one file, inline CSS, no external requests,
 /// dark theme matching the app (background #111, the tree-marker palette for
-/// verdict colors). Two document kinds share the scaffold: the Dedup
+/// verdict colors). Two document kinds share the scaffold: the Duplicate
 /// Destroyer duplicate groups and the folder-audit table (AuditDocument,
 /// added beside DupesDocument). Every data-derived string goes through
 /// Escape; nothing from a file name or tag may reach the page raw.
@@ -14,7 +14,7 @@ public static class HtmlReport
     {
         var body = new StringBuilder();
         body.Append($"<h1>{Escape(title)}</h1>");
-        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Dedup Destroyer · view-only report</p>");
+        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Duplicate Destroyer · view-only report</p>");
         body.Append("<div class=\"stats\">");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Count}</b>groups</span>");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Sum(g => g.Group.Members.Count)}</b>duplicate files</span>");

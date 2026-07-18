@@ -112,7 +112,7 @@
           <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
           <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" />
           <Separator />
-          <MenuItem Header="Dedup _Destroyer…" Click="OnDedupDestroyerClicked" />
+          <MenuItem Header="Duplicate _Destroyer…" Click="OnDuplicateDestroyerClicked" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_Controls" Click="OnControlsClicked" InputGesture="F1" />
