@@ -265,9 +265,15 @@ public sealed class MainWindowViewModel : StatusViewModel
             StatusText = value?.StatusText ?? "";
             StatusIsError = value?.StatusIsError ?? false;
             RaisePropertyChanged(nameof(Selected));
+            RaisePropertyChanged(nameof(CanExportFile));
             SelectedChanged?.Invoke(value);
         }
     }
+
+    /// True only when a single-file tab is active: the "This File as …" export
+    /// items disable otherwise (a folder tab or the empty hint has no one file).
+    /// The "Folder as …" items open their own picker, so they stay enabled.
+    public bool CanExportFile => _selected is DocumentViewModel;
 
     public MainWindowViewModel()
     {

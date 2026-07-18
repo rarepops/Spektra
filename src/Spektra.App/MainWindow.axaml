@@ -95,9 +95,12 @@
           <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
           <Separator />
           <MenuItem Header="Expor_t">
-            <MenuItem Header="This File as _HTML…" Tag="html" Click="OnExportReportClicked" InputGesture="Ctrl+Shift+S" />
-            <MenuItem Header="This File as C_SV…" Tag="csv" Click="OnExportReportClicked" />
-            <MenuItem Header="This File as _JSON…" Tag="json" Click="OnExportReportClicked" />
+            <MenuItem Header="This File as _HTML…" Tag="html" Click="OnExportReportClicked"
+                      IsEnabled="{Binding CanExportFile}" InputGesture="Ctrl+Shift+S" />
+            <MenuItem Header="This File as C_SV…" Tag="csv" Click="OnExportReportClicked"
+                      IsEnabled="{Binding CanExportFile}" />
+            <MenuItem Header="This File as _JSON…" Tag="json" Click="OnExportReportClicked"
+                      IsEnabled="{Binding CanExportFile}" />
             <Separator />
             <MenuItem Header="Folder as HT_ML…" Tag="html" Click="OnExportFolderReportClicked" />
             <MenuItem Header="Folder as CS_V…" Tag="csv" Click="OnExportFolderReportClicked" />
