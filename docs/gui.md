@@ -4,7 +4,7 @@ Everyday workflows for the desktop app. Keyboard shortcuts are listed in the [RE
 
 ## Inspect a file
 
-Open files via **File → Open…** (Ctrl+O), drag-and-drop, or `spektra <file>` on the command line. Each file gets a tab (Ctrl+Tab switches, Ctrl+W or middle-click closes). The header shows codec · sample rate · bit depth · channels · duration · bitrate; hovering it shows the file's full path, and right-clicking it offers Copy path. The spectrogram paints progressively while the file is analyzed.
+Open files via **File → Open…** (Ctrl+O), drag-and-drop, or `spektra <file>` on the command line. Each file gets a tab (Ctrl+Tab switches, Ctrl+W or middle-click closes). The header shows codec · sample rate · bit depth · channels · duration · bitrate; hovering it shows the file's full path, and right-clicking it offers Copy path. The spectrogram paints progressively while the file is analyzed. The plot is labelled on every edge: a "Frequency (kHz)" axis with ticks on the left, a "Time" axis with ticks on the bottom, and a colour key on the right marked in dBFS (decibels relative to full scale, 0 being the loudest possible sample).
 
 When the overview finishes, the **bandwidth banner** appears under the header:
 
