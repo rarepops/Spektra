@@ -316,7 +316,15 @@ internal static class Program
             : r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) };
 
         var rows = results.Select(RowFor).ToList();
-        if (html is not null) File.WriteAllText(html, HtmlReport.AuditDocument(rows, "Spektra audit"));
+        if (html is not null)
+        {
+            try { File.WriteAllText(html, HtmlReport.AuditDocument(rows, "Spektra audit")); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"spektra audit: {ex.Message}");
+                return 2;
+            }
+        }
 
         if (fmt != OutFormat.Text)
         {
@@ -366,7 +374,15 @@ internal static class Program
         }
         finally { cache?.Dispose(); }
 
-        if (html is not null) File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Dedup Destroyer"));
+        if (html is not null)
+        {
+            try { File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Dedup Destroyer")); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"spektra dupes: {ex.Message}");
+                return 2;
+            }
+        }
 
         if (fmt != OutFormat.Text)
         {
