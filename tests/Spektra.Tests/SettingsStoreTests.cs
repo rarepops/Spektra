@@ -72,22 +72,22 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
-    public async Task FolderPeekState_DefaultsNull_AndRoundTrips()
+    public async Task FolderManifestState_DefaultsNull_AndRoundTrips()
     {
         var defaults = SettingsStore.Load(SettingsPath);
-        await Assert.That(defaults.FolderPeekFolder).IsNull();
-        await Assert.That(defaults.FolderPeekWindow).IsNull();
+        await Assert.That(defaults.FolderManifestFolder).IsNull();
+        await Assert.That(defaults.FolderManifestWindow).IsNull();
 
         var s = new AppSettings
         {
-            FolderPeekFolder = @"D:\Music",
-            FolderPeekWindow = new WindowPlacement(20, 40, 900, 600, false),
+            FolderManifestFolder = @"D:\Music",
+            FolderManifestWindow = new WindowPlacement(20, 40, 900, 600, false),
         };
         SettingsStore.Save(SettingsPath, s);
 
         var r = SettingsStore.Load(SettingsPath);
-        await Assert.That(r.FolderPeekFolder).IsEqualTo(@"D:\Music");
-        await Assert.That(r.FolderPeekWindow).IsEqualTo(new WindowPlacement(20, 40, 900, 600, false));
+        await Assert.That(r.FolderManifestFolder).IsEqualTo(@"D:\Music");
+        await Assert.That(r.FolderManifestWindow).IsEqualTo(new WindowPlacement(20, 40, 900, 600, false));
     }
 
     [Test]

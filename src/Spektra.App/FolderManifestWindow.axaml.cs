@@ -7,26 +7,26 @@ using Spektra.Core;
 
 namespace Spektra.App;
 
-/// The Folder Peek window: modeless, one instance (MainWindow manages that),
+/// The Folder Manifest window: modeless, one instance (MainWindow manages that),
 /// view-only forever. Placement and the last folder persist via AppSettings.
-public partial class FolderPeekWindow : Window
+public partial class FolderManifestWindow : Window
 {
-    private readonly FolderPeekViewModel _vm;
+    private readonly FolderManifestViewModel _vm;
     private readonly AppSettings _settings;
     private PixelPoint _normalPosition;
     private Size _normalSize;
 
     // Parameterless constructor for the XAML previewer/loader only (AVLN3001),
     // same pattern as DuplicatesWindow.
-    public FolderPeekWindow() : this(new FolderPeekViewModel(new AppSettings()), new AppSettings()) { }
+    public FolderManifestWindow() : this(new FolderManifestViewModel(new AppSettings()), new AppSettings()) { }
 
-    public FolderPeekWindow(FolderPeekViewModel vm, AppSettings settings)
+    public FolderManifestWindow(FolderManifestViewModel vm, AppSettings settings)
     {
         InitializeComponent();
         _vm = vm;
         _settings = settings;
         DataContext = vm;
-        if (settings.FolderPeekWindow is { } p)
+        if (settings.FolderManifestWindow is { } p)
         {
             // Same safeguarded restore as DuplicatesWindow: min-clamped rect,
             // only applied while it still intersects a screen.
@@ -55,16 +55,16 @@ public partial class FolderPeekWindow : Window
             var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
             var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
             if (size.Width >= 100 && size.Height >= 100)
-                _settings.FolderPeekWindow = new WindowPlacement(
+                _settings.FolderManifestWindow = new WindowPlacement(
                     pos.X, pos.Y, (int)size.Width, (int)size.Height, WindowState == WindowState.Maximized);
             // The last folder is written by the view model on load; the window
             // owns flushing everything to disk on close.
             if (!SettingsStore.Save(SettingsStore.DefaultPath, _settings))
-                _vm.SetError("Could not save the Folder Peek settings.");
+                _vm.SetError("Could not save the Folder Manifest settings.");
         };
         Opened += (_, _) =>
         {
-            if (settings.FolderPeekFolder is { } last && Directory.Exists(last))
+            if (settings.FolderManifestFolder is { } last && Directory.Exists(last))
                 _ = _vm.LoadAsync(last);
         };
     }
@@ -73,17 +73,17 @@ public partial class FolderPeekWindow : Window
     {
         var picked = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Peek a folder",
+            Title = "Pick a folder",
             AllowMultiple = false,
         });
         if (picked.Count > 0 && picked[0].TryGetLocalPath() is { } path)
             _ = _vm.LoadAsync(path);
     }
 
-    private void OnPeekPathKeyDown(object? sender, KeyEventArgs e)
+    private void OnManifestPathKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
-        if (_vm.TryLoadTyped(PeekPathBox.Text)) PeekPathBox.Text = "";
+        if (_vm.TryLoadTyped(ManifestPathBox.Text)) ManifestPathBox.Text = "";
         e.Handled = true;
     }
 
@@ -97,7 +97,7 @@ public partial class FolderPeekWindow : Window
             .FirstOrDefault(p => p is not null);
         if (folder is not null) _ = _vm.LoadAsync(folder);
         else if (items.Count > 0)
-            _vm.SetError("Drop a folder to peek inside it; single files are ignored.");
+            _vm.SetError("Drop a folder to list it; single files are ignored.");
     }
 
     private async void OnExportClicked(object? sender, RoutedEventArgs e)
@@ -105,8 +105,8 @@ public partial class FolderPeekWindow : Window
         if (_vm.LastRoot is not { } root) return;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export folder peek",
-            SuggestedFileName = "folder-peek.html",
+            Title = "Export folder manifest",
+            SuggestedFileName = "folder-manifest.html",
             DefaultExtension = "html",
             FileTypeChoices =
             [
@@ -120,10 +120,10 @@ public partial class FolderPeekWindow : Window
         {
             var ext = Path.GetExtension(file.Name);
             var text = ext.Equals(".html", StringComparison.OrdinalIgnoreCase)
-                ? HtmlReport.PeekDocument(root, "Spektra Folder Peek")
+                ? HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")
                 : ext.Equals(".json", StringComparison.OrdinalIgnoreCase)
-                    ? Reporting.ToJson(FolderPeek.ToRows(root))
-                    : Reporting.ToCsv(FolderPeek.ToRows(root));
+                    ? Reporting.ToJson(FolderManifest.ToRows(root))
+                    : Reporting.ToCsv(FolderManifest.ToRows(root));
             await using var stream = await file.OpenWriteAsync();
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(text);

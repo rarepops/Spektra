@@ -2,11 +2,11 @@ using Spektra.Core;
 
 namespace Spektra.Tests;
 
-public sealed class FolderPeekTests
+public sealed class FolderManifestTests
 {
     private static string NewDir()
     {
-        var d = Path.Combine(Path.GetTempPath(), "spektra-peek-" + Guid.NewGuid().ToString("N"));
+        var d = Path.Combine(Path.GetTempPath(), "spektra-manifest-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(d);
         return d;
     }
@@ -25,7 +25,7 @@ public sealed class FolderPeekTests
             Directory.CreateDirectory(Path.Combine(d, "A-sub"));
             File.WriteAllText(Path.Combine(d, "zeta.txt"), "x");
             File.WriteAllText(Path.Combine(d, "Alpha.txt"), "x");
-            var root = FolderPeek.Build(d, cache: null);
+            var root = FolderManifest.Build(d, cache: null);
             await Assert.That(root.Folders.Select(f => f.Name).SequenceEqual(["A-sub", "b-sub"])).IsTrue();
             await Assert.That(root.Files.Select(f => f.Name).SequenceEqual(["Alpha.txt", "zeta.txt"])).IsTrue();
         }
@@ -41,7 +41,7 @@ public sealed class FolderPeekTests
             File.WriteAllText(Path.Combine(d, "cover.JPG"), "x");
             File.WriteAllText(Path.Combine(d, "README"), "x");
             File.WriteAllText(Path.Combine(d, "song.FLAC"), "x");
-            var root = FolderPeek.Build(d, cache: null);
+            var root = FolderManifest.Build(d, cache: null);
             var kinds = root.Files.ToDictionary(f => f.Name, f => f.Kind);
             await Assert.That(kinds["cover.JPG"]).IsEqualTo("jpg");
             await Assert.That(kinds["README"]).IsEqualTo("none");
@@ -65,7 +65,7 @@ public sealed class FolderPeekTests
             File.WriteAllText(Path.Combine(sub, "b.flac"), "x");
             File.WriteAllText(Path.Combine(d, "cover.jpg"), "x");
             File.WriteAllText(Path.Combine(d, "notes.nfo"), "x");
-            var root = FolderPeek.Build(d, cache: null);
+            var root = FolderManifest.Build(d, cache: null);
             // 2 flac beats 1 jpg / 1 nfo; ties order by name (jpg before nfo)
             await Assert.That(root.Rollup).IsEqualTo("2 flac · 1 jpg · 1 nfo");
             await Assert.That(root.Folders.Single(f => f.Name == "disc1").Rollup).IsEqualTo("2 flac");
@@ -91,13 +91,13 @@ public sealed class FolderPeekTests
             {
                 // cached truth: it is really an mp3 transcode hiding in a flac
                 cache.Put(target, Row(Path.GetFileName(audio), codec: "mp3", bandwidth: "Lossy", cutoffHz: 16_000), hasProblem: true);
-                var root = FolderPeek.Build(d, cache);
+                var root = FolderManifest.Build(d, cache);
                 var file = root.Files.Single(f => f.Name == "MISLABELED.FLAC");
                 await Assert.That(file.Kind).IsEqualTo("mp3");
                 await Assert.That(file.Severity).IsEqualTo(RowSeverity.Problem);
 
-                // pins the enum-to-string severity conversion in PeekRow
-                var rows = FolderPeek.ToRows(root);
+                // pins the enum-to-string severity conversion in ManifestRow
+                var rows = FolderManifest.ToRows(root);
                 var row = rows.Single(r => r.Name == "MISLABELED.FLAC");
                 await Assert.That(row.Severity).IsEqualTo("Problem");
             }
@@ -121,9 +121,9 @@ public sealed class FolderPeekTests
                     Row("song.flac", codec: "mp3"), hasProblem: false);
                 // rewrite the file: size and mtime change, the entry goes stale
                 File.WriteAllBytes(audio, new byte[4096]);
-                var root = FolderPeek.Build(d, cache);
+                var root = FolderManifest.Build(d, cache);
                 // AuditCache runs WAL mode: cache.db-shm/-wal sit alongside cache.db
-                // in the same peeked directory, so filter by name rather than Single().
+                // in the same listed directory, so filter by name rather than Single().
                 var file = root.Files.Single(f => f.Name == "song.flac");
                 await Assert.That(file.Kind).IsEqualTo("flac");
                 await Assert.That(file.Severity).IsNull();
@@ -136,8 +136,8 @@ public sealed class FolderPeekTests
     [Test]
     public async Task UnenumerableRoot_YieldsSingleUnreadableNode()
     {
-        var missing = Path.Combine(Path.GetTempPath(), "spektra-peek-missing-" + Guid.NewGuid().ToString("N"));
-        var root = FolderPeek.Build(missing, cache: null);
+        var missing = Path.Combine(Path.GetTempPath(), "spektra-manifest-missing-" + Guid.NewGuid().ToString("N"));
+        var root = FolderManifest.Build(missing, cache: null);
         await Assert.That(root.Unreadable).IsTrue();
         await Assert.That(root.Rollup).IsEqualTo("unreadable");
         await Assert.That(root.Folders).IsEmpty();
@@ -147,7 +147,7 @@ public sealed class FolderPeekTests
     [Test]
     public async Task MalformedRoot_YieldsUnreadableNode_NotAThrow()
     {
-        var root = FolderPeek.Build("", cache: null);
+        var root = FolderManifest.Build("", cache: null);
         await Assert.That(root.Unreadable).IsTrue();
         await Assert.That(root.Rollup).IsEqualTo("unreadable");
         await Assert.That(root.Folders).IsEmpty();
@@ -164,8 +164,8 @@ public sealed class FolderPeekTests
             Directory.CreateDirectory(sub);
             File.WriteAllText(Path.Combine(sub, "front.jpg"), "x");
             File.WriteAllText(Path.Combine(d, "track.mp3"), "x");
-            var root = FolderPeek.Build(d, cache: null);
-            var rows = FolderPeek.ToRows(root);
+            var root = FolderManifest.Build(d, cache: null);
+            var rows = FolderManifest.ToRows(root);
             // subfolder contents come before this folder's own files, matching the tree top to bottom
             await Assert.That(rows.Select(r => r.Name).SequenceEqual(["front.jpg", "track.mp3"])).IsTrue();
             await Assert.That(rows[0].Kind).IsEqualTo("jpg");

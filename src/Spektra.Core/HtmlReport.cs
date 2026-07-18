@@ -6,7 +6,7 @@ namespace Spektra.Core;
 /// dark theme matching the app (background #111, the tree-marker palette for
 /// verdict colors). Three document kinds share the scaffold: the Duplicate
 /// Destroyer duplicate groups, the folder-audit table (AuditDocument, added
-/// beside DupesDocument), and the Folder Peek collapsible tree (PeekDocument).
+/// beside DupesDocument), and the Folder Manifest collapsible tree (ManifestDocument).
 /// Every data-derived string goes through Escape; nothing from a file name or
 /// tag may reach the page raw.
 public static class HtmlReport
@@ -88,24 +88,24 @@ public static class HtmlReport
         return Page(title, body.ToString(), SortScript);
     }
 
-    /// Folder Peek: one collapsible tree, folders as nested details/summary
+    /// Folder Manifest: one collapsible tree, folders as nested details/summary
     /// (root and its direct children open, deeper levels start closed), files
     /// as rows with a kind chip colored by cached severity.
-    public static string PeekDocument(PeekFolder root, string title)
+    public static string ManifestDocument(ManifestFolder root, string title)
     {
         var body = new StringBuilder();
         body.Append($"<h1>{Escape(title)}</h1>");
-        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Folder Peek · view-only report</p>");
+        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Folder Manifest · view-only report</p>");
         body.Append($"<p class=\"gen\">{Escape(root.Path)}</p>");
-        AppendPeekFolder(body, root, depth: 0);
+        AppendManifestFolder(body, root, depth: 0);
         return Page(title, body.ToString());
     }
 
-    private static void AppendPeekFolder(StringBuilder body, PeekFolder f, int depth)
+    private static void AppendManifestFolder(StringBuilder body, ManifestFolder f, int depth)
     {
         body.Append(depth <= 1 ? "<details open>" : "<details>");
         body.Append($"<summary>{Escape(f.Name)} <span class=\"badge\">{Escape(f.Rollup)}</span></summary>");
-        foreach (var sub in f.Folders) AppendPeekFolder(body, sub, depth + 1);
+        foreach (var sub in f.Folders) AppendManifestFolder(body, sub, depth + 1);
         foreach (var file in f.Files)
         {
             var cls = file.Severity switch
@@ -115,7 +115,7 @@ public static class HtmlReport
                 RowSeverity.Clean => "kind ok",
                 _ => "kind",
             };
-            body.Append($"<div class=\"peek-file\">{Escape(file.Name)} <span class=\"{cls}\">{Escape(file.Kind)}</span> <span class=\"peek-size\">{Bytes(file.SizeBytes)}</span></div>");
+            body.Append($"<div class=\"manifest-file\">{Escape(file.Name)} <span class=\"{cls}\">{Escape(file.Kind)}</span> <span class=\"manifest-size\">{Bytes(file.SizeBytes)}</span></div>");
         }
         body.Append("</details>");
     }
@@ -172,10 +172,10 @@ public static class HtmlReport
         .audio{color:#6fb3e8;font-size:12px}
         .ok{color:#4a7a4a}.sus{color:#d8b060}.bad{color:#e08080}.up{color:#b08fd8}
         details details{margin-left:1.25em}
-        .peek-file{padding:3px 10px;border-bottom:1px solid #222222;font-size:13px}
+        .manifest-file{padding:3px 10px;border-bottom:1px solid #222222;font-size:13px}
         .kind{border:1px solid #444444;border-radius:8px;padding:0 8px;font-size:12px;color:#999999}
         .kind.ok{color:#4a7a4a}.kind.sus{color:#d8b060}.kind.bad{color:#e08080}
-        .peek-size{color:#999999;font-size:12px}
+        .manifest-size{color:#999999;font-size:12px}
         </style></head><body>
         {{body}}
         {{(script.Length > 0 ? $"<script>{script}</script>" : "")}}

@@ -1,30 +1,30 @@
 namespace Spektra.Core;
 
-/// One file in a peeked folder: Kind is the chip label (the cached codec when
+/// One file in a listed folder: Kind is the chip label (the cached codec when
 /// the audit cache knows this exact file, its extension otherwise), Severity
 /// is the cached verdict severity (null when undecorated).
-public sealed record PeekFile(string Name, string Path, string Kind, RowSeverity? Severity, long SizeBytes);
+public sealed record ManifestFile(string Name, string Path, string Kind, RowSeverity? Severity, long SizeBytes);
 
 /// One folder level: subfolders first, then files, both sorted; Rollup
 /// summarizes every descendant file by chip label ("2 flac · 1 jpg · 1 nfo",
 /// "empty", or "unreadable").
-public sealed record PeekFolder(
-    string Name, string Path, IReadOnlyList<PeekFolder> Folders,
-    IReadOnlyList<PeekFile> Files, string Rollup, bool Unreadable);
+public sealed record ManifestFolder(
+    string Name, string Path, IReadOnlyList<ManifestFolder> Folders,
+    IReadOnlyList<ManifestFile> Files, string Rollup, bool Unreadable);
 
 /// Flat export row, depth-first in display order (a folder's subfolder files
 /// come before its own files, matching the tree read top to bottom).
-public sealed record PeekRow(string Path, string Name, string Kind, string? Severity, long SizeBytes);
+public sealed record ManifestRow(string Path, string Name, string Kind, string? Severity, long SizeBytes);
 
-/// Folder Peek: list EVERYTHING under one folder with an honest type chip per
+/// Folder Manifest: list EVERYTHING under one folder with an honest type chip per
 /// file, never decoding audio. Read-only by identity: no file operation
 /// exists here or ever will.
-public static class FolderPeek
+public static class FolderManifest
 {
     /// Enumerates one root into a display-ready tree. A directory that cannot
     /// be enumerated (denied, vanished, nonexistent) becomes an Unreadable
     /// node and the walk continues; a bad root yields one Unreadable root.
-    public static PeekFolder Build(string root, AuditCache? cache)
+    public static ManifestFolder Build(string root, AuditCache? cache)
     {
         string full;
         try
@@ -35,26 +35,26 @@ public static class FolderPeek
         {
             // A root that cannot even be resolved is the same story as one
             // that cannot be enumerated: one unreadable node, never a throw.
-            return new PeekFolder(root, root, [], [], "unreadable", Unreadable: true);
+            return new ManifestFolder(root, root, [], [], "unreadable", Unreadable: true);
         }
         return BuildNode(full, NameOf(full), cache).Node;
     }
 
-    public static IReadOnlyList<PeekRow> ToRows(PeekFolder root)
+    public static IReadOnlyList<ManifestRow> ToRows(ManifestFolder root)
     {
-        var rows = new List<PeekRow>();
+        var rows = new List<ManifestRow>();
         Walk(root);
         return rows;
 
-        void Walk(PeekFolder f)
+        void Walk(ManifestFolder f)
         {
             foreach (var sub in f.Folders) Walk(sub);
             foreach (var file in f.Files)
-                rows.Add(new PeekRow(file.Path, file.Name, file.Kind, file.Severity?.ToString(), file.SizeBytes));
+                rows.Add(new ManifestRow(file.Path, file.Name, file.Kind, file.Severity?.ToString(), file.SizeBytes));
         }
     }
 
-    private static (PeekFolder Node, Dictionary<string, int> Counts) BuildNode(
+    private static (ManifestFolder Node, Dictionary<string, int> Counts) BuildNode(
         string path, string name, AuditCache? cache)
     {
         string[] dirs, files;
@@ -65,13 +65,13 @@ public static class FolderPeek
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return (new PeekFolder(name, path, [], [], "unreadable", Unreadable: true), []);
+            return (new ManifestFolder(name, path, [], [], "unreadable", Unreadable: true), []);
         }
         Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
         Array.Sort(files, StringComparer.OrdinalIgnoreCase);
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        var folders = new PeekFolder[dirs.Length];
+        var folders = new ManifestFolder[dirs.Length];
         for (var i = 0; i < dirs.Length; i++)
         {
             var (child, childCounts) = BuildNode(dirs[i], NameOf(dirs[i]), cache);
@@ -80,17 +80,17 @@ public static class FolderPeek
                 counts[kind] = counts.GetValueOrDefault(kind) + n;
         }
 
-        var peekFiles = new PeekFile[files.Length];
+        var manifestFiles = new ManifestFile[files.Length];
         for (var i = 0; i < files.Length; i++)
         {
-            peekFiles[i] = BuildFile(files[i], cache);
-            counts[peekFiles[i].Kind] = counts.GetValueOrDefault(peekFiles[i].Kind) + 1;
+            manifestFiles[i] = BuildFile(files[i], cache);
+            counts[manifestFiles[i].Kind] = counts.GetValueOrDefault(manifestFiles[i].Kind) + 1;
         }
 
-        return (new PeekFolder(name, path, folders, peekFiles, Rollup(counts), Unreadable: false), counts);
+        return (new ManifestFolder(name, path, folders, manifestFiles, Rollup(counts), Unreadable: false), counts);
     }
 
-    private static PeekFile BuildFile(string path, AuditCache? cache)
+    private static ManifestFile BuildFile(string path, AuditCache? cache)
     {
         var name = Path.GetFileName(path);
         var ext = Path.GetExtension(path);
@@ -103,7 +103,7 @@ public static class FolderPeek
             if (cache is not null
                 && BandwidthReport.AudioExtensions.Contains(ext.ToLowerInvariant())
                 && cache.TryGet(new AuditTarget(path, info.Length, info.LastWriteTimeUtc.Ticks)) is { } hit)
-                return new PeekFile(
+                return new ManifestFile(
                     name, path, hit.Row.Codec?.ToLowerInvariant() ?? kind,
                     FolderAudit.RowSeverityOf(hit.Row), size);
         }
@@ -111,7 +111,7 @@ public static class FolderPeek
         {
             // stat or cache hiccup mid-walk: keep the extension chip and a zero size
         }
-        return new PeekFile(name, path, kind, Severity: null, size);
+        return new ManifestFile(name, path, kind, Severity: null, size);
     }
 
     private static string Rollup(Dictionary<string, int> counts) =>

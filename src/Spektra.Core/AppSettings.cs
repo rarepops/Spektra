@@ -43,10 +43,10 @@ public sealed class AppSettings
     public List<string>? DuplicateRoots { get; set; }
     public WindowPlacement? DuplicatesWindow { get; set; }
 
-    // Folder Peek window state: the last peeked folder and the window
+    // Folder Manifest window state: the last listed folder and the window
     // placement persist so the window reopens where it left off.
-    public string? FolderPeekFolder { get; set; }
-    public WindowPlacement? FolderPeekWindow { get; set; }
+    public string? FolderManifestFolder { get; set; }
+    public WindowPlacement? FolderManifestWindow { get; set; }
 
     /// The registry resolves the palette name (built-in or custom) to a baked
     /// LUT; db-pinned custom stops resolve against the current floor.

@@ -197,18 +197,18 @@ public partial class MainWindow
         _dupesWindow.Show(this);
     }
 
-    private FolderPeekWindow? _peekWindow;
+    private FolderManifestWindow? _manifestWindow;
 
-    private void OnFolderPeekClicked(object? sender, RoutedEventArgs e)
+    private void OnFolderManifestClicked(object? sender, RoutedEventArgs e)
     {
-        if (_peekWindow is not null)
+        if (_manifestWindow is not null)
         {
-            _peekWindow.Activate();
+            _manifestWindow.Activate();
             return;
         }
-        // No ffmpeg gate: peeking never decodes, it only lists and reads cache.
-        _peekWindow = new FolderPeekWindow(new FolderPeekViewModel(_vm.Settings), _vm.Settings);
-        _peekWindow.Closed += (_, _) => _peekWindow = null;
-        _peekWindow.Show(this);
+        // No ffmpeg gate: the manifest never decodes, it only lists and reads cache.
+        _manifestWindow = new FolderManifestWindow(new FolderManifestViewModel(_vm.Settings), _vm.Settings);
+        _manifestWindow.Closed += (_, _) => _manifestWindow = null;
+        _manifestWindow.Show(this);
     }
 }
