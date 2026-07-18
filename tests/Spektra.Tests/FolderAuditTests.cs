@@ -262,4 +262,20 @@ public class FolderAuditTests
         var expected = meta.Duration.TotalSeconds * meta.SampleRate;
         await Assert.That(Math.Abs(observed - expected) < meta.SampleRate * 0.2).IsTrue();
     }
+
+    [Test]
+    public async Task RowSeverityOf_MatchesEntrySeverity_ForTheCommonShapes()
+    {
+        // The row-only mirror must agree with the entry-based classifier
+        // (exports carry bare rows). Codec/bitrate/cutoff combinations cover
+        // problem (transcode), suspect (high wall in flac), and clean.
+        var transcode = new AuditRow("f", "flac", 44100, 2, 900_000, 60, "Lossy", 16_000, "Ok", 0, 0, false, null);
+        var highWall = new AuditRow("f", "flac", 44100, 2, 900_000, 60, "Suspicious", 20_500, "Ok", 0, 0, false, null);
+        var honest = new AuditRow("f", "mp3", 44100, 2, 320_000, 60, "Lossy", 20_500, "Ok", 0, 0, false, null);
+        var corrupt = new AuditRow("f", "flac", 44100, 2, 900_000, 60, "Lossless", null, "Corrupt", 9, 0, false, null);
+        await Assert.That(FolderAudit.RowSeverityOf(transcode)).IsEqualTo(RowSeverity.Problem);
+        await Assert.That(FolderAudit.RowSeverityOf(highWall)).IsEqualTo(RowSeverity.Suspect);
+        await Assert.That(FolderAudit.RowSeverityOf(honest)).IsEqualTo(RowSeverity.Clean);
+        await Assert.That(FolderAudit.RowSeverityOf(corrupt)).IsEqualTo(RowSeverity.Problem);
+    }
 }

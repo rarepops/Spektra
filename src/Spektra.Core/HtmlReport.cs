@@ -61,6 +61,40 @@ public static class HtmlReport
         return Page(title, body.ToString());
     }
 
+    public static string AuditDocument(IReadOnlyList<AuditRow> rows, string title)
+    {
+        var body = new StringBuilder();
+        body.Append($"<h1>{Escape(title)}</h1>");
+        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra · {rows.Count} file(s)</p>");
+        body.Append("<table><thead><tr>");
+        foreach (var h in (string[])["File", "Codec", "Bandwidth", "Cutoff kHz", "Integrity", "Errors", "Dropouts"])
+            body.Append($"<th onclick=\"sortBy(this)\">{h}</th>");
+        body.Append("</tr></thead><tbody>");
+        foreach (var row in rows)
+        {
+            var sev = (int)FolderAudit.RowSeverityOf(row);
+            var sevClass = sev == 2 ? "bad" : sev == 1 ? "sus" : "ok";
+            body.Append($"<tr data-sev=\"{sev}\">");
+            body.Append($"<td>{Escape(row.File)}</td>");
+            body.Append($"<td>{Escape(row.Codec)}</td>");
+            body.Append($"<td class=\"{(row.Bandwidth is "Upsampled" ? "up" : sevClass)}\">{Escape(row.Bandwidth)}</td>");
+            body.Append($"<td data-v=\"{row.CutoffHz ?? 0}\">{(row.CutoffHz is { } c ? $"{c / 1000.0:0.0}" : "")}</td>");
+            body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");
+            body.Append($"<td>{row.DecodeErrors}</td><td>{row.Dropouts}</td>");
+            body.Append("</tr>");
+        }
+        body.Append("</tbody></table>");
+        return Page(title, body.ToString(), SortScript);
+    }
+
+    private const string SortScript = """
+        function sortBy(th){const t=th.closest('table'),i=[...th.parentNode.children].indexOf(th),
+        asc=th.dataset.asc!=='1';th.dataset.asc=asc?'1':'0';
+        [...t.tBodies[0].rows].sort((a,b)=>{const x=a.cells[i].dataset.v??a.cells[i].textContent,
+        y=b.cells[i].dataset.v??b.cells[i].textContent;const n=parseFloat(x)-parseFloat(y);
+        return (isNaN(n)?x.localeCompare(y):n)*(asc?1:-1);}).forEach(r=>t.tBodies[0].appendChild(r));}
+        """;
+
     private static string IntegrityClass(string integrity) => integrity switch
     {
         "Ok" => "ok",
@@ -83,8 +117,9 @@ public static class HtmlReport
     };
 
     /// The shared page scaffold: dark theme, tree-marker verdict palette,
-    /// generic table styling that both document kinds use.
-    private static string Page(string title, string body) => $$"""
+    /// generic table styling that both document kinds use. A non-empty
+    /// `script` (the audit table's sort handler) is inlined before </body>.
+    private static string Page(string title, string body, string script = "") => $$"""
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><title>{{Escape(title)}}</title><style>
         body{background:#111111;color:#cccccc;font:14px 'Segoe UI',sans-serif;margin:24px;max-width:1200px}
@@ -105,6 +140,7 @@ public static class HtmlReport
         .ok{color:#4a7a4a}.sus{color:#d8b060}.bad{color:#e08080}.up{color:#b08fd8}
         </style></head><body>
         {{body}}
+        {{(script.Length > 0 ? $"<script>{script}</script>" : "")}}
         </body></html>
         """;
 }

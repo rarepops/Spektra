@@ -46,6 +46,22 @@ public static class FolderAudit
             ? RowSeverity.Suspect
             : RowSeverity.Clean;
 
+    /// Severity from a bare row, for exports that carry AuditRow without the
+    /// entry. Mirrors AuditResult.HasProblem plus Severity: any change to
+    /// either must be reflected here (the shared test pins the common shapes).
+    public static RowSeverity RowSeverityOf(AuditRow row)
+    {
+        var problem = row.Error is not null
+            || row.Bandwidth is "Upsampled"
+            || (row.Bandwidth is "Lossy"
+                && TranscodeCheck.IsSuspectLossy(row.Codec, row.BitrateBps, row.Channels, row.CutoffHz))
+            || row.Integrity is "Corrupt" or "Error";
+        return problem ? RowSeverity.Problem
+            : row.Integrity is "Suspect" || IsSuspectBandwidth(row)
+                ? RowSeverity.Suspect
+                : RowSeverity.Clean;
+    }
+
     // A Suspicious verdict colors the row yellow, unless it is an honest
     // lossy file's own high-bitrate wall (nothing a listener can act on).
     private static bool IsSuspectBandwidth(AuditRow row) =>

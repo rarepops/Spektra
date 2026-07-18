@@ -52,4 +52,28 @@ public sealed class HtmlReportTests
         await Assert.That(HtmlReport.DupesDocument(with, "T")).Contains("tiny.wav");
         await Assert.That(HtmlReport.DupesDocument(without, "T")).DoesNotContain("not analyzed");
     }
+
+    [Test]
+    public async Task AuditDocument_RendersEveryRow_WithSeverityClasses()
+    {
+        var rows = new List<AuditRow>
+        {
+            Row("clean.flac"),
+            Row("transcode.flac", "flac", "Lossy", 16_000),
+            Row("broken.mp3", "mp3", "Lossy", 16_000, integrity: "Corrupt"),
+        };
+        var html = HtmlReport.AuditDocument(rows, "Audit");
+        await Assert.That(html).StartsWith("<!DOCTYPE html>");
+        await Assert.That(html).Contains("clean.flac");
+        await Assert.That(html.Split("data-sev=\"2\"").Length - 1).IsEqualTo(2); // transcode + corrupt
+        await Assert.That(html).Contains("sortBy(this)");
+    }
+
+    [Test]
+    public async Task AuditDocument_EscapesFileNames()
+    {
+        var html = HtmlReport.AuditDocument([Row("<img src=x>.flac")], "T");
+        await Assert.That(html).DoesNotContain("<img src=x>");
+        await Assert.That(html).Contains("&lt;img src=x&gt;");
+    }
 }
