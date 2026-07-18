@@ -175,4 +175,25 @@ public partial class MainWindow
     }
 
     private void OnDismissUpdateClicked(object? sender, RoutedEventArgs e) => _vm.DismissUpdate();
+
+    private DuplicatesWindow? _dupesWindow;
+
+    private void OnDedupDestroyerClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_dupesWindow is not null)
+        {
+            _dupesWindow.Activate();
+            return;
+        }
+        if (_vm.Ffmpeg is not { } ffmpeg) return;
+        var vm = new DuplicatesViewModel(ffmpeg, _vm.Settings);
+        vm.OpenFileRequested += path =>
+        {
+            _vm.OpenFile(path);
+            Activate();
+        };
+        _dupesWindow = new DuplicatesWindow(vm, _vm.Settings);
+        _dupesWindow.Closed += (_, _) => _dupesWindow = null;
+        _dupesWindow.Show(this);
+    }
 }

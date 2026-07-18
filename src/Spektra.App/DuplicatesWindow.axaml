@@ -1,0 +1,96 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="clr-namespace:Spektra.App"
+        x:Class="Spektra.App.DuplicatesWindow"
+        Title="Dedup Destroyer" Width="980" Height="680"
+        Background="#111111" Foreground="#CCCCCC" FontSize="13">
+  <DockPanel Margin="12">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+      <ListBox x:Name="RootsList" Grid.Column="0" ItemsSource="{Binding Roots}"
+               MaxHeight="92" Background="#181818"
+               ToolTip.Tip="Folders the scan walks; duplicates are found across all of them" />
+      <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
+        <Button Content="Add folder…" Click="OnAddFolderClicked" HorizontalAlignment="Stretch" />
+        <Button Content="Remove" Click="OnRemoveFolderClicked" HorizontalAlignment="Stretch" />
+        <Button Content="Scan" Click="OnScanClicked" IsEnabled="{Binding CanScan}"
+                IsVisible="{Binding !IsScanning}" HorizontalAlignment="Stretch" />
+        <Button Content="Cancel" Click="OnCancelClicked" IsVisible="{Binding IsScanning}"
+                HorizontalAlignment="Stretch" />
+        <Button Content="Export…" Click="OnExportClicked" HorizontalAlignment="Stretch"
+                ToolTip.Tip="Save the groups as HTML, CSV, or JSON" />
+      </StackPanel>
+    </Grid>
+
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding IsScanning}">
+      <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Margin="12,0,0,0"
+                 VerticalAlignment="Center" Foreground="#999999" FontSize="12" />
+      <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}" Height="8" />
+    </DockPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
+      <Expander IsVisible="{Binding !!NotAnalyzed.Count}">
+        <Expander.Header>
+          <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}" />
+        </Expander.Header>
+        <ItemsControl ItemsSource="{Binding NotAnalyzed}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock FontSize="12" Foreground="#999999">
+                <Run Text="{Binding Path}" /><Run Text=" · " /><Run Text="{Binding Reason}" />
+              </TextBlock>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Expander>
+      <TextBlock Text="{Binding FooterText}" Foreground="#999999" FontSize="12" />
+    </StackPanel>
+
+    <ScrollViewer>
+      <ItemsControl ItemsSource="{Binding Groups}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="app:DupeGroupItem">
+            <Expander IsExpanded="{Binding IsSmall}" Margin="0,3"
+                      BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
+              <Expander.Header>
+                <TextBlock Text="{Binding Headline}" Foreground="#EEEEEE" />
+              </Expander.Header>
+              <StackPanel>
+                <ItemsControl ItemsSource="{Binding Members}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="app:DupeMemberItem">
+                      <Grid ColumnDefinitions="18,12,*,Auto" Margin="4,2"
+                            Background="Transparent" DoubleTapped="OnMemberDoubleTapped"
+                            ToolTip.Tip="{Binding Path}">
+                        <Grid.ContextMenu>
+                          <ContextMenu>
+                            <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+                            <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+                          </ContextMenu>
+                        </Grid.ContextMenu>
+                        <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
+                                   IsVisible="{Binding IsWinner}"
+                                   ToolTip.Tip="The copy worth keeping" />
+                        <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
+                                 Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
+                        <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                          <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Detail}" Foreground="#999999" FontSize="12" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="3" Text="found by audio" Foreground="#6FB3E8"
+                                   FontSize="12" VerticalAlignment="Center"
+                                   IsVisible="{Binding FoundByAudio}"
+                                   ToolTip.Tip="Matched by fingerprint despite an unrelated name" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding QualityLine}" Foreground="#999999" FontSize="12"
+                           Margin="34,2,0,4" />
+              </StackPanel>
+            </Expander>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</Window>
