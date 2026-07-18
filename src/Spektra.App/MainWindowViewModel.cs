@@ -325,12 +325,7 @@ public sealed class MainWindowViewModel : StatusViewModel
             return;
         }
         var folder = new FolderViewModel(_ffmpeg, path, Settings);
-        folder.OpenFileRequested += (file, checkIntegrity) =>
-        {
-            OpenFile(file);
-            if (checkIntegrity && Selected is DocumentViewModel doc)
-                doc.QueueIntegrityCheck();
-        };
+        folder.OpenFileRequested += file => OpenFile(file);
         Tabs.Add(folder);
         Selected = folder;
         RememberRecent(path);

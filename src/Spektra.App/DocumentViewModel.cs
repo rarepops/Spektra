@@ -252,11 +252,11 @@ public sealed class DocumentViewModel : TabViewModelBase
             var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
             Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
 
-            if (_integrityQueued)
-            {
-                _integrityQueued = false;
-                _ = RunIntegrityCheckAsync();
-            }
+            // Every load checks integrity by itself: a damaged file must not
+            // hide behind a green bandwidth banner until someone remembers
+            // Ctrl+I. Runs beside the overview decode; the banner and lane
+            // appear whenever the result lands.
+            _ = RunIntegrityCheckAsync();
 
             await RestartComputeLoopAsync(meta);
         }
@@ -445,24 +445,15 @@ public sealed class DocumentViewModel : TabViewModelBase
     }
 
     private CancellationTokenSource? _integrityCts;
-    private bool _integrityQueued;
 
-    /// Ctrl+I / the Analyze menu: the first use runs the check; once results
-    /// exist it toggles them (banner + lane) without re-analyzing.
+    /// Ctrl+I / the Analyze menu: toggles the results (banner + lane) without
+    /// re-analyzing; the check itself runs automatically at load, so this only
+    /// starts one when none is in yet.
     public Task ToggleIntegrityAsync()
     {
         if (Integrity is null) return RunIntegrityCheckAsync();
         IntegrityVisible = !IntegrityVisible;
         return Task.CompletedTask;
-    }
-
-    /// From the folder grid: right after OpenFile the metadata is still
-    /// loading (RunIntegrityCheckAsync would no-op), so remember the request
-    /// and run it once the load lands.
-    public void QueueIntegrityCheck()
-    {
-        if (Metadata is not null) _ = RunIntegrityCheckAsync();
-        else _integrityQueued = true;
     }
 
     /// Runs the integrity check (corrupt frames, missing data, truncation) on a
