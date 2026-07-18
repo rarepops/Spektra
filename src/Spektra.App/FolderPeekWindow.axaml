@@ -32,7 +32,7 @@
           <Setter Property="Padding" Value="2,1" />
         </Style>
         <Style Selector="TreeView > TreeViewItem">
-          <Setter Property="IsExpanded" Value="True" />
+          <Setter Property="IsExpanded" Value="{Binding IsExpanded}" />
         </Style>
       </TreeView.Styles>
       <TreeView.DataTemplates>

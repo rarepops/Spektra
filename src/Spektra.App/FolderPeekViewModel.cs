@@ -22,6 +22,11 @@ public sealed class PeekFolderItem
     public string Header { get; }
     public IReadOnlyList<object> Children { get; }
     public bool IsUnreadable { get; }
+
+    /// Bound by the window's top-level TreeViewItem style; only the root
+    /// starts open (a styled direct value cannot set IsExpanded, a bound
+    /// item property can).
+    public bool IsExpanded { get; set; }
 }
 
 /// One file leaf: the chip label plus its severity brush (NotAnalyzed grey
@@ -98,7 +103,7 @@ public sealed class FolderPeekViewModel(AppSettings settings) : ObservableObject
             LastRoot = root;
             Folder = folder;
             settings.FolderPeekFolder = folder;
-            RootItems.Add(new PeekFolderItem(root));
+            RootItems.Add(new PeekFolderItem(root) { IsExpanded = true });
             var (files, folders) = CountOf(root);
             FooterText = root.Unreadable
                 ? $"Could not read {folder}"
