@@ -10,7 +10,9 @@ namespace Spektra.App.Controls;
 /// static and touched only on the render (UI) thread.
 static class SpectrogramDraw
 {
-    public const double RulerLeft = 46, RulerBottom = 22, LegendWidth = 64, Pad = 8;
+    // RulerLeft/RulerBottom reserve room for the tick labels AND the axis
+    // titles ("Frequency (kHz)" up the left edge, "Time" under the bottom).
+    public const double RulerLeft = 62, RulerBottom = 38, LegendWidth = 64, Pad = 8;
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#9A9A9A"));
     private static readonly Typeface Font = new("Segoe UI, Inter, sans-serif");
 
@@ -146,16 +148,41 @@ static class SpectrogramDraw
     {
         var x = plot.Right + 10;
         const double w = 14;
+        // Shorter than the plot and vertically centered, so it reads as a key
+        // rather than a second frequency axis.
+        var barTop = plot.Top + plot.Height * 0.15;
+        var barH = Math.Max(1, plot.Height * 0.7);
         var brushes = LegendBrushes(display);
-        var h = plot.Height / LegendSteps;
+        var h = barH / LegendSteps;
         for (var i = 0; i < LegendSteps; i++)
-            ctx.FillRectangle(brushes[i], new Rect(x, plot.Top + i * h, w, h + 1));
+            ctx.FillRectangle(brushes[i], new Rect(x, barTop + i * h, w, h + 1));
         float floor = display.DbFloor, ceil = display.DbCeil;
         for (var db = (int)ceil; db >= floor; db -= 30)
         {
-            var y = plot.Top + (ceil - db) / (ceil - floor) * plot.Height;
+            var y = barTop + (ceil - db) / (ceil - floor) * barH;
             Text(ctx, $"{db}", x + w + 4, y - 7);
         }
+        // The unit these numbers are in: decibels relative to full scale.
+        Text(ctx, "dBFS", x, barTop + barH + 6);
+    }
+
+    /// Single-file viewer axis titles: "Frequency (kHz)" up the left edge and
+    /// "Time" centered under the bottom ruler. The compare surface keeps its
+    /// denser stacked layout to the ticks alone and does not call this.
+    public static void AxisTitles(DrawingContext ctx, Rect plot)
+    {
+        var time = GetText("Time");
+        Text(ctx, "Time", plot.Left + (plot.Width - time.Width) / 2, plot.Bottom + 21);
+
+        // Rotated -90° so it reads bottom-to-top; centered on the plot's left
+        // edge, clear of the frequency tick labels.
+        var freq = GetText("Frequency (kHz)");
+        double cx = 13, cy = plot.Top + plot.Height / 2;
+        using (ctx.PushTransform(
+            Matrix.CreateTranslation(-freq.Width / 2, -freq.Height / 2)
+            * Matrix.CreateRotation(-Math.PI / 2)
+            * Matrix.CreateTranslation(cx, cy)))
+            ctx.DrawText(freq, new Point(0, 0));
     }
 
     private static float _divClamp = float.NaN;
@@ -199,6 +226,14 @@ static class SpectrogramDraw
 
     public static void Text(DrawingContext ctx, string text, double x, double y, bool alignRight = false)
     {
+        var ft = GetText(text);
+        ctx.DrawText(ft, new Point(alignRight ? x - ft.Width : x, y));
+    }
+
+    // Cached FormattedText, also used by AxisTitles to measure a title's width
+    // (for centering) and height (for the rotation pivot).
+    private static FormattedText GetText(string text)
+    {
         if (!TextCache.TryGetValue(text, out var ft))
         {
             if (TextCache.Count > 512) TextCache.Clear();
@@ -206,6 +241,6 @@ static class SpectrogramDraw
                 FlowDirection.LeftToRight, Font, 11, TextBrush);
             TextCache[text] = ft;
         }
-        ctx.DrawText(ft, new Point(alignRight ? x - ft.Width : x, y));
+        return ft;
     }
 }

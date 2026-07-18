@@ -103,6 +103,7 @@ public sealed class SpectrogramView : Control
                 SpectrogramDraw.IntegrityLane(ctx, plot,
                     IntegrityStrip.Segments(integrity, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1));
             SpectrogramDraw.TimeRuler(ctx, plot, doc.Metadata.Duration.TotalSeconds, vp.T0, vp.T1);
+            SpectrogramDraw.AxisTitles(ctx, plot);
         }
         SpectrogramDraw.Legend(ctx, plot, _display);
         DrawSpectrumOverlay(ctx, plot);
