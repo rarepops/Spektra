@@ -71,6 +71,7 @@ public sealed class FolderPeekViewModel(AppSettings settings) : ObservableObject
     /// clear its input box.
     public bool TryLoadTyped(string? raw)
     {
+        if (IsLoading) return false;
         var path = (raw ?? "").Trim().Trim('"').Trim();
         if (path.Length == 0) return false;
         if (!Directory.Exists(path))
