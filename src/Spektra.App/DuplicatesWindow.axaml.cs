@@ -43,6 +43,7 @@ public partial class DuplicatesWindow : Window
                 _normalSize = new Size(Width, Height);
             }
         }
+        AddHandler(DragDrop.DropEvent, OnDrop);
         PositionChanged += (_, e) =>
         {
             if (WindowState == WindowState.Normal) _normalPosition = e.Point;
@@ -80,6 +81,28 @@ public partial class DuplicatesWindow : Window
     private void OnRemoveFolderClicked(object? sender, RoutedEventArgs e)
     {
         if (RootsList.SelectedItem is string root) _vm.RemoveRoot(root);
+    }
+
+    private void OnRootPathKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        if (_vm.TryAddTypedRoot(RootPathBox.Text)) RootPathBox.Text = "";
+        e.Handled = true;
+    }
+
+    // Same shape as MainWindow's OnDrop, folders only: this window scans
+    // roots, so a dropped file has nothing to attach to.
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        var items = e.DataTransfer.TryGetFiles()?.ToList() ?? [];
+        var folders = items.OfType<IStorageFolder>()
+            .Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null)
+            .Cast<string>()
+            .ToList();
+        foreach (var folder in folders) _vm.AddRoot(folder);
+        if (folders.Count == 0 && items.Count > 0)
+            _vm.SetError("Drop folders to add scan roots; single files are ignored.");
     }
 
     private void OnScanClicked(object? sender, RoutedEventArgs e) => _ = _vm.ScanAsync();

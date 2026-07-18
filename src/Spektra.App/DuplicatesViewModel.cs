@@ -93,6 +93,24 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         RaisePropertyChanged(nameof(CanScan));
     }
 
+    /// Add a pasted or typed path. The picker and drag-drop always hand back
+    /// real folders, but typed text can be wrong, so check it exists first.
+    /// Windows "Copy as path" wraps the path in quotes, so strip those too.
+    /// Returns true once the path is a real folder (added or already present)
+    /// so the caller can clear its input box.
+    public bool TryAddTypedRoot(string? raw)
+    {
+        var path = (raw ?? "").Trim().Trim('"').Trim();
+        if (path.Length == 0) return false;
+        if (!Directory.Exists(path))
+        {
+            SetError($"Not a folder: {path}");
+            return false;
+        }
+        AddRoot(path);
+        return true;
+    }
+
     public void RemoveRoot(string folder)
     {
         Roots.Remove(folder);
