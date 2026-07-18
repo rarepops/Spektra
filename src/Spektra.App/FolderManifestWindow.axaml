@@ -6,7 +6,7 @@
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
   <DockPanel Margin="12">
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Folder}" Foreground="#EEEEEE"
                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                  ToolTip.Tip="{Binding Folder}" />
@@ -15,7 +15,12 @@
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnManifestPathKeyDown"
                ToolTip.Tip="Lists the folder; dragging a folder from Explorer works too" />
-      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
+      <TextBox Grid.Row="2" Grid.Column="0" Margin="0,6,0,0"
+               MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               Text="{Binding FilterText}"
+               PlaceholderText="Filter by extension, space separated: flac jpg nfo"
+               ToolTip.Tip="Shows only files whose kind or extension matches; folders without matches disappear and Export writes exactly what is shown" />
+      <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
         <Button Content="Export…" Click="OnExportClicked" HorizontalAlignment="Stretch"
                 ToolTip.Tip="Save the tree as HTML, CSV, or JSON" />

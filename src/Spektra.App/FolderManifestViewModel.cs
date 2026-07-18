@@ -61,6 +61,24 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     private string _footerText = "Pick a folder to see its manifest.";
     public string FooterText { get => _footerText; private set => Set(ref _footerText, value); }
 
+    /// The filter box text: kinds/extensions, space separated. Applied live
+    /// against the already-built tree, so typing never touches the disk.
+    private string _filterText = "";
+    public string FilterText
+    {
+        get => _filterText;
+        set { if (Set(ref _filterText, value)) ApplyFilter(); }
+    }
+
+    /// Normalized kinds of the active filter, empty when showing everything.
+    /// The window appends these to the suggested export file name.
+    public IReadOnlyList<string> ActiveKinds { get; private set; } = [];
+
+    /// The unfiltered build of the current folder; LastRoot is the filtered
+    /// view of it, and exports read LastRoot so they write what is shown.
+    private ManifestFolder? _fullRoot;
+    private string _cacheNote = "";
+
     public ManifestFolder? LastRoot { get; private set; }
 
     /// The window's error surface (the footer line doubles as the status bar).
@@ -89,6 +107,7 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         IsLoading = true;
         RootItems.Clear();
         LastRoot = null;
+        _fullRoot = null;
         var cacheNote = "";
         try
         {
@@ -101,14 +120,11 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
             try { root = await Task.Run(() => FolderManifest.Build(folder, localCache)); }
             finally { cache?.Dispose(); }
 
-            LastRoot = root;
+            _fullRoot = root;
+            _cacheNote = cacheNote;
             Folder = folder;
             settings.FolderManifestFolder = folder;
-            RootItems.Add(new ManifestFolderItem(root) { IsExpanded = true });
-            var (files, folders) = CountOf(root);
-            FooterText = root.Unreadable
-                ? $"Could not read {folder}"
-                : $"{files} files · {folders} folders · {root.Rollup}{cacheNote}";
+            ApplyFilter();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -118,6 +134,21 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         {
             IsLoading = false;
         }
+    }
+
+    private void ApplyFilter()
+    {
+        if (_fullRoot is not { } full) return;
+        ActiveKinds = FolderManifest.ParseKinds(FilterText);
+        var root = ActiveKinds.Count == 0 ? full : FolderManifest.Filter(full, ActiveKinds);
+        LastRoot = root;
+        RootItems.Clear();
+        RootItems.Add(new ManifestFolderItem(root) { IsExpanded = true });
+        var (files, folders) = CountOf(root);
+        var filterNote = ActiveKinds.Count == 0 ? "" : $" · filter: {string.Join(" · ", ActiveKinds)}";
+        FooterText = root.Unreadable
+            ? $"Could not read {Folder}"
+            : $"{files} files · {folders} folders · {root.Rollup}{filterNote}{_cacheNote}";
     }
 
     private static (int Files, int Folders) CountOf(ManifestFolder f)

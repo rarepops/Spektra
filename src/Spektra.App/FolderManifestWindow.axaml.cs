@@ -107,9 +107,12 @@ public partial class FolderManifestWindow : Window
         {
             Title = "Export folder manifest",
             // The folder's path made filename-legal (D:\Music\Zotify becomes
-            // D-Music-Zotify.html), so exports of different folders don't collide.
+            // D-Music-Zotify.html), plus the active filter's kinds, so exports
+            // of different folders and different filters don't collide.
             SuggestedFileName = string.Join("-",
-                root.Path.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)) + ".html",
+                    root.Path.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries))
+                + (_vm.ActiveKinds.Count == 0 ? "" : "-" + string.Join("-", _vm.ActiveKinds))
+                + ".html",
             DefaultExtension = "html",
             FileTypeChoices =
             [

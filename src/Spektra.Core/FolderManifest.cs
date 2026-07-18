@@ -54,6 +54,57 @@ public static class FolderManifest
         }
     }
 
+    /// Splits filter box text into normalized kind tokens: spaces, commas and
+    /// semicolons separate; "*.flac", ".FLAC" and "flac" all mean "flac".
+    public static IReadOnlyList<string> ParseKinds(string? text) =>
+        [.. (text ?? "")
+            .Split([' ', ',', ';', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => t.TrimStart('*').TrimStart('.').ToLowerInvariant())
+            .Where(t => t.Length > 0)
+            .Distinct()];
+
+    /// Narrows a built tree to the given kinds. A file stays when the filter
+    /// matches its chip kind OR its real extension (a transcode's chip says
+    /// mp3 while the file is named .flac; both queries should find it).
+    /// Folders left with nothing are pruned, except the root and unreadable
+    /// nodes; rollups are recomputed over what remains.
+    public static ManifestFolder Filter(ManifestFolder root, IReadOnlyCollection<string> kinds)
+    {
+        var set = kinds as IReadOnlySet<string> ?? kinds.ToHashSet(StringComparer.Ordinal);
+        return FilterNode(root, set, isRoot: true).Node!;
+    }
+
+    private static (ManifestFolder? Node, Dictionary<string, int> Counts) FilterNode(
+        ManifestFolder f, IReadOnlySet<string> kinds, bool isRoot)
+    {
+        if (f.Unreadable) return (f, []);
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var folders = new List<ManifestFolder>();
+        foreach (var sub in f.Folders)
+        {
+            var (child, childCounts) = FilterNode(sub, kinds, isRoot: false);
+            if (child is null) continue;
+            folders.Add(child);
+            foreach (var (kind, n) in childCounts)
+                counts[kind] = counts.GetValueOrDefault(kind) + n;
+        }
+
+        var files = f.Files.Where(file => Matches(file, kinds)).ToList();
+        foreach (var file in files)
+            counts[file.Kind] = counts.GetValueOrDefault(file.Kind) + 1;
+
+        if (!isRoot && folders.Count == 0 && files.Count == 0) return (null, counts);
+        return (f with { Folders = folders, Files = files, Rollup = Rollup(counts) }, counts);
+    }
+
+    private static bool Matches(ManifestFile file, IReadOnlySet<string> kinds)
+    {
+        if (kinds.Contains(file.Kind)) return true;
+        var ext = Path.GetExtension(file.Name);
+        return kinds.Contains(ext.Length > 1 ? ext[1..].ToLowerInvariant() : "none");
+    }
+
     private static (ManifestFolder Node, Dictionary<string, int> Counts) BuildNode(
         string path, string name, AuditCache? cache)
     {

@@ -155,6 +155,88 @@ public sealed class FolderManifestTests
     }
 
     [Test]
+    public async Task ParseKinds_NormalizesSeparatorsDotsStarsAndCase()
+    {
+        var kinds = FolderManifest.ParseKinds(" *.FLAC, .jpg;nfo\tflac  ");
+        await Assert.That(kinds.SequenceEqual(["flac", "jpg", "nfo"])).IsTrue();
+        await Assert.That(FolderManifest.ParseKinds(null)).IsEmpty();
+        await Assert.That(FolderManifest.ParseKinds("  . *. ")).IsEmpty();
+    }
+
+    [Test]
+    public async Task Filter_KeepsMatches_PrunesEmptyFolders_RecountsRollups()
+    {
+        var d = NewDir();
+        try
+        {
+            var disc = Path.Combine(d, "disc1");
+            var art = Path.Combine(d, "art");
+            Directory.CreateDirectory(disc);
+            Directory.CreateDirectory(art);
+            File.WriteAllText(Path.Combine(disc, "a.flac"), "x");
+            File.WriteAllText(Path.Combine(disc, "a.nfo"), "x");
+            File.WriteAllText(Path.Combine(art, "front.jpg"), "x");
+            File.WriteAllText(Path.Combine(d, "notes.txt"), "x");
+            var root = FolderManifest.Build(d, cache: null);
+
+            var filtered = FolderManifest.Filter(root, ["flac", "jpg"]);
+            // art and disc1 both keep a match; notes.txt and a.nfo are gone
+            await Assert.That(filtered.Rollup).IsEqualTo("1 flac · 1 jpg");
+            await Assert.That(filtered.Files).IsEmpty();
+            await Assert.That(filtered.Folders.Select(f => f.Name).SequenceEqual(["art", "disc1"])).IsTrue();
+            await Assert.That(filtered.Folders[1].Files.Single().Name).IsEqualTo("a.flac");
+            await Assert.That(filtered.Folders[1].Rollup).IsEqualTo("1 flac");
+
+            // a filter matching nothing keeps the root alone, honestly empty
+            var none = FolderManifest.Filter(root, ["cue"]);
+            await Assert.That(none.Folders).IsEmpty();
+            await Assert.That(none.Files).IsEmpty();
+            await Assert.That(none.Rollup).IsEqualTo("empty");
+
+            // the original tree is untouched (filter is a pure view)
+            await Assert.That(root.Files.Single().Name).IsEqualTo("notes.txt");
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
+    public async Task Filter_MatchesChipKindOrRealExtension()
+    {
+        var d = NewDir();
+        var dbPath = Path.Combine(d, "cache.db");
+        try
+        {
+            // cached as an mp3 transcode: the chip says mp3, the name says .flac
+            var audio = Path.Combine(d, "liar.flac");
+            File.WriteAllBytes(audio, new byte[2048]);
+            var info = new FileInfo(audio);
+            using var cache = AuditCache.Open(dbPath);
+            cache.Put(new AuditTarget(audio, info.Length, info.LastWriteTimeUtc.Ticks),
+                Row("liar.flac", codec: "mp3", bandwidth: "Lossy", cutoffHz: 16_000), hasProblem: true);
+            var root = FolderManifest.Build(d, cache);
+
+            foreach (var query in (string[])["mp3", "flac"])
+                await Assert.That(FolderManifest.Filter(root, [query])
+                    .Files.Any(f => f.Name == "liar.flac")).IsTrue();
+            await Assert.That(FolderManifest.Filter(root, ["wav"])
+                .Files.Any(f => f.Name == "liar.flac")).IsFalse();
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
+    public async Task Filter_KeepsUnreadableNodes()
+    {
+        var unreadable = new ManifestFolder("locked", @"C:\locked", [], [], "unreadable", Unreadable: true);
+        var root = new ManifestFolder("lib", @"C:\lib", [unreadable],
+            [new ManifestFile("a.txt", @"C:\lib\a.txt", "txt", null, 1)], "1 txt", Unreadable: false);
+        var filtered = FolderManifest.Filter(root, ["flac"]);
+        // no txt match, but the unreadable child stays: it might hold matches
+        await Assert.That(filtered.Files).IsEmpty();
+        await Assert.That(filtered.Folders.Single().Unreadable).IsTrue();
+    }
+
+    [Test]
     public async Task ToRows_FlattensInDisplayOrder_SeverityAsString()
     {
         var d = NewDir();
