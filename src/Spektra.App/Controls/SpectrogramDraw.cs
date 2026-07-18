@@ -30,6 +30,11 @@ static class SpectrogramDraw
     private static readonly double[] LinFreqSteps = [50.0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000];
     private static readonly double[] TimeSteps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600, 86400];
 
+    // Minimum on-screen spacing between ticks. The tick budget is the axis
+    // length divided by these, so a longer axis fills in more ticks and a
+    // shorter one thins them out instead of using one fixed count everywhere.
+    private const double TimeTickMinPx = 70, FreqTickMinPx = 34;
+
     public static Rect PlotRect(Rect bounds) => new(
         RulerLeft, Pad,
         Math.Max(1, bounds.Width - RulerLeft - LegendWidth - Pad),
@@ -50,11 +55,16 @@ static class SpectrogramDraw
         if (nyquist <= 0) return;
         if (axis.Log)
         {
+            // Fixed decade-ish positions; drop any that would crowd the one
+            // below it, so a short axis thins out (ticks climb, y decreases).
+            var lastY = double.PositiveInfinity;
             foreach (var hz in LogFreqTicks)
             {
                 var q = hz / nyquist;
                 if (q < axis.F0 || q > axis.F1) continue;
                 var y = plot.Bottom - axis.PosOf(q) * plot.Height;
+                if (lastY - y < FreqTickMinPx) continue;
+                lastY = y;
                 ctx.DrawLine(TickPen, new Point(plot.Left - 4, y), new Point(plot.Left, y));
                 var label = hz >= 1000 ? $"{hz / 1000:0.#}k" : $"{hz:0}";
                 Text(ctx, label, plot.Left - 8, y - 7, alignRight: true);
@@ -63,7 +73,7 @@ static class SpectrogramDraw
         }
         var lo = axis.F0 * nyquist;
         var hi = axis.F1 * nyquist;
-        var step = PickStep(LinFreqSteps, hi - lo, 8);
+        var step = PickStep(LinFreqSteps, hi - lo, Math.Max(2, plot.Height / FreqTickMinPx));
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var hz = i * step;
@@ -79,7 +89,7 @@ static class SpectrogramDraw
         if (durationSeconds <= 0) return;
         var lo = t0 * durationSeconds;
         var hi = t1 * durationSeconds;
-        var step = PickStep(TimeSteps, hi - lo, 10);
+        var step = PickStep(TimeSteps, hi - lo, Math.Max(2, plot.Width / TimeTickMinPx));
         for (var i = (long)Math.Ceiling(lo / step - 1e-9); i * step <= hi + 1e-9; i++)
         {
             var t = i * step;
