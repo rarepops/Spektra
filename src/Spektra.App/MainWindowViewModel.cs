@@ -198,6 +198,21 @@ public sealed class MainWindowViewModel : StatusViewModel
         }
     }
 
+    /// Preferences toggle: opened files run the integrity check by
+    /// themselves. Copied into each document at creation, so flipping it
+    /// applies to files opened afterwards.
+    public bool AutoIntegrityCheck
+    {
+        get => Settings.AutoIntegrityCheck;
+        set
+        {
+            if (Settings.AutoIntegrityCheck == value) return;
+            Settings.AutoIntegrityCheck = value;
+            RaisePropertyChanged(nameof(AutoIntegrityCheck));
+            SaveSettings();
+        }
+    }
+
     /// Silent, once-a-day check run at startup. Shows the banner only when an
     /// update is available; stays quiet when up to date or offline.
     public async Task CheckForUpdatesOnStartupAsync()
@@ -284,7 +299,12 @@ public sealed class MainWindowViewModel : StatusViewModel
     public void OpenFile(string path)
     {
         if (_ffmpeg is null) return;
-        var doc = new DocumentViewModel(_ffmpeg, path) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
+        var doc = new DocumentViewModel(_ffmpeg, path)
+        {
+            WindowSize = Settings.FftSize,
+            Window = Settings.WindowFunction,
+            AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+        };
         Tabs.Add(doc);
         Selected = doc;
         RememberRecent(path);

@@ -21,6 +21,9 @@ public sealed class AppSettings
     public WindowFunctionKind WindowFunction { get; set; } = WindowFunctionKind.Hann;
     // Scheduling for the folder tab's Analyze; read when a run starts.
     public AnalysisOrder FolderAnalysisOrder { get; set; } = AnalysisOrder.FolderOrder;
+    // Every opened file runs the integrity check by itself; off makes Ctrl+I
+    // a purely on-demand check again.
+    public bool AutoIntegrityCheck { get; set; } = true;
 
     // Display. Palette is a name: a built-in (old settings files stored the
     // enum by name, so they load unchanged) or a custom palette from

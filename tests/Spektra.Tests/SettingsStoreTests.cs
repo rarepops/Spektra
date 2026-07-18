@@ -91,6 +91,17 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task AutoIntegrityCheck_DefaultsTrue_AndRoundTripsOff()
+    {
+        // Absent from old settings files (and missing files) it must be ON.
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.AutoIntegrityCheck).IsTrue();
+
+        SettingsStore.Save(SettingsPath, new AppSettings { AutoIntegrityCheck = false });
+        await Assert.That(SettingsStore.Load(SettingsPath).AutoIntegrityCheck).IsFalse();
+    }
+
+    [Test]
     public async Task ShowCrosshair_DefaultsOn_AndRoundTrips()
     {
         // Built-ins only: keep the test independent of the user's palette folder.

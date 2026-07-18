@@ -35,6 +35,11 @@ public sealed class DocumentViewModel : TabViewModelBase
     /// expose the channel selector.
     public bool PrefetchChannels { get; init; } = true;
 
+    /// Run the integrity check by itself once metadata lands (the Preferences
+    /// toggle, copied at creation). Comparison documents turn this off: the
+    /// compare layout never shows the integrity banner.
+    public bool AutoIntegrityCheck { get; init; } = true;
+
     public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
 
     public string? ErrorText
@@ -252,11 +257,12 @@ public sealed class DocumentViewModel : TabViewModelBase
             var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
             Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
 
-            // Every load checks integrity by itself: a damaged file must not
-            // hide behind a green bandwidth banner until someone remembers
-            // Ctrl+I. Runs beside the overview decode; the banner and lane
-            // appear whenever the result lands.
-            _ = RunIntegrityCheckAsync();
+            // Every load checks integrity by itself (unless the preference
+            // says otherwise): a damaged file must not hide behind a green
+            // bandwidth banner until someone remembers Ctrl+I. Runs beside
+            // the overview decode; the banner and lane appear whenever the
+            // result lands.
+            if (AutoIntegrityCheck) _ = RunIntegrityCheckAsync();
 
             await RestartComputeLoopAsync(meta);
         }

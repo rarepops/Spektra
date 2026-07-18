@@ -6,7 +6,7 @@
   <StackPanel Margin="20" Spacing="16">
 
     <TextBlock Text="Analysis" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
-    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
       <TextBlock Grid.Row="0" Grid.Column="0" Text="FFT window size" Foreground="#C9C9C9"
                  FontSize="12" VerticalAlignment="Center" />
       <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
@@ -21,6 +21,11 @@
                 ItemsSource="{Binding FolderAnalysisOrders}"
                 SelectedIndex="{Binding FolderAnalysisOrderIndex, Mode=TwoWay}"
                 ToolTip.Tip="Scheduling only (analysis stays parallel) · applies from the next run" />
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="Integrity check" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <CheckBox Grid.Row="3" Grid.Column="1" Content="Run on every opened file" Foreground="#C9C9C9"
+                IsChecked="{Binding AutoIntegrityCheck, Mode=TwoWay}"
+                ToolTip.Tip="Runs in the background beside the spectrogram · applies to files opened afterwards · Ctrl+I works either way" />
     </Grid>
 
     <Border Height="1" Background="#2E2E2E" />

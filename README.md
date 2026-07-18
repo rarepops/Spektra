@@ -34,7 +34,7 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Recent files + window placement remembered across runs
 - Compare two files: stacked spectrograms on a shared time axis, synced zoom/pan, manual + automatic (cross-correlation) time alignment, A/B flip, and a signed A−B difference view (diverging colormap) with a numeric diff score
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
-- Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files; runs automatically on every file opened in the app (Ctrl+I toggles the results) and on demand in the CLI; silent gaps and the missing tail are marked on a lane along the time axis
+- Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files; runs automatically on every file opened in the app (on by default, Preferences toggle; Ctrl+I hides/shows the results) and on demand in the CLI; silent gaps and the missing tail are marked on a lane along the time axis
 - Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor, and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
 ## Keyboard shortcuts

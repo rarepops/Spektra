@@ -71,8 +71,8 @@ public sealed class ComparisonViewModel : TabViewModelBase
     public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB)
     {
         _ffmpeg = ffmpeg;
-        A = new DocumentViewModel(ffmpeg, pathA, Viewport) { PrefetchChannels = false };
-        B = new DocumentViewModel(ffmpeg, pathB, Viewport) { PrefetchChannels = false };
+        A = new DocumentViewModel(ffmpeg, pathA, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false };
+        B = new DocumentViewModel(ffmpeg, pathB, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false };
         TabTitle = $"{A.TabTitle} ⇄ {B.TabTitle}";
         Viewport.Changed += () => { if (_mode == CompareMode.Diff) DiffRequested?.Invoke(); };
     }
