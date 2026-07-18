@@ -41,7 +41,7 @@
     </DockPanel>
 
     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
-      <Expander IsVisible="{Binding !!NotAnalyzed.Count}">
+      <Expander IsVisible="{Binding !!NotAnalyzed.Count}" HorizontalAlignment="Stretch">
         <Expander.Header>
           <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}"
                      Foreground="#CCCCCC" />
@@ -63,7 +63,7 @@
       <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="app:DupeGroupItem">
-            <Expander IsExpanded="{Binding IsSmall}" Margin="0,3"
+            <Expander IsExpanded="{Binding IsSmall}" Margin="0,3" HorizontalAlignment="Stretch"
                       BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
               <Expander.Header>
                 <TextBlock Text="{Binding Headline}" Foreground="#EEEEEE" />
