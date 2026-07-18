@@ -30,7 +30,8 @@
     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Spacing="4">
       <Expander IsVisible="{Binding !!NotAnalyzed.Count}">
         <Expander.Header>
-          <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}" />
+          <TextBlock Text="{Binding NotAnalyzed.Count, StringFormat='{}{0} file(s) not analyzed'}"
+                     Foreground="#CCCCCC" />
         </Expander.Header>
         <ItemsControl ItemsSource="{Binding NotAnalyzed}">
           <ItemsControl.ItemTemplate>
