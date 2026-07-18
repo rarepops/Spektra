@@ -52,8 +52,16 @@
         <ComboBox ItemsSource="{Binding FilterOptions}" SelectedIndex="{Binding FilterIndex, Mode=TwoWay}"
                   MinWidth="140" FontSize="12" VerticalAlignment="Center"
                   ToolTip.Tip="Show rows at this severity and worse" />
-        <Button Content="Export…" Click="OnExportClicked" IsEnabled="{Binding CanExport}"
-                ToolTip.Tip="Save the grid as HTML, CSV, or JSON" />
+        <DropDownButton Content="Export" IsEnabled="{Binding CanExport}" PointerEntered="OnExportHover"
+                        ToolTip.Tip="Hover to pick HTML, CSV, or JSON">
+          <DropDownButton.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="HTML page" Tag="html" Click="OnExportFormatClicked" />
+              <MenuItem Header="CSV rows" Tag="csv" Click="OnExportFormatClicked" />
+              <MenuItem Header="JSON rows" Tag="json" Click="OnExportFormatClicked" />
+            </MenuFlyout>
+          </DropDownButton.Flyout>
+        </DropDownButton>
       </StackPanel>
       <TextBlock DockPanel.Dock="Right" Text="{Binding AnalyzeProgress}"
                  IsVisible="{Binding IsAnalyzing}" FontSize="12" Foreground="#CCCCCC"

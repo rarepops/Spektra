@@ -169,27 +169,31 @@ public partial class FolderView : UserControl
         }
     }
 
-    private async void OnExportClicked(object? sender, RoutedEventArgs e)
+    // Open the format flyout on hover, matching the other export dropdowns.
+    private void OnExportHover(object? sender, PointerEventArgs e)
+    {
+        if ((sender as Button)?.Flyout is { } flyout) flyout.ShowAt((Control)sender!);
+    }
+
+    // One handler per format (the Tag carries the extension); the save dialog is
+    // pre-set to that one type. ReportWriter still selects by the extension.
+    private async void OnExportFormatClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm is null || TopLevel.GetTopLevel(this) is not { } top) return;
+        if ((sender as MenuItem)?.Tag is not string fmt) return;
         var rows = _vm.ExportRows();
         if (rows.Count == 0) return;
         // Sanitize: a drive-root tab title is "Z:\", whose ':' and '\' are
-        // illegal in a file name and break the save dialog (every other export
-        // sanitizes the same way).
+        // illegal in a file name and break the save dialog. GetInvalidFileNameChars
+        // is OS-specific, so this adapts per platform.
         var stem = _vm.TabTitle;
         foreach (var c in Path.GetInvalidFileNameChars()) stem = stem.Replace(c, '_');
         var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export folder report",
-            SuggestedFileName = stem + "-report.csv",
-            DefaultExtension = "csv",
-            FileTypeChoices =
-            [
-                new FilePickerFileType("CSV report") { Patterns = ["*.csv"] },
-                new FilePickerFileType("JSON report") { Patterns = ["*.json"] },
-                new FilePickerFileType("HTML report") { Patterns = ["*.html"] },
-            ],
+            SuggestedFileName = $"{stem}-report.{fmt}",
+            DefaultExtension = fmt,
+            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
         });
         if (file is null) return;
         try
