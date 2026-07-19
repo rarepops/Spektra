@@ -144,17 +144,14 @@ public partial class FolderView : UserControl
         if (Grid.SelectedItem is FolderRow row) _vm?.RequestOpen(row);
     }
 
-    // Double-clicking a file in the tree jumps to its grid row, when it has
-    // one (analyzed) and the current filter and scope show it.
+    // Double-clicking a file in the tree opens it as a spectrogram tab, the
+    // same as the grid; un-analyzed files open too (the viewer analyzes on
+    // load). Folder nodes fall through to the tree's own expand/collapse.
     private void OnTreeDoubleTapped(object? sender, TappedEventArgs e)
     {
-        // A double-click on the checkbox is a (double) check gesture, not
-        // navigation.
+        // A double-click on the checkbox is a (double) check gesture, not open.
         if ((e.Source as Visual)?.FindAncestorOfType<CheckBox>(includeSelf: true) is not null) return;
-        if (Tree.SelectedItem is not FileNodeViewModel file) return;
-        if (_vm?.RowFor(file.FullPath) is not { } row || !Passes(row)) return;
-        Grid.SelectedItem = row;
-        Grid.ScrollIntoView(row, null);
+        if (Tree.SelectedItem is FileNodeViewModel file) _vm?.RequestOpen(file.FullPath);
     }
 
     private void OnGridKeyDown(object? sender, KeyEventArgs e)

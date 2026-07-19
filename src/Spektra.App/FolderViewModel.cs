@@ -222,14 +222,12 @@ public sealed class FolderViewModel : TabViewModelBase
             folder.SetCheckedSilently(value);
     }
 
-    /// Raised when a grid row asks to open as a normal tab; the opened tab
-    /// checks its own integrity automatically, like every load does.
+    /// Raised when a file asks to open as a normal spectrogram tab, from the
+    /// grid or the tree; the opened tab checks its own integrity automatically,
+    /// like every load does.
     public event Action<string>? OpenFileRequested;
-    public void RequestOpen(FolderRow row) => OpenFileRequested?.Invoke(row.FullPath);
-
-    /// The grid row for a path, when that file has been analyzed.
-    public FolderRow? RowFor(string path) =>
-        _rowIndex.TryGetValue(path, out var i) ? Rows[i] : null;
+    public void RequestOpen(string path) => OpenFileRequested?.Invoke(path);
+    public void RequestOpen(FolderRow row) => RequestOpen(row.FullPath);
 
     /// The grid's visibility rule (severity tier + drilldown scope), shared by
     /// the DataGrid's filter and Export so the two can never disagree.
