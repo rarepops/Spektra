@@ -4,6 +4,24 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-07-19
+
+### Added
+- Duplicate Detective, a new window that finds duplicate recordings across one or more folders by listening to the audio rather than trusting filenames or tags. A clean-room chroma fingerprint matches re-encodes, format conversions, and copies that differ only by padding or a small pitch shift; matches are grouped, and each group is ranked by quality (lossless over lossy, higher bitrate over lower) with a confidence and a plain-language reason, so the copy worth keeping is marked. Groups export to HTML, CSV, or JSON, and the command line gains a `dupes` verb.
+- Folder Manifest, a new window that lays out a folder as a tree with a type chip per file (its real codec once analyzed, the extension until then), Name, Kind, and Size columns, and a per-folder rollup. An extension filter narrows the tree, and the export writes exactly the rows the filter is showing, to HTML, CSV, or JSON.
+- Every opened file runs its integrity check automatically on load, so a corrupt or truncated file is flagged the moment it opens instead of waiting for Ctrl+I. A Preferences toggle turns this off.
+- The spectrogram gained axis titles (Time along the bottom in minutes and seconds, Frequency up the left in kilohertz) and a labelled decibels-below-full-scale legend that sits shorter than the view. Tick density on the time, frequency, and legend scales adapts to the plot's pixel size, staying readable from a small window to full screen.
+- Self-contained dark HTML reports for the folder audit, Duplicate Detective, and Folder Manifest, styled to match the app; the command line's `audit` and `dupes` verbs accept `--html`. Artist, title, and album tags are now read from the container where present.
+
+### Changed
+- Export is a dropdown that lists HTML, CSV, and JSON directly and opens on hover, on the toolbar buttons and in the File menu alike. The File menu splits Export (the current file) from Audit Folder and greys out the current-file entries when no file tab is open.
+- The folder audit's Export writes exactly the rows on screen: it honors the active severity filter and any drilldown scope, and greys out when nothing is shown, so what you export is what you see.
+- Double-clicking a file in the folder tree opens it as a spectrogram tab, the same as double-clicking a results row, and works on files that have not been analyzed yet (previously a tree double-click only jumped to the file's row in the grid). Hovering a tree file shows its full path.
+- Footers, dividers, palette shades, and spacing are aligned across the Duplicate Detective, Folder Manifest, and main windows: full-width separators, a lighter-grey footer band of matching height, and a separator between a window's top controls and its content.
+
+### Fixed
+- The folder audit's Export no longer produces an empty report or an invalid file name when the audited folder is a drive root, whose `:` and `\` are now sanitized for the platform.
+
 ## [0.13.6] - 2026-07-15
 
 ### Added
