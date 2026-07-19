@@ -30,7 +30,7 @@
     </TreeDataTemplate>
     <DataTemplate DataType="app:FileNodeViewModel">
       <StackPanel Orientation="Horizontal" Spacing="6"
-                  ToolTip.Tip="Double-click to open the spectrogram">
+                  ToolTip.Tip="{Binding FullPath}">
         <CheckBox IsThreeState="False"
                   IsChecked="{Binding IsChecked, Mode=TwoWay}" />
         <Ellipse Width="8" Height="8" VerticalAlignment="Center"
