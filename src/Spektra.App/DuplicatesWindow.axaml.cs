@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -115,22 +114,17 @@ public partial class DuplicatesWindow : Window
             _vm.RequestOpen(member);
     }
 
-    private async void OnCopyMemberPathClicked(object? sender, RoutedEventArgs e)
-    {
-        if (MemberFrom(sender) is not { } member || Clipboard is null) return;
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(DataFormat.Text, member.Path));
-        await Clipboard.SetDataAsync(data);
-    }
+    private async void OnCopyMemberPathClicked(object? sender, RoutedEventArgs e) =>
+        await FileActions.CopyPathAsync(this, FileActions.ItemFrom(sender));
 
-    private void OnRevealMemberClicked(object? sender, RoutedEventArgs e)
-    {
-        if (MemberFrom(sender) is not { } member || !OperatingSystem.IsWindows()) return;
-        Process.Start("explorer.exe", $"/select,\"{member.Path}\"");
-    }
+    private void OnRevealMemberClicked(object? sender, RoutedEventArgs e) =>
+        FileActions.Reveal(FileActions.ItemFrom(sender));
 
-    private static DupeMemberItem? MemberFrom(object? sender) =>
-        (sender as MenuItem)?.DataContext as DupeMemberItem;
+    private void OnOpenMemberClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DupeMemberItem member)
+            _vm.RequestOpen(member);
+    }
 
     // Open the format flyout on hover, so the three options are one move away
     // with no click. ShowAt just re-anchors if it is already open.

@@ -6,11 +6,12 @@ namespace Spektra.App;
 
 /// One tree node for a listed folder: header carries the recursive rollup so
 /// a folder can be judged without expanding it.
-public sealed class ManifestFolderItem
+public sealed class ManifestFolderItem : IFileItem
 {
     public ManifestFolderItem(ManifestFolder folder)
     {
         Header = folder.Unreadable ? $"{folder.Name} · unreadable" : $"{folder.Name} · {folder.Rollup}";
+        FullPath = folder.Path;
         IsUnreadable = folder.Unreadable;
         Children =
         [
@@ -20,6 +21,7 @@ public sealed class ManifestFolderItem
     }
 
     public string Header { get; }
+    public string FullPath { get; }
     public IReadOnlyList<object> Children { get; }
     public bool IsUnreadable { get; }
 
@@ -31,7 +33,7 @@ public sealed class ManifestFolderItem
 
 /// One file leaf: the chip label plus its severity brush (NotAnalyzed grey
 /// when the cache has never seen the file).
-public sealed class ManifestFileItem(ManifestFile file)
+public sealed class ManifestFileItem(ManifestFile file) : IFileItem
 {
     public string Name { get; } = file.Name;
     public string Path { get; } = file.Path;
@@ -44,6 +46,10 @@ public sealed class ManifestFileItem(ManifestFile file)
         RowSeverity.Clean => NodeMarkers.Clean,
         _ => NodeMarkers.NotAnalyzed,
     };
+
+    // Explicit: the display binding is Path, and renaming it would break the
+    // XAML. The shared context-menu actions see it as FullPath.
+    string IFileItem.FullPath => Path;
 }
 
 /// The Folder Manifest window's state: one folder at a time, listing only, never

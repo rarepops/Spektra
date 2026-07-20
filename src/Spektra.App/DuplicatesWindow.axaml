@@ -134,6 +134,8 @@
                             ToolTip.Tip="{Binding Path}">
                         <Grid.ContextMenu>
                           <ContextMenu>
+                            <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
+                            <Separator />
                             <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
                             <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
                           </ContextMenu>

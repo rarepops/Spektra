@@ -18,7 +18,7 @@ public sealed class DupeGroupItem(DupesGroupReport report)
 
 /// The verdict facts are separate properties (not one composed line) so the
 /// window can lay them out as fixed-width lanes that align across rows.
-public sealed class DupeMemberItem
+public sealed class DupeMemberItem : IFileItem
 {
     public DupeMemberItem(DuplicateMember member, DupesGroupReport report)
     {
@@ -50,6 +50,10 @@ public sealed class DupeMemberItem
     public bool IsWinner { get; }
     public bool FoundByAudio { get; }
     public IBrush IntegrityBrush { get; }
+
+    // Explicit: the display binding is Path, and renaming it would break the
+    // XAML. The shared context-menu actions see it as FullPath.
+    string IFileItem.FullPath => Path;
 }
 
 internal static class Format

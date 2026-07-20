@@ -6,7 +6,7 @@ namespace Spektra.App;
 /// Base for the folder browse tree nodes. Holds the parent link (for
 /// bubbling checkbox and rollup changes upward); each concrete node supplies
 /// its own marker color.
-public abstract class TreeNodeViewModel(string name, string fullPath) : ObservableObject
+public abstract class TreeNodeViewModel(string name, string fullPath) : ObservableObject, IFileItem
 {
     public string Name { get; } = name;
     public string FullPath { get; } = fullPath;

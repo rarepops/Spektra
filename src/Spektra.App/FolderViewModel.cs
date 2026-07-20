@@ -9,7 +9,7 @@ namespace Spektra.App;
 /// One grid row: the flat audit columns plus identity and provenance.
 /// Numeric values stay numeric so DataGrid sorting works; display-only
 /// strings are separate properties.
-public sealed class FolderRow(AuditEntry entry, string rootFolder)
+public sealed class FolderRow(AuditEntry entry, string rootFolder) : IFileItem
 {
     public AuditRow Row { get; } = entry.Row;
     public string FullPath { get; } = entry.Target.Path;
