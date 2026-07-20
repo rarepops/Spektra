@@ -8,6 +8,12 @@ public sealed record AuditTarget(string Path, long SizeBytes, long MtimeTicks);
 /// One audited file: the flat report row plus identity and provenance.
 public sealed record AuditEntry(AuditTarget Target, AuditRow Row, bool HasProblem, bool FromCache);
 
+/// One file offered to an analysis run: the target plus whether a verdict
+/// is already known. The caller decides WHICH files to offer (a checked
+/// set, one right-clicked file, one folder's subtree); SelectWorklist
+/// decides which of those actually need work.
+public sealed record WorklistCandidate(AuditTarget Target, bool IsAnalyzed);
+
 /// One file's combined bandwidth + integrity audit.
 public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, string? IntegrityError)
 {
@@ -120,6 +126,14 @@ public static class FolderAudit
 
         return new AuditResult(report, integrity, integrityError);
     }
+
+    /// Filters candidates down to the files an analysis run must actually do.
+    /// A file with a known verdict is skipped unless `fresh` forces a re-run.
+    /// Input order is preserved, because OrderWorklist's FolderOrder relies on
+    /// the caller's (tree) order surviving this step.
+    public static IReadOnlyList<AuditTarget> SelectWorklist(
+        IEnumerable<WorklistCandidate> candidates, bool fresh) =>
+        [.. candidates.Where(c => fresh || !c.IsAnalyzed).Select(c => c.Target)];
 
     /// Order a worklist for analysis. FolderOrder keeps the given (tree)
     /// order; the size orders are stable, so equal-size files keep their
