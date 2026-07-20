@@ -305,6 +305,17 @@ public sealed class MainWindowViewModel : StatusViewModel
     public void OpenFile(string path)
     {
         if (_ffmpeg is null) return;
+        // Same contract as OpenFolder: a file that is already open re-selects
+        // its tab rather than building a second view model and decoding the
+        // file all over again.
+        var existing = Tabs.OfType<DocumentViewModel>().FirstOrDefault(
+            d => string.Equals(d.FilePath, path, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            Selected = existing;
+            RememberRecent(path);
+            return;
+        }
         var doc = new DocumentViewModel(_ffmpeg, path)
         {
             WindowSize = Settings.FftSize,
