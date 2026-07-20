@@ -229,6 +229,12 @@ public sealed class FolderViewModel : TabViewModelBase
     public void RequestOpen(string path) => OpenFileRequested?.Invoke(path);
     public void RequestOpen(FolderRow row) => RequestOpen(row.FullPath);
 
+    /// The tree node for a path, when the tree holds one. The grid's rows are
+    /// FolderRow, but analysis is driven from tree nodes, so a grid-initiated
+    /// re-analyze resolves across.
+    public FileNodeViewModel? FileNodeFor(string path) =>
+        _fileByPath.TryGetValue(path, out var node) ? node : null;
+
     /// The grid's visibility rule (severity tier + drilldown scope), shared by
     /// the DataGrid's filter and Export so the two can never disagree.
     public bool IsRowVisible(FolderRow row) =>

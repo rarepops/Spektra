@@ -18,7 +18,16 @@
   <UserControl.DataTemplates>
     <TreeDataTemplate DataType="app:FolderNodeViewModel"
                       ItemsSource="{Binding Children}">
-      <StackPanel Orientation="Horizontal" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent">
+        <StackPanel.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="_Drilldown here" Click="OnMenuDrilldownClicked" />
+            <MenuItem Header="_Analyze this folder" Click="OnMenuAnalyzeFolderClicked" />
+            <Separator />
+            <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+            <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+          </ContextMenu>
+        </StackPanel.ContextMenu>
         <CheckBox IsThreeState="True"
                   IsChecked="{Binding IsChecked, Mode=TwoWay}" />
         <Ellipse Width="8" Height="8" VerticalAlignment="Center"
@@ -30,7 +39,17 @@
     </TreeDataTemplate>
     <DataTemplate DataType="app:FileNodeViewModel">
       <StackPanel Orientation="Horizontal" Spacing="6"
+                  Background="Transparent"
                   ToolTip.Tip="{Binding FullPath}">
+        <StackPanel.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+            <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
+            <Separator />
+            <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+            <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+          </ContextMenu>
+        </StackPanel.ContextMenu>
         <CheckBox IsThreeState="False"
                   IsChecked="{Binding IsChecked, Mode=TwoWay}" />
         <Ellipse Width="8" Height="8" VerticalAlignment="Center"
@@ -116,7 +135,17 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Grid ColumnDefinitions="Auto,*" Margin="12,0"
+                        Background="Transparent"
                         ToolTip.Tip="{Binding FullPath}">
+                    <Grid.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+                        <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
+                        <Separator />
+                        <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+                        <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+                      </ContextMenu>
+                    </Grid.ContextMenu>
                     <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center"
                              Fill="{Binding SeverityBrush}"
                              ToolTip.Tip="Worst of bandwidth and integrity" />

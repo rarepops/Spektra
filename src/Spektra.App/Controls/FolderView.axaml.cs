@@ -154,6 +154,50 @@ public partial class FolderView : UserControl
         if (Tree.SelectedItem is FileNodeViewModel file) _vm?.RequestOpen(file.FullPath);
     }
 
+    // The menus across the grid and the tree all bind to IFileItem, so one
+    // handler per verb serves every surface. The generic two delegate to
+    // FileActions; the Spektra verbs route to the view model.
+
+    private async void OnMenuCopyPathClicked(object? sender, RoutedEventArgs e) =>
+        await FileActions.CopyPathAsync(TopLevel.GetTopLevel(this), FileActions.ItemFrom(sender));
+
+    private void OnMenuRevealClicked(object? sender, RoutedEventArgs e) =>
+        FileActions.Reveal(FileActions.ItemFrom(sender));
+
+    private void OnMenuOpenClicked(object? sender, RoutedEventArgs e)
+    {
+        if (FileActions.ItemFrom(sender) is { } item) _vm?.RequestOpen(item.FullPath);
+    }
+
+    // Always fresh: a "Re-analyze" that honored the cache would do nothing.
+    // The grid's item is a FolderRow and the tree's is a FileNodeViewModel,
+    // so both resolve to a tree node, which is what analysis is driven from.
+    private void OnMenuReanalyzeClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        var node = (sender as MenuItem)?.DataContext switch
+        {
+            FileNodeViewModel file => file,
+            FolderRow row => _vm.FileNodeFor(row.FullPath),
+            _ => null,
+        };
+        if (node is not null) _vm.AnalyzeFiles([node], fresh: true);
+    }
+
+    private void OnMenuDrilldownClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is FolderNodeViewModel folder)
+            _vm?.Drilldown(folder.FullPath);
+    }
+
+    // Honors the cache: analyzing a folder is a bulk action, and re-decoding
+    // an album that is already done is exactly what the cache exists to avoid.
+    private void OnMenuAnalyzeFolderClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is FolderNodeViewModel folder)
+            _vm?.AnalyzeFiles(FolderViewModel.FilesUnder(folder), fresh: false);
+    }
+
     private void OnGridKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Grid.SelectedItem is FolderRow row)
