@@ -91,6 +91,31 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task Session_DefaultsOff_AndRoundTrips()
+    {
+        // An old settings file has none of these keys: restore must default
+        // to off so upgrading never reopens tabs the user did not ask for.
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.RestoreSession).IsFalse();
+        await Assert.That(defaults.SessionTabs).IsNull();
+        await Assert.That(defaults.SessionSelectedIndex).IsEqualTo(0);
+
+        var s = new AppSettings
+        {
+            RestoreSession = true,
+            SessionTabs = [@"C:\music\a.flac", @"C:\music\Album"],
+            SessionSelectedIndex = 1,
+        };
+        SettingsStore.Save(SettingsPath, s);
+
+        var r = SettingsStore.Load(SettingsPath);
+        await Assert.That(r.RestoreSession).IsTrue();
+        await Assert.That(r.SessionTabs!.SequenceEqual(
+            [@"C:\music\a.flac", @"C:\music\Album"])).IsTrue();
+        await Assert.That(r.SessionSelectedIndex).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task AutoIntegrityCheck_DefaultsTrue_AndRoundTripsOff()
     {
         // Absent from old settings files (and missing files) it must be ON.

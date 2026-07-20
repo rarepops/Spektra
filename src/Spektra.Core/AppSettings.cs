@@ -41,6 +41,15 @@ public sealed class AppSettings
     public bool CheckForUpdatesOnStartup { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
 
+    // Session restore. Off by default: launching with a file argument (double
+    // click, drag, CLI) skips restore entirely, so a targeted open stays
+    // targeted. SessionTabs holds file paths and folder paths in tab order;
+    // comparison tabs are not saved. SessionSelectedIndex indexes THIS list,
+    // not the live tab strip, which also holds the unsaved comparison tabs.
+    public bool RestoreSession { get; set; }
+    public List<string>? SessionTabs { get; set; }
+    public int SessionSelectedIndex { get; set; }
+
     // Duplicate Detective window state: scan roots and window placement persist
     // across sessions. Null = the window has never been used.
     public List<string>? DuplicateRoots { get; set; }
