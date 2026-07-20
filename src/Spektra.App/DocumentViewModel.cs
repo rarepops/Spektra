@@ -228,8 +228,21 @@ public sealed class DocumentViewModel : TabViewModelBase
         Viewport = viewport ?? new Viewport();
     }
 
+    private bool _loadStarted;
+
+    /// Loads the overview once, on first need. Restored tabs are added
+    /// without loading, so a restored session costs one decode (the selected
+    /// tab) instead of one per tab; the rest load when first selected.
+    /// Idempotent: every later selection of the same tab is a no-op.
+    public Task EnsureLoadedAsync()
+    {
+        if (_loadStarted) return Task.CompletedTask;
+        return LoadOverviewAsync();
+    }
+
     public async Task LoadOverviewAsync()
     {
+        _loadStarted = true;
         _loadCts?.Cancel();
         _tileCts?.Cancel();
         _computeCts?.Cancel();

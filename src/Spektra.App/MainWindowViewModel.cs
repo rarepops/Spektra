@@ -261,6 +261,8 @@ public sealed class MainWindowViewModel : StatusViewModel
             {
                 value.IsSelected = true;
                 value.PropertyChanged += OnSelectedDocPropertyChanged;
+                // A restored tab defers its decode until it is first shown.
+                if (value is DocumentViewModel doc) _ = doc.EnsureLoadedAsync();
             }
             StatusText = value?.StatusText ?? "";
             StatusIsError = value?.StatusIsError ?? false;
