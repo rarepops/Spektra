@@ -186,6 +186,18 @@ public sealed class MainWindowViewModel : StatusViewModel
 
     public void DismissUpdate() => Update = null;
 
+    public bool RestoreSession
+    {
+        get => Settings.RestoreSession;
+        set
+        {
+            if (Settings.RestoreSession == value) return;
+            Settings.RestoreSession = value;
+            RaisePropertyChanged(nameof(RestoreSession));
+            SaveSettings();
+        }
+    }
+
     public bool CheckForUpdatesOnStartup
     {
         get => Settings.CheckForUpdatesOnStartup;
@@ -372,6 +384,69 @@ public sealed class MainWindowViewModel : StatusViewModel
     }
 
     public IReadOnlyList<DocumentViewModel> OpenDocuments => Tabs.OfType<DocumentViewModel>().ToList();
+
+    /// Records the open tabs so the next launch can reopen them. Comparison
+    /// tabs are skipped (they need two files and an alignment), so the saved
+    /// index refers to THIS list, not to the live tab strip.
+    public void SnapshotSession()
+    {
+        var paths = new List<string>();
+        var selected = 0;
+        foreach (var tab in Tabs)
+        {
+            var path = tab switch
+            {
+                DocumentViewModel doc => doc.FilePath,
+                FolderViewModel folder => folder.FolderPath,
+                _ => null,
+            };
+            if (path is null) continue;
+            if (ReferenceEquals(tab, Selected)) selected = paths.Count;
+            paths.Add(path);
+        }
+        Settings.SessionTabs = paths;
+        Settings.SessionSelectedIndex = selected;
+    }
+
+    /// Reopens the saved tabs. Files are added WITHOUT loading (the selected
+    /// one loads via the Selected setter), so a big session costs one decode.
+    /// Folders are cheap: OpenTree hydrates from the cache without ffmpeg.
+    public void RestoreSessionTabs()
+    {
+        if (_ffmpeg is null || !Settings.RestoreSession) return;
+        var resolved = SessionRestore.Resolve(
+            Settings.SessionTabs, Settings.SessionSelectedIndex,
+            p => File.Exists(p) || Directory.Exists(p));
+        if (resolved.Paths.Count == 0) return;
+
+        ITab? toSelect = null;
+        foreach (var path in resolved.Paths)
+        {
+            ITab tab;
+            if (Directory.Exists(path))
+            {
+                var folder = new FolderViewModel(_ffmpeg, path, Settings);
+                folder.OpenFileRequested += file => OpenFile(file);
+                Tabs.Add(folder);
+                folder.OpenTree();
+                tab = folder;
+            }
+            else
+            {
+                var doc = new DocumentViewModel(_ffmpeg, path)
+                {
+                    WindowSize = Settings.FftSize,
+                    Window = Settings.WindowFunction,
+                    AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+                };
+                Tabs.Add(doc); // deliberately no LoadOverviewAsync here
+                tab = doc;
+            }
+            if (string.Equals(path, resolved.Selected, StringComparison.OrdinalIgnoreCase))
+                toSelect = tab;
+        }
+        Selected = toSelect ?? Tabs.FirstOrDefault();
+    }
 
     public void ClearRecent()
     {

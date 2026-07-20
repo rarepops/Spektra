@@ -65,6 +65,13 @@
 
     <Border Height="1" Background="#2E2E2E" />
 
+    <TextBlock Text="Session" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
+    <CheckBox Content="Reopen last session's tabs on launch" Foreground="#C9C9C9"
+              IsChecked="{Binding RestoreSession, Mode=TwoWay}"
+              ToolTip.Tip="Only on a bare launch · opening a file directly stays targeted" />
+
+    <Border Height="1" Background="#2E2E2E" />
+
     <TextBlock Text="Updates" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
     <CheckBox Content="Check for updates on startup" Foreground="#C9C9C9"
               IsChecked="{Binding CheckForUpdatesOnStartup, Mode=TwoWay}"

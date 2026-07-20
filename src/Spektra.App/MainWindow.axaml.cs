@@ -35,6 +35,7 @@ public partial class MainWindow : Window
         Closing += (_, _) =>
         {
             FolderViewCtl.HarvestLayout();
+            _vm.SnapshotSession();
             SaveWindowPlacement();
         };
 
@@ -76,6 +77,9 @@ public partial class MainWindow : Window
                 {
                     foreach (var folder in folders) _vm.OpenFolder(folder);
                 };
+            // A targeted open stays targeted: restore only on a bare launch.
+            if (files.Count == 0 && folders.Count == 0)
+                Opened += (_, _) => _vm.RestoreSessionTabs();
         }
     }
 
