@@ -66,12 +66,28 @@
       </TreeView.Styles>
       <TreeView.DataTemplates>
         <TreeDataTemplate DataType="app:ManifestFolderItem" ItemsSource="{Binding Children}">
-          <TextBlock Text="{Binding Header}" Foreground="#DDDDDD" />
+          <TextBlock Text="{Binding Header}" Foreground="#DDDDDD" Background="Transparent">
+            <TextBlock.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+                <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+              </ContextMenu>
+            </TextBlock.ContextMenu>
+          </TextBlock>
         </TreeDataTemplate>
         <DataTemplate DataType="app:ManifestFileItem">
           <!-- Fixed lane widths keep every row's kind and size under the
                column headers above the tree. -->
-          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,4,0" ToolTip.Tip="{Binding Path}">
+          <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,4,0"
+                Background="Transparent" ToolTip.Tip="{Binding Path}">
+            <Grid.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+                <Separator />
+                <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+                <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+              </ContextMenu>
+            </Grid.ContextMenu>
             <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="0,0,8,0"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Text="{Binding Kind}" Foreground="{Binding KindBrush}"

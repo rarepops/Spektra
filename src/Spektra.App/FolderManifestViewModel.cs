@@ -53,10 +53,17 @@ public sealed class ManifestFileItem(ManifestFile file) : IFileItem
 }
 
 /// The Folder Manifest window's state: one folder at a time, listing only, never
-/// decoding. View-only by identity; nothing here can touch the files.
+/// decoding. Read-only by identity: nothing here modifies, moves, or deletes a
+/// file. It can hand a path to the main window to open as a spectrogram, which
+/// is still a read.
 public sealed class FolderManifestViewModel(AppSettings settings) : ObservableObject
 {
     public ObservableCollection<ManifestFolderItem> RootItems { get; } = [];
+
+    /// Raised when a listed file asks to open as a spectrogram tab in the
+    /// main window. Listing still never decodes anything itself.
+    public event Action<string>? OpenFileRequested;
+    public void RequestOpen(IFileItem item) => OpenFileRequested?.Invoke(item.FullPath);
 
     private string? _folder = settings.FolderManifestFolder;
     public string? Folder { get => _folder; private set => Set(ref _folder, value); }

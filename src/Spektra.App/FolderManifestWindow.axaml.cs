@@ -102,6 +102,17 @@ public partial class FolderManifestWindow : Window
 
     // Open the format flyout on hover, so the three options are one move away
     // with no click. ShowAt just re-anchors if it is already open.
+    private async void OnMenuCopyPathClicked(object? sender, RoutedEventArgs e) =>
+        await FileActions.CopyPathAsync(this, FileActions.ItemFrom(sender));
+
+    private void OnMenuRevealClicked(object? sender, RoutedEventArgs e) =>
+        FileActions.Reveal(FileActions.ItemFrom(sender));
+
+    private void OnMenuOpenClicked(object? sender, RoutedEventArgs e)
+    {
+        if (FileActions.ItemFrom(sender) is { } item) _vm.RequestOpen(item);
+    }
+
     private void OnExportHover(object? sender, PointerEventArgs e)
     {
         if ((sender as Button)?.Flyout is { } flyout) flyout.ShowAt((Control)sender!);

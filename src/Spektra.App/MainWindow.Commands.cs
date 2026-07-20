@@ -207,7 +207,13 @@ public partial class MainWindow
             return;
         }
         // No ffmpeg gate: the manifest never decodes, it only lists and reads cache.
-        _manifestWindow = new FolderManifestWindow(new FolderManifestViewModel(_vm.Settings), _vm.Settings);
+        var manifestVm = new FolderManifestViewModel(_vm.Settings);
+        manifestVm.OpenFileRequested += path =>
+        {
+            _vm.OpenFile(path);
+            Activate();
+        };
+        _manifestWindow = new FolderManifestWindow(manifestVm, _vm.Settings);
         _manifestWindow.Closed += (_, _) => _manifestWindow = null;
         _manifestWindow.Show(this);
     }
