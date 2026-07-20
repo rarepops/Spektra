@@ -338,9 +338,25 @@ public sealed class FolderViewModel : TabViewModelBase
 
     /// Analyze exactly the checked files. fresh ignores cached rows and
     /// re-analyzes; otherwise only files without a verdict yet are queued.
-    public void Analyze(bool fresh) => _ = AnalyzeAsync(fresh);
+    public void Analyze(bool fresh) =>
+        _ = AnalyzeAsync([.. _filesInOrder.Where(f => f.IsChecked)], fresh);
 
-    private async Task AnalyzeAsync(bool fresh)
+    /// The context-menu path: an explicit set of files, chosen by right-click
+    /// rather than by checkbox. Deliberately does NOT read or write IsChecked,
+    /// so right-clicking never disturbs the worklist the user built.
+    public void AnalyzeFiles(IEnumerable<FileNodeViewModel> files, bool fresh) =>
+        _ = AnalyzeAsync([.. files], fresh);
+
+    /// Every audio leaf at or below a node, in tree order.
+    public static IEnumerable<FileNodeViewModel> FilesUnder(TreeNodeViewModel node) =>
+        node switch
+        {
+            FileNodeViewModel file => [file],
+            FolderNodeViewModel folder => folder.Children.SelectMany(FilesUnder),
+            _ => [],
+        };
+
+    private async Task AnalyzeAsync(IReadOnlyList<FileNodeViewModel> files, bool fresh)
     {
         if (IsAnalyzing) return; // a second F5/Analyze must never dispose the live CTS
         if (_analyzingTab is not null)
@@ -349,15 +365,21 @@ public sealed class FolderViewModel : TabViewModelBase
             return;
         }
         _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
-        var worklist = _filesInOrder
-            .Where(f => f.IsChecked && (fresh || f.Entry is null))
-            .Select(f => _targetByPath[f.FullPath])
-            .ToList();
+        // Which files were offered is the caller's business (checked set, one
+        // right-clicked file, one folder's subtree); which of them need work
+        // is the Core rule's.
+        var worklist = FolderAudit.SelectWorklist(
+            files.Where(f => _targetByPath.ContainsKey(f.FullPath))
+                 .Select(f => new WorklistCandidate(_targetByPath[f.FullPath], f.Entry is not null)),
+            fresh);
 
         if (worklist.Count == 0)
         {
-            StatusText = _fileByPath.Values.Any(f => f.IsChecked)
-                ? "All checked files are already analyzed · Shift+F5 or Shift+click Analyze for a fresh pass"
+            // Files offered but none needed work means everything is cached.
+            // Nothing offered means nothing was checked (or a folder held no
+            // audio). Re-analyze always passes fresh, so it never lands here.
+            StatusText = files.Count > 0
+                ? "Already analyzed · Shift+F5 or Shift+click Analyze for a fresh pass"
                 : "Nothing to analyze: check files or folders first.";
             return;
         }
