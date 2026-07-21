@@ -17,7 +17,11 @@
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnManifestPathKeyDown"
                ToolTip.Tip="Lists the folder; dragging a folder from Explorer works too" />
-      <TextBox Grid.Row="2" Grid.Column="0" Margin="0,6,0,0"
+      <!-- Spans both columns: the button stack beside it holds only two
+           buttons, so its share of this third row is dead space. The stack
+           sets no Background, so it neither paints nor hit-tests over the
+           filter box that now runs underneath it to the window edge. -->
+      <TextBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,6,0,0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
                Text="{Binding FilterText}"
                PlaceholderText="Filter by extension, space separated: flac jpg nfo"
