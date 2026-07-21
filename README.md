@@ -22,16 +22,16 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Upsampling detection: a hi-res file whose real bandwidth stops at a lower standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged Upsampled, naming the likely true source rate
 - Transcode-aware problems: an honest lossy file is not a problem; the audit flags lossy content hiding in a lossless container, or an mp3/aac whose cutoff sits far below what its bitrate should deliver
 - Export report: save the bandwidth + integrity audit for the current file or a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
-- Folder browse-and-audit: drop a folder (or pass it on the command line) for an instant browse tree with any cached verdicts already shown, check the files or folders you want and press Analyze to audit just those into a sortable grid with byte-weighted progress, a remaining-time estimate, and a tiered severity filter (all / suspect + worse / problems only), Drilldown to focus the grid on one subtree, all backed by a persistent cache shared with the CLI
-- Duplicate Detective: find duplicate songs across folders by acoustic fingerprint (renames and format changes cannot hide a copy), grouped with confidence levels and the best copy starred; view-only, with HTML/CSV/JSON export
-- Folder Manifest: instantly list everything inside a folder as a tree with honest type chips (cached audio verdicts included) and per-folder composition rollups; view-only, filterable by extension, with HTML/CSV/JSON export of exactly what is shown
+- Folder browse-and-audit: drop a folder (or pass it on the command line) for an instant browse tree with any cached verdicts already shown, check the files or folders you want and press Analyze to audit just those into a sortable grid with byte-weighted progress, a remaining-time estimate, and a tiered severity filter (all / suspect + worse / problems only), Drilldown to focus the grid on one subtree, all backed by a persistent cache shared with the CLI; right-click any row, file, or folder for verbs (open, re-analyze fresh, analyze a folder, copy path, reveal), with multi-row selection honored
+- Duplicate Detective: find duplicate songs across folders by acoustic fingerprint (renames and format changes cannot hide a copy), grouped with confidence levels and the best copy starred; filter big result sets by label or path, jump straight to a side-by-side comparison against the group's winner, and copy the loser paths for use elsewhere; view-only, with HTML/CSV/JSON export
+- Folder Manifest: instantly list everything inside a folder as a tree with honest type chips (cached audio verdicts included) and per-folder composition rollups with recursive byte totals; an address bar swaps folders in place, columns resize and persist, huge listings cancel, and any folder hops into the audit with one click; view-only, filterable by extension, with HTML/CSV/JSON export of exactly what is shown (also scriptable as `spektra manifest`)
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan, double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay (peak-hold + time-average)
 - Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris), color palette (Turbo by default, plus Magma/Inferno/Plasma/Viridis/Cividis/Grayscale, mono phosphor ramps, and custom palettes as JSON files with even anchors or stops pinned to a dB level), a tightness curve for how fast quiet detail fades to black, dynamic-range floor, and a linear or logarithmic frequency axis
 - Save the spectrogram to PNG (Ctrl+S) or copy it to the clipboard (Ctrl+Shift+C)
 - Tabs: open many files at once (dialog, drag-drop, or CLI args)
 - Per-channel or mixdown analysis for multichannel files
-- Recent files + window placement remembered across runs
+- Recent files + window placement remembered across runs, with a Start new / Keep last preference deciding whether tabs, scan folders, and the manifest folder come back on launch
 - Compare two files: stacked spectrograms on a shared time axis, synced zoom/pan, manual + automatic (cross-correlation) time alignment, A/B flip, and a signed A−B difference view (diverging colormap) with a numeric diff score
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
 - Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files; runs automatically on every file opened in the app (on by default, Preferences toggle; Ctrl+I hides/shows the results) and on demand in the CLI; silent gaps and the missing tail are marked on a lane along the time axis
@@ -99,6 +99,7 @@ Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the a
     spektra check <file|folder> ...    Integrity check (corruption / missing data).
     spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
     spektra dupes <folder> ...         Find duplicate songs across folders and formats; mark the best copy.
+    spektra manifest <folder>          List everything in a folder with type chips (no decoding, works without ffmpeg).
     spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
     spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
     spektra image <file>               Render the spectrogram to a PNG (no window).

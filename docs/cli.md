@@ -87,6 +87,21 @@ Add --html report.html to also write the groups as a self-contained dark HTML pa
 
 **Exit codes:** `0` no duplicate groups found, `1` one or more duplicate groups found, `2` usage or environment error (no folder given, or an argument is not an existing directory).
 
+## manifest: list everything, decode nothing
+
+    $ spektra manifest Music/Album
+    flac      28.4 MB  Music/Album/01 Song.flac · Clean
+    flac      31.1 MB  Music/Album/02 Other Song.flac
+    jpg      812.0 KB  Music/Album/cover.jpg
+    nfo        2.0 KB  Music/Album/notes.nfo
+    4 file(s) · 2 flac · 1 jpg · 1 nfo · 60.3 MB
+
+The GUI's Folder Manifest as a command: one folder, every file (audio or not) with a type chip, size, and, for audio the audit cache has seen before, the honest codec and a verdict (`Clean`, `Suspect`, `Problem`), so a FLAC that is really a transcode is called out here too. The summary line is the folder's composition rollup plus its recursive size on disk. Nothing is ever decoded and no file is ever touched, which also makes this the one command that works without ffmpeg installed.
+
+Add `--html manifest.html` for the self-contained collapsible tree page, or `--csv` / `--json` for flat rows (path, name, kind, severity, size), depth-first in display order.
+
+**Exit codes:** `0` listed, `2` usage error or unreadable folder.
+
 ## loudness: LUFS, true peak, dynamics
 
     $ spektra loudness master.flac
