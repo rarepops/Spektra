@@ -91,6 +91,43 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task ManifestColumnWidths_DefaultNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.ManifestColumnWidths).IsNull();
+
+        var s = new AppSettings { ManifestColumnWidths = new() { ["Kind"] = 90, ["Size"] = 120.5 } };
+        SettingsStore.Save(SettingsPath, s);
+
+        var r = SettingsStore.Load(SettingsPath);
+        await Assert.That(r.ManifestColumnWidths!["Kind"]).IsEqualTo(90);
+        await Assert.That(r.ManifestColumnWidths["Size"]).IsEqualTo(120.5);
+    }
+
+    [Test]
+    public async Task SavedColumnWidth_HonorsOnlySaneValues()
+    {
+        // Never saved (no map at all, or no entry for this header) falls back
+        // to the caller's default, so new columns are unaffected by old files.
+        await Assert.That(AppSettings.SavedColumnWidth(null, "Kind", 64, 40, 600)).IsEqualTo(64);
+        await Assert.That(AppSettings.SavedColumnWidth(
+            new() { ["Size"] = 90 }, "Kind", 64, 40, 600)).IsEqualTo(64);
+
+        // Saved and sane is honored; hand-edited junk clamps or defaults.
+        var w = new Dictionary<string, double>
+        {
+            ["Kind"] = 90,
+            ["Tiny"] = 3,
+            ["Huge"] = 5000,
+            ["Junk"] = double.NaN,
+        };
+        await Assert.That(AppSettings.SavedColumnWidth(w, "Kind", 64, 40, 600)).IsEqualTo(90);
+        await Assert.That(AppSettings.SavedColumnWidth(w, "Tiny", 64, 40, 600)).IsEqualTo(40);
+        await Assert.That(AppSettings.SavedColumnWidth(w, "Huge", 64, 40, 600)).IsEqualTo(600);
+        await Assert.That(AppSettings.SavedColumnWidth(w, "Junk", 64, 40, 600)).IsEqualTo(64);
+    }
+
+    [Test]
     public async Task Session_DefaultsOff_AndRoundTrips()
     {
         // An old settings file has none of these keys: restore must default

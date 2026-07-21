@@ -100,6 +100,16 @@ public partial class FolderManifestWindow : Window
         e.Handled = true;
     }
 
+    // Header drag grips: each fact lane resizes from its left edge, and the
+    // Name column (the star) absorbs the difference. Dragging right shrinks
+    // the lane, so the boundary follows the cursor; the view model clamps
+    // and remembers the widths.
+    private void OnKindLaneDrag(object? sender, VectorEventArgs e) =>
+        _vm.KindLaneWidth -= e.Vector.X;
+
+    private void OnSizeLaneDrag(object? sender, VectorEventArgs e) =>
+        _vm.SizeLaneWidth -= e.Vector.X;
+
     // Same shape as DuplicatesWindow's OnDrop, first folder only: one folder
     // at a time is this window's model.
     private void OnDrop(object? sender, DragEventArgs e)

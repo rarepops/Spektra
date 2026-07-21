@@ -55,14 +55,33 @@
 
     <!-- Full-width divider between the input bar and the listing; the negative
          horizontal margin cancels the DockPanel's 12px inset so the line reaches
-         both window edges like the main view. The column headers' lane widths
-         (64/68 plus the row grid's 4px right margin) mirror the file rows. -->
+         both window edges like the main view. The header lanes bind to the same
+         view-model widths as the file rows (whose grid adds a 4px right margin),
+         so they stay aligned at any width; each fact lane's left edge carries an
+         invisible drag grip, the same affordance as the audit grid's columns. -->
     <Border DockPanel.Dock="Top" Height="1" Background="#2A2A2A" Margin="-12,0,-12,6" />
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,6,6">
       <TextBlock Grid.Column="0" Text="Name" Foreground="#888888" FontSize="11" />
-      <TextBlock Grid.Column="1" Text="Kind" Foreground="#888888" FontSize="11" Width="64" />
-      <TextBlock Grid.Column="2" Text="Size" Foreground="#888888" FontSize="11" Width="68"
-                 TextAlignment="Right" />
+      <TextBlock Grid.Column="1" Text="Kind" Foreground="#888888" FontSize="11"
+                 Width="{Binding KindLaneWidth}" />
+      <TextBlock Grid.Column="2" Text="Size" Foreground="#888888" FontSize="11"
+                 Width="{Binding SizeLaneWidth}" TextAlignment="Right" />
+      <Thumb Grid.Column="1" Width="8" Margin="-4,0,0,0" HorizontalAlignment="Left"
+             Cursor="SizeWestEast" DragDelta="OnKindLaneDrag">
+        <Thumb.Template>
+          <ControlTemplate>
+            <Border Background="Transparent" />
+          </ControlTemplate>
+        </Thumb.Template>
+      </Thumb>
+      <Thumb Grid.Column="2" Width="8" Margin="-4,0,0,0" HorizontalAlignment="Left"
+             Cursor="SizeWestEast" DragDelta="OnSizeLaneDrag">
+        <Thumb.Template>
+          <ControlTemplate>
+            <Border Background="Transparent" />
+          </ControlTemplate>
+        </Thumb.Template>
+      </Thumb>
     </Grid>
 
     <TextBlock DockPanel.Dock="Bottom" Margin="0,4,0,0" Text="{Binding FooterText}"
@@ -91,8 +110,9 @@
           </TextBlock>
         </TreeDataTemplate>
         <DataTemplate DataType="app:ManifestFileItem">
-          <!-- Fixed lane widths keep every row's kind and size under the
-               column headers above the tree. -->
+          <!-- Lane widths come from the view model (dragged at the header),
+               so every row's kind and size stay under the column headers
+               above the tree. -->
           <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,4,0"
                 Background="Transparent" ToolTip.Tip="{Binding Path}">
             <Grid.ContextMenu>
@@ -107,10 +127,12 @@
             <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="0,0,8,0"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Text="{Binding Kind}" Foreground="{Binding KindBrush}"
-                       FontSize="12" Width="64" TextTrimming="CharacterEllipsis"
+                       FontSize="12" TextTrimming="CharacterEllipsis"
+                       Width="{Binding $parent[TreeView].DataContext.KindLaneWidth}"
                        VerticalAlignment="Center" />
             <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="#999999" FontSize="12"
-                       Width="68" TextAlignment="Right" VerticalAlignment="Center" />
+                       Width="{Binding $parent[TreeView].DataContext.SizeLaneWidth}"
+                       TextAlignment="Right" VerticalAlignment="Center" />
           </Grid>
         </DataTemplate>
       </TreeView.DataTemplates>

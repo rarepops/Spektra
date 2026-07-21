@@ -74,6 +74,32 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     private bool _isLoading;
     public bool IsLoading { get => _isLoading; private set => Set(ref _isLoading, value); }
 
+    /// Kind and Size lane widths, dragged at the header (Name is the star
+    /// column that absorbs the difference). Saved per header like the audit
+    /// grid's FolderColumnWidths; the setters clamp so a drag can never
+    /// collapse a lane or push it past the window.
+    private const double MinLane = 40;
+    private const double MaxLane = 600;
+
+    private double _kindLaneWidth = AppSettings.SavedColumnWidth(
+        settings.ManifestColumnWidths, "Kind", 64, MinLane, MaxLane);
+    public double KindLaneWidth
+    {
+        get => _kindLaneWidth;
+        set { if (Set(ref _kindLaneWidth, Math.Clamp(value, MinLane, MaxLane))) SaveLane("Kind", _kindLaneWidth); }
+    }
+
+    private double _sizeLaneWidth = AppSettings.SavedColumnWidth(
+        settings.ManifestColumnWidths, "Size", 68, MinLane, MaxLane);
+    public double SizeLaneWidth
+    {
+        get => _sizeLaneWidth;
+        set { if (Set(ref _sizeLaneWidth, Math.Clamp(value, MinLane, MaxLane))) SaveLane("Size", _sizeLaneWidth); }
+    }
+
+    private void SaveLane(string header, double px) =>
+        (settings.ManifestColumnWidths ??= new())[header] = px;
+
     private string _footerText = "Pick a folder to see its manifest.";
     public string FooterText { get => _footerText; private set => Set(ref _footerText, value); }
 

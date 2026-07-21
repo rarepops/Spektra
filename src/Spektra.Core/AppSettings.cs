@@ -56,9 +56,22 @@ public sealed class AppSettings
     public WindowPlacement? DuplicatesWindow { get; set; }
 
     // Folder Manifest window state: the last listed folder and the window
-    // placement persist so the window reopens where it left off.
+    // placement persist so the window reopens where it left off. Column widths
+    // follow the FolderColumnWidths shape: keyed by header, absent key = the
+    // XAML default, null = never customized.
     public string? FolderManifestFolder { get; set; }
     public WindowPlacement? FolderManifestWindow { get; set; }
+    public Dictionary<string, double>? ManifestColumnWidths { get; set; }
+
+    /// Reads one saved column width: honored only when finite and inside
+    /// [min, max]; anything else (never saved, or hand-edited junk in the
+    /// settings file) yields the caller's default, so a bad value can never
+    /// collapse or explode a column.
+    public static double SavedColumnWidth(
+        Dictionary<string, double>? widths, string header, double fallback, double min, double max) =>
+        widths is not null && widths.TryGetValue(header, out var px) && double.IsFinite(px)
+            ? Math.Clamp(px, min, max)
+            : fallback;
 
     /// The registry resolves the palette name (built-in or custom) to a baked
     /// LUT; db-pinned custom stops resolve against the current floor.
