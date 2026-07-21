@@ -25,6 +25,7 @@ public sealed class DupeMemberItem : IFileItem
         var row = report.Rows[member.Path];
         Path = member.Path;
         IsWinner = report.Quality.Winners.Contains(member.Path);
+        WinnerPath = report.Quality.Winners.Count > 0 ? report.Quality.Winners[0] : null;
         FoundByAudio = member.FoundByAudio;
         var cutoff = row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
         Codec = row.Codec ?? "";
@@ -50,6 +51,12 @@ public sealed class DupeMemberItem : IFileItem
     public bool IsWinner { get; }
     public bool FoundByAudio { get; }
     public IBrush IntegrityBrush { get; }
+
+    /// The group's best copy, for the compare verb; null when the ranking
+    /// produced no winner.
+    public string? WinnerPath { get; }
+    /// Comparing the winner with itself is meaningless, so the verb greys.
+    public bool CanCompareWithWinner => !IsWinner && WinnerPath is not null;
 
     // Explicit: the display binding is Path, and renaming it would break the
     // XAML. The shared context-menu actions see it as FullPath.
@@ -107,6 +114,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
 
     public event Action<string>? OpenFileRequested;
     public void RequestOpen(DupeMemberItem member) => OpenFileRequested?.Invoke(member.Path);
+
+    /// Raised to open a comparison tab in the main window: the winner is
+    /// side A, the challenger side B, matching how the tab title reads.
+    public event Action<string, string>? OpenCompareRequested;
+    public void RequestCompare(DupeMemberItem member)
+    {
+        if (member.CanCompareWithWinner) OpenCompareRequested?.Invoke(member.WinnerPath!, member.Path);
+    }
 
     /// The window's error surface (the footer line doubles as the status bar).
     public void SetError(string message) => FooterText = message;

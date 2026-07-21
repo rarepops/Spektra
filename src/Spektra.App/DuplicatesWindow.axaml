@@ -170,6 +170,9 @@
                         <Grid.ContextMenu>
                           <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
                             <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
+                            <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
+                                      IsEnabled="{Binding CanCompareWithWinner}"
+                                      ToolTip.Tip="Both copies side by side in the main window · the winner is A" />
                             <Separator />
                             <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
                             <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />

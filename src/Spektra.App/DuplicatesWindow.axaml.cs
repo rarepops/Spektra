@@ -154,6 +154,12 @@ public partial class DuplicatesWindow : Window
             _vm.RequestOpen(member);
     }
 
+    private void OnCompareMemberClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DupeMemberItem member)
+            _vm.RequestCompare(member);
+    }
+
     // Open the format flyout on hover, so the three options are one move away
     // with no click. ShowAt just re-anchors if it is already open.
     private void OnExportHover(object? sender, PointerEventArgs e)

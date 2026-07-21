@@ -192,6 +192,11 @@ public partial class MainWindow
             _vm.OpenFile(path);
             Activate();
         };
+        vm.OpenCompareRequested += (winner, challenger) =>
+        {
+            _vm.OpenComparison(winner, challenger);
+            Activate();
+        };
         _dupesWindow = new DuplicatesWindow(vm, _vm.Settings);
         _dupesWindow.Closed += (_, _) => _dupesWindow = null;
         _dupesWindow.Show(this);
