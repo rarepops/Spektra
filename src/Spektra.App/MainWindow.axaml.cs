@@ -23,6 +23,7 @@ public partial class MainWindow : Window
         RestoreWindowPlacement();
         RebuildRecentMenu();
         FolderViewCtl.Settings = _vm.Settings;
+        FolderViewCtl.ShowInManifestRequested += path => EnsureManifestWindow(path);
 
         PositionChanged += (_, e) =>
         {

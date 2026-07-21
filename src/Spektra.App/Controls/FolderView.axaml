@@ -14,6 +14,22 @@
     <Style Selector="TextBlock.cell.up">
       <Setter Property="Foreground" Value="#B08FD8" />
     </Style>
+    <!-- The grid's context menu lives on the row, not a cell, so the whole
+         row right-clicks. The one shared ContextMenu instance serves every
+         row: it inherits DataContext from the row it opens on. Copy path and
+         Re-analyze honor a multi-row selection (Explorer semantics: only
+         when the clicked row is part of it); Open stays single. -->
+    <Style Selector="DataGridRow">
+      <Setter Property="ContextMenu">
+        <ContextMenu>
+          <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+          <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
+          <Separator />
+          <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
+          <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
+        </ContextMenu>
+      </Setter>
+    </Style>
   </UserControl.Styles>
   <UserControl.DataTemplates>
     <TreeDataTemplate DataType="app:FolderNodeViewModel"
@@ -23,6 +39,8 @@
           <ContextMenu>
             <MenuItem Header="_Drilldown here" Click="OnMenuDrilldownClicked" />
             <MenuItem Header="_Analyze this folder" Click="OnMenuAnalyzeFolderClicked" />
+            <MenuItem Header="Show in _manifest" Click="OnMenuShowInManifestClicked"
+                      ToolTip.Tip="List everything in this folder, junk and art included" />
             <Separator />
             <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
             <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
@@ -127,7 +145,7 @@
         </Border>
         <DataGrid x:Name="Grid" IsReadOnly="True" AutoGenerateColumns="False"
                   CanUserSortColumns="True" CanUserReorderColumns="False"
-                  CanUserResizeColumns="True"
+                  CanUserResizeColumns="True" SelectionMode="Extended"
                   Background="#111111" FontSize="12"
                   DoubleTapped="OnRowDoubleTapped" KeyDown="OnGridKeyDown">
           <DataGrid.Columns>
@@ -137,15 +155,6 @@
                   <Grid ColumnDefinitions="Auto,*" Margin="12,0"
                         Background="Transparent"
                         ToolTip.Tip="{Binding FullPath}">
-                    <Grid.ContextMenu>
-                      <ContextMenu>
-                        <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
-                        <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
-                        <Separator />
-                        <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
-                        <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
-                      </ContextMenu>
-                    </Grid.ContextMenu>
                     <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center"
                              Fill="{Binding SeverityBrush}"
                              ToolTip.Tip="Worst of bandwidth and integrity" />

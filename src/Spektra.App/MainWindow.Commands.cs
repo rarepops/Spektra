@@ -203,14 +203,25 @@ public partial class MainWindow
     }
 
     private FolderManifestWindow? _manifestWindow;
+    private FolderManifestViewModel? _manifestVm;
 
-    private void OnFolderManifestClicked(object? sender, RoutedEventArgs e)
+    private void OnFolderManifestClicked(object? sender, RoutedEventArgs e) => EnsureManifestWindow();
+
+    /// Opens or focuses the one manifest window; with a folder given (the
+    /// audit tree's "Show in manifest") it lists that folder on top of
+    /// whatever the window showed.
+    private void EnsureManifestWindow(string? folder = null)
     {
         if (_manifestWindow is not null)
         {
             _manifestWindow.Activate();
+            if (folder is not null) _ = _manifestVm!.LoadAsync(folder);
             return;
         }
+        // A fresh window auto-loads the remembered folder when it opens, so
+        // an explicit target just becomes the remembered folder up front;
+        // racing a second load against that would only hit the busy guard.
+        if (folder is not null) _vm.Settings.FolderManifestFolder = folder;
         // No ffmpeg gate: the manifest never decodes, it only lists and reads cache.
         var manifestVm = new FolderManifestViewModel(_vm.Settings);
         manifestVm.OpenFileRequested += path =>
@@ -223,8 +234,9 @@ public partial class MainWindow
             _vm.OpenFolder(path); // dedups: an already-open folder tab is focused
             Activate();
         };
+        _manifestVm = manifestVm;
         _manifestWindow = new FolderManifestWindow(manifestVm, _vm.Settings);
-        _manifestWindow.Closed += (_, _) => _manifestWindow = null;
+        _manifestWindow.Closed += (_, _) => { _manifestWindow = null; _manifestVm = null; };
         _manifestWindow.Show(this);
     }
 }

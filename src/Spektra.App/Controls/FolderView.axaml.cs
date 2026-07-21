@@ -158,8 +158,28 @@ public partial class FolderView : UserControl
     // handler per verb serves every surface. The generic two delegate to
     // FileActions; the Spektra verbs route to the view model.
 
-    private async void OnMenuCopyPathClicked(object? sender, RoutedEventArgs e) =>
+    /// Explorer semantics for the grid's row menu: a right-click inside the
+    /// current selection acts on every selected row, outside it (or with a
+    /// single row selected) on the clicked row alone. Tree menus never come
+    /// through here; their item is not a FolderRow.
+    private IReadOnlyList<FolderRow> GridRowsFor(object? sender)
+    {
+        if ((sender as MenuItem)?.DataContext is not FolderRow clicked) return [];
+        var selected = Grid.SelectedItems.OfType<FolderRow>().ToList();
+        return selected.Count > 1 && selected.Contains(clicked) ? selected : [clicked];
+    }
+
+    private async void OnMenuCopyPathClicked(object? sender, RoutedEventArgs e)
+    {
+        var rows = GridRowsFor(sender);
+        if (rows.Count > 1)
+        {
+            await FileActions.CopyTextAsync(TopLevel.GetTopLevel(this),
+                string.Join(Environment.NewLine, rows.Select(r => r.FullPath)));
+            return;
+        }
         await FileActions.CopyPathAsync(TopLevel.GetTopLevel(this), FileActions.ItemFrom(sender));
+    }
 
     private void OnMenuRevealClicked(object? sender, RoutedEventArgs e) =>
         FileActions.Reveal(FileActions.ItemFrom(sender));
@@ -170,18 +190,31 @@ public partial class FolderView : UserControl
     }
 
     // Always fresh: a "Re-analyze" that honored the cache would do nothing.
-    // The grid's item is a FolderRow and the tree's is a FileNodeViewModel,
-    // so both resolve to a tree node, which is what analysis is driven from.
+    // The grid's rows and the tree's file both resolve to tree nodes, which
+    // is what analysis is driven from; the grid path honors the selection.
     private void OnMenuReanalyzeClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm is null) return;
-        var node = (sender as MenuItem)?.DataContext switch
+        var rows = GridRowsFor(sender);
+        if (rows.Count > 0)
         {
-            FileNodeViewModel file => file,
-            FolderRow row => _vm.FileNodeFor(row.FullPath),
-            _ => null,
-        };
-        if (node is not null) _vm.AnalyzeFiles([node], fresh: true);
+            _vm.AnalyzeFiles(
+                [.. rows.Select(r => _vm.FileNodeFor(r.FullPath)).OfType<FileNodeViewModel>()],
+                fresh: true);
+            return;
+        }
+        if ((sender as MenuItem)?.DataContext is FileNodeViewModel file)
+            _vm.AnalyzeFiles([file], fresh: true);
+    }
+
+    /// Raised when a tree folder asks to open in the Folder Manifest window;
+    /// the shell owns that window, so the control only hands over the path.
+    public event Action<string>? ShowInManifestRequested;
+
+    private void OnMenuShowInManifestClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is FolderNodeViewModel folder)
+            ShowInManifestRequested?.Invoke(folder.FullPath);
     }
 
     private void OnMenuDrilldownClicked(object? sender, RoutedEventArgs e)
