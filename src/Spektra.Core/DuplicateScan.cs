@@ -173,6 +173,22 @@ public static class DuplicateScan
                 m.Sameness, m.FoundByAudio, g.Quality.Winners.Contains(m.Path),
                 g.Quality.Confidence, g.Quality.Reason)))];
 
+    /// Splits results-filter text into lowercase tokens: spaces, commas and
+    /// semicolons separate, duplicates collapse.
+    public static IReadOnlyList<string> ParseFilterTokens(string? text) =>
+        [.. (text ?? "")
+            .Split([' ', ',', ';', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => t.ToLowerInvariant())
+            .Distinct()];
+
+    /// A group stays when EVERY token appears in its label or in some
+    /// member's path, case-insensitive; the targets may differ per token, so
+    /// "artist 2019" narrows to that artist's groups touching a 2019 folder.
+    public static bool GroupMatches(DupesGroupReport report, IReadOnlyCollection<string> tokens) =>
+        tokens.All(t =>
+            report.Group.Label.Contains(t, StringComparison.OrdinalIgnoreCase)
+            || report.Group.Members.Any(m => m.Path.Contains(t, StringComparison.OrdinalIgnoreCase)));
+
     private static (string, string) PairKey(string x, string y) =>
         string.CompareOrdinal(x, y) <= 0 ? (x, y) : (y, x);
 

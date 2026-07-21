@@ -7,6 +7,10 @@ namespace Spektra.App;
 /// One duplicate group for display: headline plus foldout members.
 public sealed class DupeGroupItem(DupesGroupReport report)
 {
+    /// Retained for the results filter, which matches on the raw label and
+    /// member paths rather than the composed display strings.
+    public DupesGroupReport Report { get; } = report;
+
     public string Headline { get; } =
         $"{report.Group.Label} · {report.Group.Members.Count} files · sameness {report.Group.SamenessTier} · reclaim {Format.Bytes(report.ReclaimableBytes)}";
     public string QualityLine { get; } = $"quality {report.Quality.Confidence}: {report.Quality.Reason}";
@@ -81,6 +85,37 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     public ObservableCollection<string> Roots { get; } = [.. settings.DuplicateRoots ?? []];
     public ObservableCollection<DupeGroupItem> Groups { get; } = [];
     public ObservableCollection<NotAnalyzedFile> NotAnalyzed { get; } = [];
+
+    /// Every group of the last completed scan; Groups is the filtered view.
+    private readonly List<DupeGroupItem> _allGroups = [];
+    /// The unfiltered footer line of the last scan, re-suffixed as the
+    /// filter changes; null until a scan completes.
+    private string? _baseFooter;
+
+    /// Shows the results filter box only once there are groups to narrow.
+    public bool HasResults => _allGroups.Count > 0;
+
+    /// The results filter: every word must match the group label or some
+    /// member's path. Applied live against the finished scan, never the disk.
+    private string _filterText = "";
+    public string FilterText
+    {
+        get => _filterText;
+        set { if (Set(ref _filterText, value)) ApplyGroupFilter(); }
+    }
+
+    private void ApplyGroupFilter()
+    {
+        var tokens = DuplicateScan.ParseFilterTokens(FilterText);
+        Groups.Clear();
+        foreach (var g in _allGroups)
+            if (tokens.Count == 0 || DuplicateScan.GroupMatches(g.Report, tokens))
+                Groups.Add(g);
+        if (_baseFooter is { } baseText)
+            FooterText = tokens.Count == 0
+                ? baseText
+                : $"{baseText} · filter: {Groups.Count} of {_allGroups.Count} groups";
+    }
 
     private CancellationTokenSource? _cts;
 
@@ -191,6 +226,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         if (IsScanning || Roots.Count == 0) return;
         IsScanning = true;
         Groups.Clear();
+        _allGroups.Clear();
+        _baseFooter = null;
+        RaisePropertyChanged(nameof(HasResults));
         NotAnalyzed.Clear();
         LastResult = null;
         _cts?.Dispose();
@@ -216,13 +254,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 ffmpeg, roots, jobs, localCache, fresh: false, progress, ct), ct);
 
             LastResult = result;
-            foreach (var g in result.Groups)
-                Groups.Add(new DupeGroupItem(g));
+            _allGroups.AddRange(result.Groups.Select(g => new DupeGroupItem(g)));
+            RaisePropertyChanged(nameof(HasResults));
             foreach (var n in result.NotAnalyzed)
                 NotAnalyzed.Add(n);
-            FooterText = $"{result.Groups.Count} groups · "
+            _baseFooter = $"{result.Groups.Count} groups · "
                 + $"{result.Groups.Sum(g => g.Group.Members.Count)} duplicate files · "
                 + $"reclaimable {Format.Bytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";
+            ApplyGroupFilter(); // populates Groups and writes the footer, honoring any typed filter
         }
         catch (OperationCanceledException)
         {

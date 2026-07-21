@@ -126,6 +126,15 @@
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}" Height="8" />
     </DockPanel>
 
+    <!-- Results filter, only once there are groups to narrow: live, footer
+         shows "filter: n of m groups" while active. -->
+    <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" MinHeight="26" Padding="6,3"
+             VerticalContentAlignment="Center"
+             IsVisible="{Binding HasResults}"
+             Text="{Binding FilterText}"
+             PlaceholderText="Filter groups by label or path, space separated"
+             ToolTip.Tip="Every word must match the group's label or one copy's path; clear to show all groups" />
+
     <StackPanel DockPanel.Dock="Bottom" Margin="0,4,0,0" Spacing="4">
       <Expander IsVisible="{Binding !!NotAnalyzed.Count}" HorizontalAlignment="Stretch">
         <Expander.Header>
