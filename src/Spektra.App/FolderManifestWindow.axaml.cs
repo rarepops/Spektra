@@ -53,6 +53,9 @@ public partial class FolderManifestWindow : Window
         };
         Closing += (_, _) =>
         {
+            // A listing must not outlive its window (same rule as the
+            // Duplicate Detective's scan).
+            _vm.CancelLoad();
             var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
             var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
             if (size.Width >= 100 && size.Height >= 100)
@@ -69,6 +72,8 @@ public partial class FolderManifestWindow : Window
                 _ = _vm.LoadAsync(last);
         };
     }
+
+    private void OnCancelLoadClicked(object? sender, RoutedEventArgs e) => _vm.CancelLoad();
 
     private async void OnPickFolderClicked(object? sender, RoutedEventArgs e)
     {

@@ -39,7 +39,10 @@
               Margin="10,0" />
       <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch"
-                IsEnabled="{Binding !IsLoading}" />
+                IsVisible="{Binding !IsLoading}" />
+        <Button Content="Cancel" Click="OnCancelLoadClicked" HorizontalAlignment="Stretch"
+                IsVisible="{Binding IsLoading}"
+                ToolTip.Tip="Stop listing this folder" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         IsEnabled="{Binding CanExport}" PointerEntered="OnExportHover"
                         ToolTip.Tip="Hover to pick HTML, CSV, or JSON">

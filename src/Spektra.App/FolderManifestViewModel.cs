@@ -179,6 +179,11 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         RaisePropertyChanged(nameof(CanExport)); // LastRoot went null with IsLoading unchanged
     }
 
+    /// Cancels the listing in flight, if any: big trees (a NAS share, a whole
+    /// drive) should not lock the window into its busy state.
+    private CancellationTokenSource? _listCts;
+    public void CancelLoad() => _listCts?.Cancel();
+
     public async Task LoadAsync(string folder)
     {
         if (IsLoading) { SetError(LoadBusyNote); return; }
@@ -186,6 +191,9 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         RootItems.Clear();
         LastRoot = null;
         _fullRoot = null;
+        _listCts?.Dispose();
+        _listCts = new CancellationTokenSource();
+        var ct = _listCts.Token;
         var cacheNote = "";
         try
         {
@@ -195,7 +203,7 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
 
             var localCache = cache;
             ManifestFolder root;
-            try { root = await Task.Run(() => FolderManifest.Build(folder, localCache)); }
+            try { root = await Task.Run(() => FolderManifest.Build(folder, localCache, ct), ct); }
             finally { cache?.Dispose(); }
 
             _fullRoot = root;
@@ -203,6 +211,13 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
             Folder = folder;
             settings.FolderManifestFolder = folder;
             ApplyFilter();
+        }
+        catch (OperationCanceledException)
+        {
+            // The half-built listing is gone, so the header must not claim a
+            // folder is shown; the remembered folder stays for a retry.
+            Folder = null;
+            FooterText = "Listing cancelled.";
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

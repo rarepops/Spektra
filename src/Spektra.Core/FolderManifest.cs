@@ -28,7 +28,9 @@ public static class FolderManifest
     /// Enumerates one root into a display-ready tree. A directory that cannot
     /// be enumerated (denied, vanished, nonexistent) becomes an Unreadable
     /// node and the walk continues; a bad root yields one Unreadable root.
-    public static ManifestFolder Build(string root, AuditCache? cache)
+    /// Cancellation is cooperative per directory and surfaces as
+    /// OperationCanceledException, the one exception Build lets escape.
+    public static ManifestFolder Build(string root, AuditCache? cache, CancellationToken ct = default)
     {
         string full;
         try
@@ -41,7 +43,7 @@ public static class FolderManifest
             // that cannot be enumerated: one unreadable node, never a throw.
             return new ManifestFolder(root, root, [], [], 0, "unreadable", Unreadable: true);
         }
-        return BuildNode(full, NameOf(full), cache).Node;
+        return BuildNode(full, NameOf(full), cache, ct).Node;
     }
 
     public static IReadOnlyList<ManifestRow> ToRows(ManifestFolder root)
@@ -116,8 +118,9 @@ public static class FolderManifest
     }
 
     private static (ManifestFolder Node, Dictionary<string, int> Counts) BuildNode(
-        string path, string name, AuditCache? cache)
+        string path, string name, AuditCache? cache, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         string[] dirs, files;
         try
         {
@@ -135,7 +138,7 @@ public static class FolderManifest
         var folders = new ManifestFolder[dirs.Length];
         for (var i = 0; i < dirs.Length; i++)
         {
-            var (child, childCounts) = BuildNode(dirs[i], NameOf(dirs[i]), cache);
+            var (child, childCounts) = BuildNode(dirs[i], NameOf(dirs[i]), cache, ct);
             folders[i] = child;
             foreach (var (kind, n) in childCounts)
                 counts[kind] = counts.GetValueOrDefault(kind) + n;

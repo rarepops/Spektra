@@ -267,6 +267,21 @@ public sealed class FolderManifestTests
     }
 
     [Test]
+    public async Task Build_PreCancelledToken_ThrowsInsteadOfListing()
+    {
+        var d = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(d, "a.txt"), "x");
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+            await Assert.That(() => FolderManifest.Build(d, cache: null, cts.Token))
+                .Throws<OperationCanceledException>();
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
     public async Task Filter_KeepsUnreadableNodes()
     {
         var unreadable = new ManifestFolder("locked", @"C:\locked", [], [], 0, "unreadable", Unreadable: true);
