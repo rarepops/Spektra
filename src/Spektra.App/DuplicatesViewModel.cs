@@ -155,6 +155,18 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         RaisePropertyChanged(nameof(CanScan));
     }
 
+    /// Empties the whole folder list in one go, for recomposing a scan set
+    /// without removing entries one by one. Like Remove, it leaves the last
+    /// results on screen; the next Scan is what clears those.
+    public void ClearRoots()
+    {
+        if (IsScanning) { SetError(ScanBusyNote); return; }
+        if (Roots.Count == 0) return;
+        Roots.Clear();
+        PersistRoots();
+        RaisePropertyChanged(nameof(CanScan));
+    }
+
     private void PersistRoots() => settings.DuplicateRoots = [.. Roots];
 
     public void Cancel() => _cts?.Cancel();

@@ -88,6 +88,8 @@ public partial class DuplicatesWindow : Window
         if (RootsList.SelectedItem is string root) _vm.RemoveRoot(root);
     }
 
+    private void OnClearFoldersClicked(object? sender, RoutedEventArgs e) => _vm.ClearRoots();
+
     private void OnRootPathKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;
