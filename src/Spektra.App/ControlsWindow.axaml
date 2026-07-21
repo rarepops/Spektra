@@ -123,6 +123,22 @@
           </Grid>
         </StackPanel>
 
+        <TextBlock Classes="group" Text="Tools &amp; right-click" />
+        <StackPanel Spacing="6" Margin="4,0,0,0">
+          <Grid ColumnDefinitions="155,*">
+            <TextBlock Grid.Column="0" Classes="key" Text="Right-click" />
+            <TextBlock Grid.Column="1" Classes="desc" Text="Verbs on any listed file or folder: open, re-analyze, compare with winner, copy path, reveal, and hops between the audit and the manifest" />
+          </Grid>
+          <Grid ColumnDefinitions="155,*">
+            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl/Shift+Click" />
+            <TextBlock Grid.Column="1" Classes="desc" Text="Select several audit rows; Copy path and Re-analyze act on the whole selection" />
+          </Grid>
+          <Grid ColumnDefinitions="155,*">
+            <TextBlock Grid.Column="0" Classes="key" Text="Enter / Esc" />
+            <TextBlock Grid.Column="1" Classes="desc" Text="In the tool windows' path boxes: load the typed folder / revert; emptying the manifest's box clears the listing" />
+          </Grid>
+        </StackPanel>
+
         <TextBlock Classes="group" Text="Compare" />
         <StackPanel Spacing="6" Margin="4,0,0,0">
           <Grid ColumnDefinitions="155,*">
