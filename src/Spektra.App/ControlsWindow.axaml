@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Spektra.App.ControlsWindow"
-        Title="Controls" Width="560" SizeToContent="Height" MaxHeight="900"
+        Title="Controls" Width="980" SizeToContent="Height" MaxHeight="900"
         WindowStartupLocation="CenterOwner" Background="#1A1A1A" CanResize="False">
   <Window.Styles>
     <Style Selector="TextBlock.group">
@@ -25,145 +25,153 @@
       <Button Content="Close" Click="OnClose" IsDefault="True" IsCancel="True" />
     </StackPanel>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="16">
+      <Grid ColumnDefinitions="*,36,*">
 
-        <TextBlock Classes="group" Text="Files &amp; tabs" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+O" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Open audio files" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+O" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Open a folder" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+W" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Close the current tab" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Tab" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Switch tabs (Shift to reverse)" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+1-9" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Jump to tab N" />
-          </Grid>
+        <StackPanel Grid.Column="0" Spacing="16">
+
+          <TextBlock Classes="group" Text="Files &amp; tabs" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+O" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Open audio files" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+O" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Open a folder" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+W" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Close the current tab" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Tab" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Switch tabs (Shift to reverse)" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+1-9" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Jump to tab N" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Classes="group" Text="View &amp; zoom" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Wheel" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Zoom in time" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Shift+Wheel" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Zoom in frequency" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Drag" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Pan" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Double-click" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Reset the view" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+0" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Reset the view" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Up / Ctrl+Down" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Switch channel" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+H" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Toggle the crosshair" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Classes="group" Text="Save &amp; export" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+S" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Save the spectrogram as an image" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+C" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Copy the spectrogram to the clipboard" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+S" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Export the current file's report" />
+            </Grid>
+          </StackPanel>
+
         </StackPanel>
 
-        <TextBlock Classes="group" Text="View &amp; zoom" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Wheel" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Zoom in time" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Shift+Wheel" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Zoom in frequency" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Drag" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Pan" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Double-click" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Reset the view" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+0" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Reset the view" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Up / Ctrl+Down" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Switch channel" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+H" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Toggle the crosshair" />
-          </Grid>
+        <StackPanel Grid.Column="2" Spacing="16">
+
+          <TextBlock Classes="group" Text="Analysis" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+E" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Preferences" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+R" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Toggle the average-spectrum overlay" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+I" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Check integrity" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+L" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Measure loudness (LUFS)" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="F5  ·  Shift+F5" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Reload the file  ·  rescan a folder from scratch" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Classes="group" Text="Compare" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+D" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Compare two open files" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="T" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Flip A / B" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="D" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Show the difference" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="A" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Auto-align" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Esc" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Back to showing both" />
+            </Grid>
+          </StackPanel>
+
+          <TextBlock Classes="group" Text="Tools &amp; right-click" />
+          <StackPanel Spacing="6" Margin="4,0,0,0">
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Right-click" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Verbs on any listed file or folder: open, re-analyze, compare with winner, copy path, reveal, and hops between the audit and the manifest" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl/Shift+Click" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Select several audit rows; Copy path and Re-analyze act on the whole selection" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Enter / Esc" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="In the tool windows' path boxes: load the typed folder / revert; emptying the manifest's box clears the listing" />
+            </Grid>
+          </StackPanel>
+
         </StackPanel>
 
-        <TextBlock Classes="group" Text="Analysis" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+E" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Preferences" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+R" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Toggle the average-spectrum overlay" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+I" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Check integrity" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+L" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Measure loudness (LUFS)" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="F5  ·  Shift+F5" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Reload the file  ·  rescan a folder from scratch" />
-          </Grid>
-        </StackPanel>
-
-        <TextBlock Classes="group" Text="Save &amp; export" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+S" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Save the spectrogram as an image" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+C" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Copy the spectrogram to the clipboard" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Shift+S" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Export the current file's report" />
-          </Grid>
-        </StackPanel>
-
-        <TextBlock Classes="group" Text="Tools &amp; right-click" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Right-click" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Verbs on any listed file or folder: open, re-analyze, compare with winner, copy path, reveal, and hops between the audit and the manifest" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl/Shift+Click" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Select several audit rows; Copy path and Re-analyze act on the whole selection" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Enter / Esc" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="In the tool windows' path boxes: load the typed folder / revert; emptying the manifest's box clears the listing" />
-          </Grid>
-        </StackPanel>
-
-        <TextBlock Classes="group" Text="Compare" />
-        <StackPanel Spacing="6" Margin="4,0,0,0">
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+D" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Compare two open files" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="T" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Flip A / B" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="D" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Show the difference" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="A" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Auto-align" />
-          </Grid>
-          <Grid ColumnDefinitions="155,*">
-            <TextBlock Grid.Column="0" Classes="key" Text="Esc" />
-            <TextBlock Grid.Column="1" Classes="desc" Text="Back to showing both" />
-          </Grid>
-        </StackPanel>
-
-      </StackPanel>
+      </Grid>
     </ScrollViewer>
   </DockPanel>
 </Window>
