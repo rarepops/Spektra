@@ -8,16 +8,19 @@
   <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
        whose status line sits 4px off the edge. -->
   <DockPanel Margin="12,12,12,4">
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Folder}" Foreground="#DDDDDD"
-                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                 ToolTip.Tip="{Binding Folder}" />
-      <TextBox x:Name="ManifestPathBox" Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+      <!-- Address bar: shows the folder being listed AND accepts a new one, so
+           there is no separate unframed label row. OneWay on purpose: Folder
+           has a private setter, so a default (TwoWay) TextBox binding would
+           try to write back and fail; OneWay lets typing stay local until
+           Enter, then a completed load rewrites the box with the real path. -->
+      <TextBox x:Name="ManifestPathBox" Grid.Row="0" Grid.Column="0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               Text="{Binding Folder, Mode=OneWay}"
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnManifestPathKeyDown"
-               ToolTip.Tip="Lists the folder; dragging a folder from Explorer works too" />
-      <TextBox Grid.Row="2" Grid.Column="0" Margin="0,6,0,0"
+               ToolTip.Tip="The folder being listed · type another and press Enter (Esc to revert); dragging a folder from Explorer works too" />
+      <TextBox Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
                Text="{Binding FilterText}"
                PlaceholderText="Filter by extension, space separated: flac jpg nfo"
@@ -26,9 +29,9 @@
            header: the rule makes the button column its own region, so the
            space below the last button reads as intentional rather than as a
            gap in the input stack. -->
-      <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="1" Background="#2A2A2A"
+      <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2A2A2A"
               Margin="10,0" />
-      <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="2" Spacing="6" Width="130">
+      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         PointerEntered="OnExportHover"

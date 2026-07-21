@@ -82,8 +82,20 @@ public partial class FolderManifestWindow : Window
 
     private void OnManifestPathKeyDown(object? sender, KeyEventArgs e)
     {
+        // Esc abandons an edit and puts the real folder back, the usual
+        // address-bar escape hatch.
+        if (e.Key == Key.Escape)
+        {
+            ManifestPathBox.Text = _vm.Folder ?? "";
+            e.Handled = true;
+            return;
+        }
         if (e.Key != Key.Enter) return;
-        if (_vm.TryLoadTyped(ManifestPathBox.Text)) ManifestPathBox.Text = "";
+        // No clearing: a successful load raises Folder, and the OneWay binding
+        // rewrites the box with the canonical path. A failed one leaves the
+        // typed text in place so it can be corrected, with the reason in the
+        // footer.
+        _vm.TryLoadTyped(ManifestPathBox.Text);
         e.Handled = true;
     }
 
