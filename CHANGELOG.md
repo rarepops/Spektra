@@ -4,6 +4,30 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-07-21
+
+### Added
+- Right-click menus across every listing: audit grid rows (the whole row), browse-tree files and folders, Duplicate Detective copies and groups, and Folder Manifest files and folders. The verbs are Spektra's own where the surface allows it (Open spectrogram, Re-analyze one file fresh without touching the checkbox worklist, Analyze this folder honoring the cache, Compare with winner, Audit this folder, Show in manifest), with Copy path and Reveal in Explorer below a separator everywhere.
+- Compare with winner: a Duplicate Detective copy opens side by side with its group's best copy in the main window (the winner as A), connecting the dupes list to the comparison view. Right-clicking a group's box copies the loser paths (every copy except the winner, one per line) or all paths, for feeding another tool while Spektra itself stays read-only.
+- A results filter in the Duplicate Detective once a scan has groups: every word must match a group's label or one copy's path, applied live, with the footer counting the groups shown.
+- A launch policy in Preferences: Start new (the default) opens the app and its tool windows empty; Keep last reopens the previous session's tabs, Duplicate Detective folders, and manifest folder. Restored file tabs decode lazily on first selection, a launch with a file argument stays targeted either way, and layouts, column widths, placements, and recent files persist regardless of the choice.
+- The Folder Manifest's path box became an address bar: it shows the folder being listed, Enter loads a typed one, Esc reverts an edit, and emptying it clears the listing. The Kind and Size columns resize by dragging their header edges (saved across runs), folder headlines carry the recursive size on disk next to the rollup, and huge listings can be cancelled: Browse becomes Cancel while the walk runs.
+- Cross-tool hops: a manifest folder's menu offers Audit this folder (opens it as an audit tab in the main window), and an audit-tree folder's menu offers Show in manifest for the trip back.
+- Multi-row selection in the audit grid: Copy path and Re-analyze act on the whole selection when the clicked row is part of it; Open spectrogram stays single-row.
+- `spektra manifest <folder>` in the CLI: the Folder Manifest as a command, with cache-decorated chips, a rollup plus byte-total summary line, and `--csv`/`--json`/`--html` output; it never decodes, and it is the one command that works without ffmpeg installed.
+- Clear all in the Duplicate Detective empties the scan-folder list in one click; like Remove, it leaves the last results on screen until the next scan replaces them.
+- Duplicate member rows highlight under the pointer, and the highlight stays pinned while that row's context menu is open, so the file the verbs act on is always visible.
+- The Controls window (F1) documents the right-click verbs, the audit grid's multi-select semantics, and the tool windows' path-box keys.
+
+### Changed
+- While a scan or listing runs, the inputs that would change it freeze with a footer note instead of silently desyncing: the Duplicate Detective's folder list (buttons, path box, and drops) during a scan, and the manifest's Browse during a load; refused drags show the no-entry cursor. Export in both tool windows dims until there is actually a result to write.
+- The Folder Manifest disables Open spectrogram on non-audio files, judged by the same extension set the audit pipeline walks, so a jpg or nfo can no longer open a tab that could only error.
+- Both tool windows' button columns are compact (26 px, matching their input boxes), and the manifest's header mirrors the Duplicate Detective's input/actions split with a vertical rule.
+
+### Fixed
+- Opening a file that is already open focuses its existing tab instead of adding a duplicate.
+- Closing the Duplicate Detective mid-scan cancels the scan. It used to keep running with no cancel path left, holding most cores busy, and reopening the window could start a second scan beside it; completed analysis stays cached, so cancelling loses nothing.
+
 ## [0.14.0] - 2026-07-19
 
 ### Added
