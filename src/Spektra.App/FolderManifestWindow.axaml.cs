@@ -91,11 +91,12 @@ public partial class FolderManifestWindow : Window
             return;
         }
         if (e.Key != Key.Enter) return;
-        // No clearing: a successful load raises Folder, and the OneWay binding
-        // rewrites the box with the canonical path. A failed one leaves the
-        // typed text in place so it can be corrected, with the reason in the
-        // footer.
-        _vm.TryLoadTyped(ManifestPathBox.Text);
+        // Emptying the box and committing it means "list nothing", so the tree
+        // goes away too. Otherwise: a successful load raises Folder and the
+        // OneWay binding rewrites the box with the canonical path; a failed one
+        // leaves the typed text in place to be corrected, reason in the footer.
+        if ((ManifestPathBox.Text ?? "").Trim().Length == 0) _vm.Clear();
+        else _vm.TryLoadTyped(ManifestPathBox.Text);
         e.Handled = true;
     }
 

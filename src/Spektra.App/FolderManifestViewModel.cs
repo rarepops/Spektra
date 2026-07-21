@@ -114,6 +114,22 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         return true;
     }
 
+    /// Empties the listing, for when the address bar is cleared: leaving the
+    /// previous folder's tree on screen under an empty path box would show
+    /// something the header says is not there. Returns the window to the
+    /// state it opens in, and forgets the folder so the next launch does too.
+    public void Clear()
+    {
+        if (IsLoading) return;
+        RootItems.Clear();
+        LastRoot = null;
+        _fullRoot = null;
+        _cacheNote = "";
+        Folder = null;
+        settings.FolderManifestFolder = null;
+        FooterText = "Pick a folder to see its manifest.";
+    }
+
     public async Task LoadAsync(string folder)
     {
         if (IsLoading) return;

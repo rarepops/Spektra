@@ -14,14 +14,20 @@
            has a private setter, so a default (TwoWay) TextBox binding would
            try to write back and fail; OneWay lets typing stay local until
            Enter, then a completed load rewrites the box with the real path. -->
+      <!-- VerticalAlignment on both boxes: the button stack beside them is
+           taller than the two rows, so the grid grows the rows to fit it.
+           Without this the boxes stretch by different amounts (row 1 carries
+           a 6px top margin) and end up visibly unequal. -->
       <TextBox x:Name="ManifestPathBox" Grid.Row="0" Grid.Column="0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               VerticalAlignment="Center"
                Text="{Binding Folder, Mode=OneWay}"
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnManifestPathKeyDown"
                ToolTip.Tip="The folder being listed · type another and press Enter (Esc to revert); dragging a folder from Explorer works too" />
       <TextBox Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               VerticalAlignment="Center"
                Text="{Binding FilterText}"
                PlaceholderText="Filter by extension, space separated: flac jpg nfo"
                ToolTip.Tip="Shows only files whose kind or extension matches; folders without matches disappear and Export writes exactly what is shown" />
