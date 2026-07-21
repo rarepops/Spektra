@@ -107,6 +107,9 @@
           <TextBlock Text="{Binding Header}" Foreground="#DDDDDD" Background="Transparent">
             <TextBlock.ContextMenu>
               <ContextMenu>
+                <MenuItem Header="_Audit this folder" Click="OnMenuAuditFolderClicked"
+                          ToolTip.Tip="Open it as a folder tab in the main window, ready to analyze" />
+                <Separator />
                 <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
                 <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
               </ContextMenu>

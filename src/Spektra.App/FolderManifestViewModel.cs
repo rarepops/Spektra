@@ -74,6 +74,11 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     public event Action<string>? OpenFileRequested;
     public void RequestOpen(IFileItem item) => OpenFileRequested?.Invoke(item.FullPath);
 
+    /// Raised when a listed folder asks to open as an audit tab in the main
+    /// window: the manifest lists, the audit analyzes; the hop hands over.
+    public event Action<string>? AuditFolderRequested;
+    public void RequestAudit(IFileItem item) => AuditFolderRequested?.Invoke(item.FullPath);
+
     private string? _folder = settings.FolderManifestFolder;
     public string? Folder { get => _folder; private set => Set(ref _folder, value); }
 

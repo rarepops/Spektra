@@ -218,6 +218,11 @@ public partial class MainWindow
             _vm.OpenFile(path);
             Activate();
         };
+        manifestVm.AuditFolderRequested += path =>
+        {
+            _vm.OpenFolder(path); // dedups: an already-open folder tab is focused
+            Activate();
+        };
         _manifestWindow = new FolderManifestWindow(manifestVm, _vm.Settings);
         _manifestWindow.Closed += (_, _) => _manifestWindow = null;
         _manifestWindow.Show(this);
