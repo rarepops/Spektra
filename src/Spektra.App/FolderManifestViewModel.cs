@@ -10,7 +10,13 @@ public sealed class ManifestFolderItem : IFileItem
 {
     public ManifestFolderItem(ManifestFolder folder)
     {
-        Header = folder.Unreadable ? $"{folder.Name} · unreadable" : $"{folder.Name} · {folder.Rollup}";
+        // The recursive byte total joins the rollup when there is one;
+        // "empty · 0.0 KB" and unreadable nodes would carry a noise size.
+        Header = folder.Unreadable
+            ? $"{folder.Name} · unreadable"
+            : folder.TotalBytes > 0
+                ? $"{folder.Name} · {folder.Rollup} · {Format.Bytes(folder.TotalBytes)}"
+                : $"{folder.Name} · {folder.Rollup}";
         FullPath = folder.Path;
         IsUnreadable = folder.Unreadable;
         Children =

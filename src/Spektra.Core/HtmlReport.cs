@@ -104,7 +104,10 @@ public static class HtmlReport
     private static void AppendManifestFolder(StringBuilder body, ManifestFolder f, int depth)
     {
         body.Append(depth <= 1 ? "<details open>" : "<details>");
-        body.Append($"<summary>{Escape(f.Name)} <span class=\"badge\">{Escape(f.Rollup)}</span></summary>");
+        // The badge carries the recursive byte total when there is one;
+        // "empty · 0.0 KB" and "unreadable · 0.0 KB" would be noise.
+        var badge = f.TotalBytes > 0 ? $"{f.Rollup} · {Bytes(f.TotalBytes)}" : f.Rollup;
+        body.Append($"<summary>{Escape(f.Name)} <span class=\"badge\">{Escape(badge)}</span></summary>");
         foreach (var sub in f.Folders) AppendManifestFolder(body, sub, depth + 1);
         foreach (var file in f.Files)
         {

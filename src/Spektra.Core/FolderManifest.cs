@@ -9,12 +9,12 @@ namespace Spektra.Core;
 /// verbs on everything else.
 public sealed record ManifestFile(string Name, string Path, string Kind, RowSeverity? Severity, long SizeBytes, bool IsAudio);
 
-/// One folder level: subfolders first, then files, both sorted; Rollup
-/// summarizes every descendant file by chip label ("2 flac · 1 jpg · 1 nfo",
-/// "empty", or "unreadable").
+/// One folder level: subfolders first, then files, both sorted; TotalBytes is
+/// the recursive size of every descendant file; Rollup summarizes them by
+/// chip label ("2 flac · 1 jpg · 1 nfo", "empty", or "unreadable").
 public sealed record ManifestFolder(
     string Name, string Path, IReadOnlyList<ManifestFolder> Folders,
-    IReadOnlyList<ManifestFile> Files, string Rollup, bool Unreadable);
+    IReadOnlyList<ManifestFile> Files, long TotalBytes, string Rollup, bool Unreadable);
 
 /// Flat export row, depth-first in display order (a folder's subfolder files
 /// come before its own files, matching the tree read top to bottom).
@@ -39,7 +39,7 @@ public static class FolderManifest
         {
             // A root that cannot even be resolved is the same story as one
             // that cannot be enumerated: one unreadable node, never a throw.
-            return new ManifestFolder(root, root, [], [], "unreadable", Unreadable: true);
+            return new ManifestFolder(root, root, [], [], 0, "unreadable", Unreadable: true);
         }
         return BuildNode(full, NameOf(full), cache).Node;
     }
@@ -99,7 +99,13 @@ public static class FolderManifest
             counts[file.Kind] = counts.GetValueOrDefault(file.Kind) + 1;
 
         if (!isRoot && folders.Count == 0 && files.Count == 0) return (null, counts);
-        return (f with { Folders = folders, Files = files, Rollup = Rollup(counts) }, counts);
+        return (f with
+        {
+            Folders = folders,
+            Files = files,
+            TotalBytes = folders.Sum(x => x.TotalBytes) + files.Sum(x => x.SizeBytes),
+            Rollup = Rollup(counts),
+        }, counts);
     }
 
     private static bool Matches(ManifestFile file, IReadOnlySet<string> kinds)
@@ -120,7 +126,7 @@ public static class FolderManifest
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return (new ManifestFolder(name, path, [], [], "unreadable", Unreadable: true), []);
+            return (new ManifestFolder(name, path, [], [], 0, "unreadable", Unreadable: true), []);
         }
         Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
         Array.Sort(files, StringComparer.OrdinalIgnoreCase);
@@ -142,7 +148,8 @@ public static class FolderManifest
             counts[manifestFiles[i].Kind] = counts.GetValueOrDefault(manifestFiles[i].Kind) + 1;
         }
 
-        return (new ManifestFolder(name, path, folders, manifestFiles, Rollup(counts), Unreadable: false), counts);
+        var totalBytes = folders.Sum(f => f.TotalBytes) + manifestFiles.Sum(f => f.SizeBytes);
+        return (new ManifestFolder(name, path, folders, manifestFiles, totalBytes, Rollup(counts), Unreadable: false), counts);
     }
 
     private static ManifestFile BuildFile(string path, AuditCache? cache)

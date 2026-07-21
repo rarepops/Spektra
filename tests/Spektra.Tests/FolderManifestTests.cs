@@ -246,11 +246,32 @@ public sealed class FolderManifestTests
     }
 
     [Test]
+    public async Task TotalBytes_SumsRecursively_AndFilterRecomputesOverSurvivors()
+    {
+        var d = NewDir();
+        try
+        {
+            var sub = Path.Combine(d, "disc1");
+            Directory.CreateDirectory(sub);
+            File.WriteAllText(Path.Combine(sub, "a.flac"), "12345"); // 5 bytes
+            File.WriteAllText(Path.Combine(d, "notes.nfo"), "abc");  // 3 bytes
+            var root = FolderManifest.Build(d, cache: null);
+            await Assert.That(root.TotalBytes).IsEqualTo(8);
+            await Assert.That(root.Folders.Single().TotalBytes).IsEqualTo(5);
+
+            // Filtering away the nfo leaves only the flac's bytes at the root.
+            var filtered = FolderManifest.Filter(root, ["flac"]);
+            await Assert.That(filtered.TotalBytes).IsEqualTo(5);
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
     public async Task Filter_KeepsUnreadableNodes()
     {
-        var unreadable = new ManifestFolder("locked", @"C:\locked", [], [], "unreadable", Unreadable: true);
+        var unreadable = new ManifestFolder("locked", @"C:\locked", [], [], 0, "unreadable", Unreadable: true);
         var root = new ManifestFolder("lib", @"C:\lib", [unreadable],
-            [new ManifestFile("a.txt", @"C:\lib\a.txt", "txt", null, 1, IsAudio: false)], "1 txt", Unreadable: false);
+            [new ManifestFile("a.txt", @"C:\lib\a.txt", "txt", null, 1, IsAudio: false)], 1, "1 txt", Unreadable: false);
         var filtered = FolderManifest.Filter(root, ["flac"]);
         // no txt match, but the unreadable child stays: it might hold matches
         await Assert.That(filtered.Files).IsEmpty();

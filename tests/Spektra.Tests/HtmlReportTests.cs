@@ -82,11 +82,11 @@ public sealed class HtmlReportTests
             [new ManifestFolder("disc1", @"C:\lib\disc1",
                 [new ManifestFolder("art", @"C:\lib\disc1\art", [],
                     [new ManifestFile("front.jpg", @"C:\lib\disc1\art\front.jpg", "jpg", null, 100_000, IsAudio: false)],
-                    "1 jpg", false)],
+                    100_000, "1 jpg", false)],
                 [new ManifestFile("<script>.mp3", @"C:\lib\disc1\<script>.mp3", "mp3", RowSeverity.Suspect, 5_000_000, IsAudio: true)],
-                "1 mp3 · 1 jpg", false)],
+                5_100_000, "1 mp3 · 1 jpg", false)],
             [new ManifestFile("notes.nfo", @"C:\lib\notes.nfo", "nfo", null, 2_000, IsAudio: false)],
-            "1 mp3 · 1 jpg · 1 nfo", false);
+            5_102_000, "1 mp3 · 1 jpg · 1 nfo", false);
 
     [Test]
     public async Task ManifestDocument_EscapesHostileNames_AndStaysSelfContained()
@@ -118,5 +118,7 @@ public sealed class HtmlReportTests
         await Assert.That(html).Contains("1 mp3 · 1 jpg · 1 nfo");
         await Assert.That(html).Contains("4.8 MB");
         await Assert.That(html).Contains("2.0 KB");
+        // Folder badges carry the recursive byte total (art = 100 KB).
+        await Assert.That(html).Contains("97.7 KB");
     }
 }
