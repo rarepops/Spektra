@@ -42,6 +42,7 @@ public partial class FolderManifestWindow : Window
             }
         }
         AddHandler(DragDrop.DropEvent, OnDrop);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
         PositionChanged += (_, e) =>
         {
             if (WindowState == WindowState.Normal) _normalPosition = e.Point;
@@ -109,6 +110,13 @@ public partial class FolderManifestWindow : Window
 
     private void OnSizeLaneDrag(object? sender, VectorEventArgs e) =>
         _vm.SizeLaneWidth -= e.Vector.X;
+
+    // While a load runs the window is busy with one folder; refuse drags up
+    // front so the cursor says no instead of the drop dying in a guard.
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (_vm.IsLoading) e.DragEffects = DragDropEffects.None;
+    }
 
     // Same shape as DuplicatesWindow's OnDrop, first folder only: one folder
     // at a time is this window's model.

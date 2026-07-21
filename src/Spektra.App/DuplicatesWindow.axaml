@@ -41,7 +41,10 @@
   <DockPanel Margin="12,12,12,4">
     <!-- Row 0 is the star row: the roots list absorbs any slack height (the
          buttons column is usually the tallest thing here), so the path box
-         below keeps its compact height instead of stretching. -->
+         below keeps its compact height instead of stretching. While a scan
+         runs, everything that edits the folder list disables: the run
+         snapshotted the list at start, so a mid-scan edit would only desync
+         what is shown from what the results cover. -->
     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" RowDefinitions="*,Auto" Margin="0,0,0,8">
       <ListBox x:Name="RootsList" Grid.Row="0" Grid.Column="0" ItemsSource="{Binding Roots}"
                MaxHeight="120" Background="#181818"
@@ -55,20 +58,23 @@
       </ListBox>
       <TextBox x:Name="RootPathBox" Grid.Row="1" Grid.Column="0" Margin="0,6,0,0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
+               IsEnabled="{Binding !IsScanning}"
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnRootPathKeyDown"
                ToolTip.Tip="Adds the folder as a scan root; dragging folders from Explorer works too" />
       <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2A2A2A"
               Margin="10,0" />
       <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
-        <Button Content="Add folder…" Click="OnAddFolderClicked" HorizontalAlignment="Stretch" />
-        <Button Content="Remove" Click="OnRemoveFolderClicked" HorizontalAlignment="Stretch" />
+        <Button Content="Add folder…" Click="OnAddFolderClicked" HorizontalAlignment="Stretch"
+                IsEnabled="{Binding !IsScanning}" />
+        <Button Content="Remove" Click="OnRemoveFolderClicked" HorizontalAlignment="Stretch"
+                IsEnabled="{Binding !IsScanning}" />
         <Button Content="Scan" Click="OnScanClicked" IsEnabled="{Binding CanScan}"
                 IsVisible="{Binding !IsScanning}" HorizontalAlignment="Stretch" />
         <Button Content="Cancel" Click="OnCancelClicked" IsVisible="{Binding IsScanning}"
                 HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                        PointerEntered="OnExportHover"
+                        IsEnabled="{Binding CanExport}" PointerEntered="OnExportHover"
                         ToolTip.Tip="Hover to pick HTML, CSV, or JSON">
           <DropDownButton.Flyout>
             <MenuFlyout>

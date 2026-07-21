@@ -72,7 +72,20 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     public string? Folder { get => _folder; private set => Set(ref _folder, value); }
 
     private bool _isLoading;
-    public bool IsLoading { get => _isLoading; private set => Set(ref _isLoading, value); }
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set { if (Set(ref _isLoading, value)) RaisePropertyChanged(nameof(CanExport)); }
+    }
+
+    /// Export dims until a listing is actually on screen: never loaded yet,
+    /// cleared, or a load still in flight all mean there is nothing to write.
+    public bool CanExport => !IsLoading && LastRoot is not null;
+
+    /// One folder at a time is this window's model, so a load in flight
+    /// freezes the inputs that would start another (the window disables
+    /// Browse; these guards catch the address bar and drops).
+    private const string LoadBusyNote = "Still listing · wait for the current folder to finish.";
 
     /// Kind and Size lane widths, dragged at the header (Name is the star
     /// column that absorbs the difference). Saved per header like the audit
@@ -131,7 +144,7 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     /// clear its input box.
     public bool TryLoadTyped(string? raw)
     {
-        if (IsLoading) return false;
+        if (IsLoading) { SetError(LoadBusyNote); return false; }
         var path = (raw ?? "").Trim().Trim('"').Trim();
         if (path.Length == 0) return false;
         if (!Directory.Exists(path))
@@ -149,7 +162,7 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     /// state it opens in, and forgets the folder so the next launch does too.
     public void Clear()
     {
-        if (IsLoading) return;
+        if (IsLoading) { SetError(LoadBusyNote); return; }
         RootItems.Clear();
         LastRoot = null;
         _fullRoot = null;
@@ -157,11 +170,12 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         Folder = null;
         settings.FolderManifestFolder = null;
         FooterText = "Pick a folder to see its manifest.";
+        RaisePropertyChanged(nameof(CanExport)); // LastRoot went null with IsLoading unchanged
     }
 
     public async Task LoadAsync(string folder)
     {
-        if (IsLoading) return;
+        if (IsLoading) { SetError(LoadBusyNote); return; }
         IsLoading = true;
         RootItems.Clear();
         LastRoot = null;

@@ -78,8 +78,21 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     private CancellationTokenSource? _cts;
 
     private bool _isScanning;
-    public bool IsScanning { get => _isScanning; private set { if (Set(ref _isScanning, value)) RaisePropertyChanged(nameof(CanScan)); } }
+    public bool IsScanning
+    {
+        get => _isScanning;
+        private set
+        {
+            if (!Set(ref _isScanning, value)) return;
+            RaisePropertyChanged(nameof(CanScan));
+            RaisePropertyChanged(nameof(CanExport));
+        }
+    }
     public bool CanScan => !IsScanning && Roots.Count > 0;
+
+    /// Export dims until a completed scan has something to write; a starting
+    /// run clears LastResult, so it dims again while scanning.
+    public bool CanExport => !IsScanning && LastResult is not null;
 
     private double _progressFraction;
     public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }
@@ -98,8 +111,17 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// The window's error surface (the footer line doubles as the status bar).
     public void SetError(string message) => FooterText = message;
 
+    /// The run snapshots Roots when it starts, so a mid-scan edit could never
+    /// corrupt it; it would only desync the visible list from what the results
+    /// actually cover. The list is frozen instead: the window disables the
+    /// inputs, and these guards catch the paths already in flight (a picker
+    /// opened before Scan, a drop the drag effects let through).
+    private const string ScanBusyNote =
+        "Scan running · cancel it or let it finish before changing the folder list.";
+
     public void AddRoot(string folder)
     {
+        if (IsScanning) { SetError(ScanBusyNote); return; }
         if (Roots.Any(r => string.Equals(r, folder, StringComparison.OrdinalIgnoreCase))) return;
         Roots.Add(folder);
         PersistRoots();
@@ -113,6 +135,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// so the caller can clear its input box.
     public bool TryAddTypedRoot(string? raw)
     {
+        if (IsScanning) { SetError(ScanBusyNote); return false; }
         var path = (raw ?? "").Trim().Trim('"').Trim();
         if (path.Length == 0) return false;
         if (!Directory.Exists(path))
@@ -126,6 +149,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
 
     public void RemoveRoot(string folder)
     {
+        if (IsScanning) { SetError(ScanBusyNote); return; }
         Roots.Remove(folder);
         PersistRoots();
         RaisePropertyChanged(nameof(CanScan));

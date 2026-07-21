@@ -43,6 +43,7 @@ public partial class DuplicatesWindow : Window
             }
         }
         AddHandler(DragDrop.DropEvent, OnDrop);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
         PositionChanged += (_, e) =>
         {
             if (WindowState == WindowState.Normal) _normalPosition = e.Point;
@@ -53,6 +54,11 @@ public partial class DuplicatesWindow : Window
         };
         Closing += (_, _) =>
         {
+            // A scan must not outlive its window: it would keep most cores
+            // busy with no cancel path left, and reopening (a fresh view
+            // model) could start a second run beside it. Completed analysis
+            // is cached, so cancelling loses nothing.
+            _vm.Cancel();
             var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
             var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
             if (size.Width >= 100 && size.Height >= 100)
@@ -87,6 +93,13 @@ public partial class DuplicatesWindow : Window
         if (e.Key != Key.Enter) return;
         if (_vm.TryAddTypedRoot(RootPathBox.Text)) RootPathBox.Text = "";
         e.Handled = true;
+    }
+
+    // While a scan runs the folder list is frozen; refuse drags up front so
+    // the cursor says no instead of the drop dying in a view-model guard.
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (_vm.IsScanning) e.DragEffects = DragDropEffects.None;
     }
 
     // Same shape as MainWindow's OnDrop, folders only: this window scans
