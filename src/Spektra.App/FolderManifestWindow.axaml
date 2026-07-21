@@ -37,7 +37,16 @@
            gap in the input stack. -->
       <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Background="#2A2A2A"
               Margin="10,0" />
-      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="6" Width="130">
+      <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Spacing="4" Width="130">
+        <!-- Same compact style as the Duplicate Detective's column: 26px to
+             match the input boxes, so the sibling windows read alike. -->
+        <StackPanel.Styles>
+          <Style Selector=":is(Button)">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+          </Style>
+        </StackPanel.Styles>
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch"
                 IsVisible="{Binding !IsLoading}" />
         <Button Content="Cancel" Click="OnCancelLoadClicked" HorizontalAlignment="Stretch"
