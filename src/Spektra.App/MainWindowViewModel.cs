@@ -186,14 +186,19 @@ public sealed class MainWindowViewModel : StatusViewModel
 
     public void DismissUpdate() => Update = null;
 
-    public bool RestoreSession
+    /// The launch policy as a combo row: index 0 = Start new, 1 = Keep last,
+    /// matching StartupModes order.
+    public IReadOnlyList<string> StartupModes { get; } = ["Start new", "Keep last"];
+
+    public int StartupModeIndex
     {
-        get => Settings.RestoreSession;
+        get => Settings.KeepLastOnLaunch ? 1 : 0;
         set
         {
-            if (Settings.RestoreSession == value) return;
-            Settings.RestoreSession = value;
-            RaisePropertyChanged(nameof(RestoreSession));
+            var keep = value == 1;
+            if (Settings.KeepLastOnLaunch == keep) return;
+            Settings.KeepLastOnLaunch = keep;
+            RaisePropertyChanged(nameof(StartupModeIndex));
             SaveSettings();
         }
     }
@@ -292,6 +297,9 @@ public sealed class MainWindowViewModel : StatusViewModel
     public MainWindowViewModel()
     {
         Settings = SettingsStore.Load(SettingsStore.DefaultPath);
+        // Start new (the default) forgets last run's content before any
+        // window reads it; layout and placements survive regardless.
+        Settings.ApplyStartupPolicy();
         Tabs.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
         _ffmpeg = FfmpegLocator.LocateDefault(); // probes app dir, %LOCALAPPDATA%, then PATH
         if (_ffmpeg is null)
@@ -413,7 +421,7 @@ public sealed class MainWindowViewModel : StatusViewModel
     /// Folders are cheap: OpenTree hydrates from the cache without ffmpeg.
     public void RestoreSessionTabs()
     {
-        if (_ffmpeg is null || !Settings.RestoreSession) return;
+        if (_ffmpeg is null || !Settings.KeepLastOnLaunch) return;
         var resolved = SessionRestore.Resolve(
             Settings.SessionTabs, Settings.SessionSelectedIndex,
             p => File.Exists(p) || Directory.Exists(p));

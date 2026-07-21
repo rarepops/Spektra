@@ -128,28 +128,75 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
-    public async Task Session_DefaultsOff_AndRoundTrips()
+    public async Task Session_DefaultsToStartNew_AndRoundTrips()
     {
-        // An old settings file has none of these keys: restore must default
-        // to off so upgrading never reopens tabs the user did not ask for.
+        // An old settings file has none of these keys: the launch policy must
+        // default to start-new so upgrading never reopens content unasked.
         var defaults = SettingsStore.Load(SettingsPath);
-        await Assert.That(defaults.RestoreSession).IsFalse();
+        await Assert.That(defaults.KeepLastOnLaunch).IsFalse();
         await Assert.That(defaults.SessionTabs).IsNull();
         await Assert.That(defaults.SessionSelectedIndex).IsEqualTo(0);
 
         var s = new AppSettings
         {
-            RestoreSession = true,
+            KeepLastOnLaunch = true,
             SessionTabs = [@"C:\music\a.flac", @"C:\music\Album"],
             SessionSelectedIndex = 1,
         };
         SettingsStore.Save(SettingsPath, s);
 
         var r = SettingsStore.Load(SettingsPath);
-        await Assert.That(r.RestoreSession).IsTrue();
+        await Assert.That(r.KeepLastOnLaunch).IsTrue();
         await Assert.That(r.SessionTabs!.SequenceEqual(
             [@"C:\music\a.flac", @"C:\music\Album"])).IsTrue();
         await Assert.That(r.SessionSelectedIndex).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ApplyStartupPolicy_StartNew_ForgetsContent_KeepsLayout()
+    {
+        var s = new AppSettings
+        {
+            SessionTabs = [@"C:\music\a.flac"],
+            SessionSelectedIndex = 1,
+            DuplicateRoots = [@"C:\Music"],
+            FolderManifestFolder = @"D:\Music",
+            FolderColumnWidths = new() { ["File"] = 300 },
+            ManifestColumnWidths = new() { ["Kind"] = 90 },
+            FolderManifestWindow = new WindowPlacement(1, 2, 800, 600, false),
+        };
+        s.PushRecent(@"C:\music\a.flac");
+        s.ApplyStartupPolicy();
+
+        // What was open is forgotten...
+        await Assert.That(s.SessionTabs).IsNull();
+        await Assert.That(s.SessionSelectedIndex).IsEqualTo(0);
+        await Assert.That(s.DuplicateRoots).IsNull();
+        await Assert.That(s.FolderManifestFolder).IsNull();
+        // ...how things look is not.
+        await Assert.That(s.FolderColumnWidths!["File"]).IsEqualTo(300);
+        await Assert.That(s.ManifestColumnWidths!["Kind"]).IsEqualTo(90);
+        await Assert.That(s.FolderManifestWindow).IsNotNull();
+        await Assert.That(s.RecentFiles.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ApplyStartupPolicy_KeepLast_ChangesNothing()
+    {
+        var s = new AppSettings
+        {
+            KeepLastOnLaunch = true,
+            SessionTabs = [@"C:\music\a.flac"],
+            SessionSelectedIndex = 1,
+            DuplicateRoots = [@"C:\Music"],
+            FolderManifestFolder = @"D:\Music",
+        };
+        s.ApplyStartupPolicy();
+
+        await Assert.That(s.SessionTabs!.Count).IsEqualTo(1);
+        await Assert.That(s.SessionSelectedIndex).IsEqualTo(1);
+        await Assert.That(s.DuplicateRoots!.Count).IsEqualTo(1);
+        await Assert.That(s.FolderManifestFolder).IsEqualTo(@"D:\Music");
     }
 
     [Test]

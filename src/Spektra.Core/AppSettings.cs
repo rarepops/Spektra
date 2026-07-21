@@ -41,14 +41,32 @@ public sealed class AppSettings
     public bool CheckForUpdatesOnStartup { get; set; }
     public DateTime? LastUpdateCheck { get; set; }
 
-    // Session restore. Off by default: launching with a file argument (double
-    // click, drag, CLI) skips restore entirely, so a targeted open stays
-    // targeted. SessionTabs holds file paths and folder paths in tab order;
-    // comparison tabs are not saved. SessionSelectedIndex indexes THIS list,
-    // not the live tab strip, which also holds the unsaved comparison tabs.
-    public bool RestoreSession { get; set; }
+    // Launch content policy for every window. Start new (the default, false)
+    // opens the app and its tool windows empty; keep last reopens the previous
+    // tabs, Duplicate Detective scan roots, and manifest folder. Launching
+    // with a file argument (double click, drag, CLI) skips tab restore either
+    // way, so a targeted open stays targeted. SessionTabs holds file and
+    // folder paths in tab order; comparison tabs are not saved.
+    // SessionSelectedIndex indexes THIS list, not the live tab strip, which
+    // also holds the unsaved comparison tabs.
+    public bool KeepLastOnLaunch { get; set; }
     public List<string>? SessionTabs { get; set; }
     public int SessionSelectedIndex { get; set; }
+
+    /// Applied once at app launch, before any window reads remembered content.
+    /// Start new forgets WHAT was open (tabs, scan roots, manifest folder);
+    /// HOW things look (layout, column widths, window placements, recents)
+    /// always survives. In-memory only: using the app repopulates these, so a
+    /// mid-session close and reopen of a tool window still restores, and the
+    /// next launch starts clean again. The CLI never applies this.
+    public void ApplyStartupPolicy()
+    {
+        if (KeepLastOnLaunch) return;
+        SessionTabs = null;
+        SessionSelectedIndex = 0;
+        DuplicateRoots = null;
+        FolderManifestFolder = null;
+    }
 
     // Duplicate Detective window state: scan roots and window placement persist
     // across sessions. Null = the window has never been used.

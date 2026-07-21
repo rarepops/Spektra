@@ -66,9 +66,14 @@
     <Border Height="1" Background="#2E2E2E" />
 
     <TextBlock Text="Session" Foreground="#9AA0A6" FontSize="12" FontWeight="SemiBold" />
-    <CheckBox Content="Reopen last session's tabs on launch" Foreground="#C9C9C9"
-              IsChecked="{Binding RestoreSession, Mode=TwoWay}"
-              ToolTip.Tip="Only on a bare launch · opening a file directly stays targeted" />
+    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto" RowSpacing="10">
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="On launch" Foreground="#C9C9C9"
+                 FontSize="12" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                ItemsSource="{Binding StartupModes}"
+                SelectedIndex="{Binding StartupModeIndex, Mode=TwoWay}"
+                ToolTip.Tip="Keep last reopens the previous tabs, Duplicate Detective folders, and manifest folder · opening a file directly stays targeted either way" />
+    </Grid>
 
     <Border Height="1" Background="#2E2E2E" />
 
