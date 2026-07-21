@@ -35,6 +35,21 @@
     <Style Selector="Expander /template/ ToggleButton:checked /template/ Path#PART_Chevron">
       <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
+    <!-- The member rows live in a plain ItemsControl (no selection model), so
+         row feedback comes from here: a hover tint shows which file a
+         double-tap or right-click would act on, and the menuOpen class pins
+         the same tint while that row's context menu is open, so the target
+         stays marked when the pointer moves into the menu. The transparent
+         base keeps the row's empty space hit-testable. -->
+    <Style Selector="Grid.memberRow">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Grid.memberRow:pointerover">
+      <Setter Property="Background" Value="#1E1E1E" />
+    </Style>
+    <Style Selector="Grid.memberRow.menuOpen">
+      <Setter Property="Background" Value="#1E1E1E" />
+    </Style>
   </Window.Styles>
   <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
        whose status line sits 4px off the edge. -->
@@ -149,11 +164,11 @@
                       <!-- One line per copy: the path fills the row and the
                            verdict facts sit in fixed lanes, so they read as
                            columns across every group. -->
-                      <Grid ColumnDefinitions="18,12,*,60,110,64,76,104,96" Margin="4,2"
-                            Background="Transparent" DoubleTapped="OnMemberDoubleTapped"
+                      <Grid Classes="memberRow" ColumnDefinitions="18,12,*,60,110,64,76,104,96"
+                            Margin="4,2" DoubleTapped="OnMemberDoubleTapped"
                             ToolTip.Tip="{Binding Path}">
                         <Grid.ContextMenu>
-                          <ContextMenu>
+                          <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
                             <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
                             <Separator />
                             <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />

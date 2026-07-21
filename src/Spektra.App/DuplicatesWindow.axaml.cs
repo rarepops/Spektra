@@ -123,6 +123,19 @@ public partial class DuplicatesWindow : Window
 
     private void OnCancelClicked(object? sender, RoutedEventArgs e) => _vm.Cancel();
 
+    // Pin the row highlight while its context menu is open: hover leaves the
+    // row when the pointer moves into the menu, and without this nothing
+    // marks which file the verbs act on.
+    private void OnMemberMenuOpened(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as ContextMenu)?.PlacementTarget is Control target) target.Classes.Add("menuOpen");
+    }
+
+    private void OnMemberMenuClosed(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as ContextMenu)?.PlacementTarget is Control target) target.Classes.Remove("menuOpen");
+    }
+
     private void OnMemberDoubleTapped(object? sender, TappedEventArgs e)
     {
         if ((sender as Control)?.DataContext is DupeMemberItem member)
