@@ -3,7 +3,11 @@ namespace Spektra.Core;
 /// One file in a listed folder: Kind is the chip label (the cached codec when
 /// the audit cache knows this exact file, its extension otherwise), Severity
 /// is the cached verdict severity (null when undecorated).
-public sealed record ManifestFile(string Name, string Path, string Kind, RowSeverity? Severity, long SizeBytes);
+/// IsAudio is extension membership in the audit pipeline's set (NOT the Kind
+/// chip, which shows the real codec once a file is analyzed): it answers
+/// "would FindAudioFiles pick this up", so the UI can disable audio-only
+/// verbs on everything else.
+public sealed record ManifestFile(string Name, string Path, string Kind, RowSeverity? Severity, long SizeBytes, bool IsAudio);
 
 /// One folder level: subfolders first, then files, both sorted; Rollup
 /// summarizes every descendant file by chip label ("2 flac · 1 jpg · 1 nfo",
@@ -146,23 +150,23 @@ public static class FolderManifest
         var name = Path.GetFileName(path);
         var ext = Path.GetExtension(path);
         var kind = ext.Length > 1 ? ext[1..].ToLowerInvariant() : "none";
+        var isAudio = BandwidthReport.AudioExtensions.Contains(ext.ToLowerInvariant());
         long size = 0;
         try
         {
             var info = new FileInfo(path);
             size = info.Length;
-            if (cache is not null
-                && BandwidthReport.AudioExtensions.Contains(ext.ToLowerInvariant())
+            if (cache is not null && isAudio
                 && cache.TryGet(new AuditTarget(path, info.Length, info.LastWriteTimeUtc.Ticks)) is { } hit)
                 return new ManifestFile(
                     name, path, hit.Row.Codec?.ToLowerInvariant() ?? kind,
-                    FolderAudit.RowSeverityOf(hit.Row), size);
+                    FolderAudit.RowSeverityOf(hit.Row), size, isAudio);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             // stat or cache hiccup mid-walk: keep the extension chip and a zero size
         }
-        return new ManifestFile(name, path, kind, Severity: null, size);
+        return new ManifestFile(name, path, kind, Severity: null, size, isAudio);
     }
 
     private static string Rollup(Dictionary<string, int> counts) =>

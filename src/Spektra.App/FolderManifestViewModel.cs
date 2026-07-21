@@ -38,6 +38,9 @@ public sealed class ManifestFileItem(ManifestFile file) : IFileItem
     public string Name { get; } = file.Name;
     public string Path { get; } = file.Path;
     public string Kind { get; } = file.Kind;
+    /// Gates the audio-only menu verbs: Open spectrogram is disabled on a
+    /// jpg/nfo/cue rather than opening a tab that can only error.
+    public bool IsAudio { get; } = file.IsAudio;
     public string SizeText { get; } = Format.Bytes(file.SizeBytes);
     public IBrush KindBrush { get; } = file.Severity switch
     {

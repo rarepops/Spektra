@@ -81,11 +81,11 @@ public sealed class HtmlReportTests
         new("<img src=x>", @"C:\lib",
             [new ManifestFolder("disc1", @"C:\lib\disc1",
                 [new ManifestFolder("art", @"C:\lib\disc1\art", [],
-                    [new ManifestFile("front.jpg", @"C:\lib\disc1\art\front.jpg", "jpg", null, 100_000)],
+                    [new ManifestFile("front.jpg", @"C:\lib\disc1\art\front.jpg", "jpg", null, 100_000, IsAudio: false)],
                     "1 jpg", false)],
-                [new ManifestFile("<script>.mp3", @"C:\lib\disc1\<script>.mp3", "mp3", RowSeverity.Suspect, 5_000_000)],
+                [new ManifestFile("<script>.mp3", @"C:\lib\disc1\<script>.mp3", "mp3", RowSeverity.Suspect, 5_000_000, IsAudio: true)],
                 "1 mp3 · 1 jpg", false)],
-            [new ManifestFile("notes.nfo", @"C:\lib\notes.nfo", "nfo", null, 2_000)],
+            [new ManifestFile("notes.nfo", @"C:\lib\notes.nfo", "nfo", null, 2_000, IsAudio: false)],
             "1 mp3 · 1 jpg · 1 nfo", false);
 
     [Test]

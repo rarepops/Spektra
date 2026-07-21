@@ -53,6 +53,27 @@ public sealed class FolderManifestTests
     }
 
     [Test]
+    public async Task IsAudio_TracksTheAuditPipelinesExtensionSet()
+    {
+        var d = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(d, "song.FLAC"), "x");
+            File.WriteAllText(Path.Combine(d, "cover.jpg"), "x");
+            File.WriteAllText(Path.Combine(d, "README"), "x");
+            var root = FolderManifest.Build(d, cache: null);
+            var byName = root.Files.ToDictionary(f => f.Name, f => f.IsAudio);
+            // Extension membership, same set FindAudioFiles walks: the flag is
+            // "would the audit/viewer pipeline treat this as audio", so the
+            // manifest's Open spectrogram can disable itself on everything else.
+            await Assert.That(byName["song.FLAC"]).IsTrue();
+            await Assert.That(byName["cover.jpg"]).IsFalse();
+            await Assert.That(byName["README"]).IsFalse();
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
     public async Task Rollup_IsRecursive_CountDescendingThenName_EmptyWhenEmpty()
     {
         var d = NewDir();
@@ -229,7 +250,7 @@ public sealed class FolderManifestTests
     {
         var unreadable = new ManifestFolder("locked", @"C:\locked", [], [], "unreadable", Unreadable: true);
         var root = new ManifestFolder("lib", @"C:\lib", [unreadable],
-            [new ManifestFile("a.txt", @"C:\lib\a.txt", "txt", null, 1)], "1 txt", Unreadable: false);
+            [new ManifestFile("a.txt", @"C:\lib\a.txt", "txt", null, 1, IsAudio: false)], "1 txt", Unreadable: false);
         var filtered = FolderManifest.Filter(root, ["flac"]);
         // no txt match, but the unreadable child stays: it might hold matches
         await Assert.That(filtered.Files).IsEmpty();

@@ -97,7 +97,8 @@
                 Background="Transparent" ToolTip.Tip="{Binding Path}">
             <Grid.ContextMenu>
               <ContextMenu>
-                <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+                <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked"
+                          IsEnabled="{Binding IsAudio}" />
                 <Separator />
                 <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
                 <MenuItem Header="_Reveal in Explorer" Click="OnMenuRevealClicked" />
