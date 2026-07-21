@@ -8,7 +8,7 @@
   <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
        whose status line sits 4px off the edge. -->
   <DockPanel Margin="12,12,12,4">
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,8">
       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Folder}" Foreground="#DDDDDD"
                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                  ToolTip.Tip="{Binding Folder}" />
@@ -17,16 +17,18 @@
                PlaceholderText="Paste or type a folder path and press Enter"
                KeyDown="OnManifestPathKeyDown"
                ToolTip.Tip="Lists the folder; dragging a folder from Explorer works too" />
-      <!-- Spans both columns: the button stack beside it holds only two
-           buttons, so its share of this third row is dead space. The stack
-           sets no Background, so it neither paints nor hit-tests over the
-           filter box that now runs underneath it to the window edge. -->
-      <TextBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,6,0,0"
+      <TextBox Grid.Row="2" Grid.Column="0" Margin="0,6,0,0"
                MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
                Text="{Binding FilterText}"
                PlaceholderText="Filter by extension, space separated: flac jpg nfo"
                ToolTip.Tip="Shows only files whose kind or extension matches; folders without matches disappear and Export writes exactly what is shown" />
-      <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Margin="8,0,0,0" Spacing="6" Width="130">
+      <!-- Splits the inputs from the actions, matching the Duplicate Detective
+           header: the rule makes the button column its own region, so the
+           space below the last button reads as intentional rather than as a
+           gap in the input stack. -->
+      <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="1" Background="#2A2A2A"
+              Margin="10,0" />
+      <StackPanel Grid.Row="0" Grid.RowSpan="3" Grid.Column="2" Spacing="6" Width="130">
         <Button Content="Browse…" Click="OnPickFolderClicked" HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         PointerEntered="OnExportHover"
