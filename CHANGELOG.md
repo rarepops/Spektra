@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-07-21
+
+### Changed
+- The Controls window (F1) is wider and lays its groups out in two columns, main-window basics (Files & tabs, View & zoom, Save & export) on the left and the deeper features (Analysis, Compare, Tools & right-click) on the right, so everything fits on screen without scrolling.
+
 ## [0.15.0] - 2026-07-21
 
 ### Added
