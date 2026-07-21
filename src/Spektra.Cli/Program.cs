@@ -29,6 +29,23 @@ internal static class Program
             return 0;
         }
 
+        // The manifest never decodes (it lists and reads cache), so it is the
+        // one verb that must keep working without ffmpeg installed; it
+        // dispatches before the gate.
+        if (args[0] is "--manifest" or "manifest")
+        {
+            try
+            {
+                var (fmt, _, rest) = TakeOptions(args[1..]);
+                return Manifest(rest, fmt);
+            }
+            catch (OptionException ex)
+            {
+                Console.Error.WriteLine($"spektra: {ex.Message}");
+                return 2;
+            }
+        }
+
         var ffmpeg = FfmpegLocator.LocateDefault();
         if (ffmpeg is null)
         {
@@ -422,6 +439,61 @@ internal static class Program
         _ => $"{b / 1024.0:0.0} KB",
     };
 
+    // The GUI's Folder Manifest as a command: EVERYTHING in one folder with an
+    // honest chip per file, codec/severity chips from the audit cache when a
+    // file was analyzed before, never decoding anything.
+    private static int Manifest(string[] paths, OutFormat fmt)
+    {
+        var html = TakeHtml(ref paths);
+        if (paths.Length != 1 || !Directory.Exists(paths[0]))
+        {
+            Console.Error.WriteLine("spektra manifest: give one existing folder.");
+            return 2;
+        }
+
+        AuditCache? cache = null;
+        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Console.Error.WriteLine($"spektra manifest: cache unavailable ({ex.Message}); extension chips only.");
+        }
+
+        ManifestFolder root;
+        try { root = FolderManifest.Build(paths[0], cache); }
+        finally { cache?.Dispose(); }
+
+        if (root.Unreadable)
+        {
+            Console.Error.WriteLine($"spektra manifest: could not read {paths[0]}.");
+            return 2;
+        }
+
+        if (html is not null)
+        {
+            try { File.WriteAllText(html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"spektra manifest: {ex.Message}");
+                return 2;
+            }
+        }
+
+        var rows = FolderManifest.ToRows(root);
+        if (fmt != OutFormat.Text)
+        {
+            Emit(rows, fmt);
+            return 0;
+        }
+
+        foreach (var row in rows)
+        {
+            var severity = row.Severity is { } s ? $" · {s}" : "";
+            Console.WriteLine($"{row.Kind,-6} {Bytes(row.SizeBytes),10}  {row.Path}{severity}");
+        }
+        Console.WriteLine($"{rows.Count} file(s) · {root.Rollup} · {Bytes(root.TotalBytes)}");
+        return 0;
+    }
+
     private static int Loudness(FfmpegPaths ffmpeg, string[] paths, OutFormat fmt, int jobs)
     {
         var files = ResolveInputs(paths);
@@ -610,6 +682,7 @@ internal static class Program
               spektra check <file|folder> ...    Integrity check (corruption / missing data).
               spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
               spektra dupes <folder> ...         Find duplicate songs; mark the best copy (cached).
+              spektra manifest <folder>          List EVERYTHING in a folder with type chips (no decoding).
               spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
               spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
               spektra image <file>               Render the spectrogram to a PNG (no window).
@@ -631,6 +704,11 @@ internal static class Program
             marks each group's best copy; give two or more folders to also find
             duplicates that live in different libraries. --fresh re-analyzes.
             Add --html out.html to also write the groups as a self-contained HTML page.
+
+            manifest lists every file, audio or not, with a type chip per file;
+            files the audit has seen before get their real codec and verdict
+            chips from the cache. It never decodes, works without ffmpeg, and
+            --html out.html writes the collapsible tree page.
 
             diff aligns the files automatically; pin an offset with --offset <ms>
             (positive = B later than A) and tune the verdict with --threshold-db <N>
