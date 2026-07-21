@@ -11,6 +11,14 @@ public sealed class DupeGroupItem(DupesGroupReport report)
     /// member paths rather than the composed display strings.
     public DupesGroupReport Report { get; } = report;
 
+    /// The copies NOT worth keeping, for the clipboard batch verb: feed them
+    /// to another tool; Spektra itself never touches files.
+    public IReadOnlyList<string> LoserPaths { get; } =
+        [.. report.Group.Members.Where(m => !report.Quality.Winners.Contains(m.Path)).Select(m => m.Path)];
+
+    public IReadOnlyList<string> AllPaths { get; } =
+        [.. report.Group.Members.Select(m => m.Path)];
+
     public string Headline { get; } =
         $"{report.Group.Label} · {report.Group.Members.Count} files · sameness {report.Group.SamenessTier} · reclaim {Format.Bytes(report.ReclaimableBytes)}";
     public string QualityLine { get; } = $"quality {report.Quality.Confidence}: {report.Quality.Reason}";

@@ -160,6 +160,18 @@ public partial class DuplicatesWindow : Window
             _vm.RequestCompare(member);
     }
 
+    private async void OnCopyLosersClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DupeGroupItem group && group.LoserPaths.Count > 0)
+            await FileActions.CopyTextAsync(this, string.Join(Environment.NewLine, group.LoserPaths));
+    }
+
+    private async void OnCopyGroupPathsClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DupeGroupItem group)
+            await FileActions.CopyTextAsync(this, string.Join(Environment.NewLine, group.AllPaths));
+    }
+
     // Open the format flyout on hover, so the three options are one move away
     // with no click. ShowAt just re-anchors if it is already open.
     private void OnExportHover(object? sender, PointerEventArgs e)

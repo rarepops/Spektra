@@ -14,11 +14,16 @@ public static class FileActions
     public static IFileItem? ItemFrom(object? sender) =>
         (sender as MenuItem)?.DataContext as IFileItem;
 
-    public static async Task CopyPathAsync(TopLevel? top, IFileItem? item)
+    public static Task CopyPathAsync(TopLevel? top, IFileItem? item) =>
+        item is null ? Task.CompletedTask : CopyTextAsync(top, item.FullPath);
+
+    /// One clipboard write for everything: single paths and the multi-line
+    /// batch verbs (one path per line) go through the same door.
+    public static async Task CopyTextAsync(TopLevel? top, string text)
     {
-        if (item is null || top?.Clipboard is not { } clipboard) return;
+        if (top?.Clipboard is not { } clipboard) return;
         var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(DataFormat.Text, item.FullPath));
+        data.Add(DataTransferItem.Create(DataFormat.Text, text));
         await clipboard.SetDataAsync(data);
     }
 

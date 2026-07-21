@@ -163,6 +163,17 @@
           <DataTemplate x:DataType="app:DupeGroupItem">
             <Expander IsExpanded="{Binding IsSmall}" Margin="0,3" HorizontalAlignment="Stretch"
                       BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
+              <!-- Group-level verbs: right-click anywhere in the group box
+                   except the member rows, which carry their own menus
+                   (innermost menu wins). -->
+              <Expander.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Copy _loser paths" Click="OnCopyLosersClicked"
+                            IsEnabled="{Binding !!LoserPaths.Count}"
+                            ToolTip.Tip="Every copy except the winner, one path per line" />
+                  <MenuItem Header="Copy _all paths" Click="OnCopyGroupPathsClicked" />
+                </ContextMenu>
+              </Expander.ContextMenu>
               <Expander.Header>
                 <TextBlock Text="{Binding Headline}" Foreground="#DDDDDD" />
               </Expander.Header>
