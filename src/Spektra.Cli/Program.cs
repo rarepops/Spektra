@@ -19,7 +19,7 @@ internal static class Program
         catch (IOException) { /* no console to configure */ }
 
         if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
-            return Usage(args.Length == 0 ? 1 : 0);
+            return Usage(args.Length == 0 ? 2 : 0);
 
         if (args[0] is "--version" or "-v")
         {
@@ -65,7 +65,7 @@ internal static class Program
                 "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
                 "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
                 "--image" or "image" => Image(ffmpeg, rest, fmt),
-                _ => Usage(1),
+                _ => Usage(2),
             };
         }
         catch (OptionException ex)
@@ -126,7 +126,7 @@ internal static class Program
         if (files.Count == 0)
         {
             Console.Error.WriteLine("spektra report: give one or more audio files or a folder.");
-            return Usage(1);
+            return 2;
         }
         var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
 
@@ -149,7 +149,7 @@ internal static class Program
         if (args.Length == 0 || !Directory.Exists(args[0]))
         {
             Console.Error.WriteLine("spektra scan: give an existing folder to scan.");
-            return Usage(1);
+            return 2;
         }
         var root = args[0];
         var files = BandwidthReport.FindAudioFiles(root).ToList();
@@ -190,7 +190,7 @@ internal static class Program
         if (files.Count == 0)
         {
             Console.Error.WriteLine("spektra check: give one or more audio files or a folder.");
-            return Usage(1);
+            return 2;
         }
         var computed = MapParallel(files, jobs, path =>
         {
@@ -251,7 +251,7 @@ internal static class Program
         if (targets.Length == 0)
         {
             Console.Error.WriteLine("spektra audit: give one or more audio files or a folder.");
-            return Usage(1);
+            return 2;
         }
 
         var cache = AuditCache.TryOpen(out var cacheError);
@@ -437,7 +437,7 @@ internal static class Program
         if (files.Count == 0)
         {
             Console.Error.WriteLine("spektra loudness: give one or more audio files or a folder.");
-            return Usage(1);
+            return 2;
         }
         var computed = MapParallel(files, jobs, path =>
         {
@@ -479,7 +479,7 @@ internal static class Program
         if (files.Count != 2)
         {
             Console.Error.WriteLine("spektra diff: give exactly two audio files.");
-            return Usage(1);
+            return 2;
         }
 
         var options = new CompareOptions(OffsetSeconds: offsetMs / 1000, ThresholdDb: thresholdDb);
@@ -531,7 +531,7 @@ internal static class Program
         if (fmt != OutFormat.Text)
         {
             Console.Error.WriteLine("spektra image: --json/--csv do not apply to image.");
-            return Usage(1);
+            return 2;
         }
 
         string? outPath = null;
@@ -559,7 +559,7 @@ internal static class Program
         if (files.Count != 1 || Directory.Exists(files[0]))
         {
             Console.Error.WriteLine("spektra image: give one audio file (folders are not supported).");
-            return Usage(1);
+            return 2;
         }
 
         // The render follows the app's saved theme (palette + tightness);
@@ -664,8 +664,8 @@ internal static class Program
             corrupt files; audit: a transcode, an upsample, or corruption - an
             honest lossy file is not a problem; dupes: one or more duplicate
             groups found; loudness: a file could not be measured; diff: the
-            files differ), 2 on setup errors (including an unknown or
-            malformed option; dupes: no existing folder given).
+            files differ), 2 on setup errors (an unknown or malformed
+            option, or no existing file or folder given).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
