@@ -67,6 +67,22 @@ public class FolderAuditTests
     }
 
     [Test]
+    public async Task HasProblem_AgreesWithRowSeverityOf_OnTheCommonShapes()
+    {
+        // The entry-based HasProblem and the row-only RowSeverityOf share one
+        // problem rule (FolderAudit.IsProblem), so a file must classify the same
+        // once flattened to a row. Covers a transcode (problem), an honest lossy
+        // (clean), a clean wav, and an unreadable file (problem via the error
+        // term). Guards against the two predicates being split apart again.
+        foreach (var name in (string[])["transcode.flac", "chirp-mp3-64.mp3", "chirp.wav", "notaudio.txt"])
+        {
+            var result = FolderAudit.AnalyzeFile(Ff, P(name));
+            var rowIsProblem = FolderAudit.RowSeverityOf(result.ToRow()) == RowSeverity.Problem;
+            await Assert.That(result.HasProblem).IsEqualTo(rowIsProblem);
+        }
+    }
+
+    [Test]
     public async Task Run_ReportsEachEntryOnce()
     {
         AuditTarget[] targets = [T("chirp.wav"), T("noise.wav"), T("sine-1khz.wav")];

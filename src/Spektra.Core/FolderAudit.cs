@@ -24,14 +24,13 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
     /// the wall does not belong there - lossy content in a lossless container,
     /// or an mp3/aac far below its bitrate's expected cutoff).
     public bool HasProblem =>
-        Report.Error is not null
-        || Report.Verdict?.Kind is VerdictKind.Upsampled
-        || (Report.Verdict?.Kind is VerdictKind.Lossy
-            && TranscodeCheck.IsSuspectLossy(
-                Report.Metadata?.Codec, Report.Metadata?.BitRateBps,
-                Report.Metadata?.Channels, Report.Verdict.CutoffHz))
-        || IntegrityError is not null
-        || Integrity?.Status == IntegrityStatus.Corrupt;
+        FolderAudit.IsProblem(
+            Report.Error,
+            Report.Verdict?.Kind is VerdictKind.Upsampled,
+            Report.Verdict?.Kind is VerdictKind.Lossy,
+            Report.Metadata?.Codec, Report.Metadata?.BitRateBps,
+            Report.Metadata?.Channels, Report.Verdict?.CutoffHz,
+            IntegrityError is not null || Integrity?.Status == IntegrityStatus.Corrupt);
 }
 
 /// How bad a single audited row is, low to high. Drives the grid's
@@ -53,20 +52,34 @@ public static class FolderAudit
             : RowSeverity.Clean;
 
     /// Severity from a bare row, for exports that carry AuditRow without the
-    /// entry. Mirrors AuditResult.HasProblem plus Severity: any change to
-    /// either must be reflected here (the shared test pins the common shapes).
+    /// entry. Shares the problem rule with AuditResult.HasProblem through
+    /// IsProblem, then adds the Suspect tier the entry-based Severity also does.
     public static RowSeverity RowSeverityOf(AuditRow row)
     {
-        var problem = row.Error is not null
-            || row.Bandwidth is "Upsampled"
-            || (row.Bandwidth is "Lossy"
-                && TranscodeCheck.IsSuspectLossy(row.Codec, row.BitrateBps, row.Channels, row.CutoffHz))
-            || row.Integrity is "Corrupt" or "Error";
+        var problem = IsProblem(
+            row.Error,
+            row.Bandwidth is "Upsampled",
+            row.Bandwidth is "Lossy",
+            row.Codec, row.BitrateBps, row.Channels, row.CutoffHz,
+            row.Integrity is "Corrupt" or "Error");
         return problem ? RowSeverity.Problem
             : row.Integrity is "Suspect" || IsSuspectBandwidth(row)
                 ? RowSeverity.Suspect
                 : RowSeverity.Clean;
     }
+
+    /// The single problem rule, over the primitives both the rich AuditResult
+    /// and the flattened AuditRow can supply (see HasProblem and RowSeverityOf).
+    /// A new problem dimension is a new parameter here, which the compiler then
+    /// forces both callers to fill, so the two can no longer silently drift.
+    internal static bool IsProblem(
+        string? error, bool upsampled, bool lossy,
+        string? codec, long? bitRateBps, int? channels, double? cutoffHz,
+        bool integrityBad) =>
+        error is not null
+        || upsampled
+        || (lossy && TranscodeCheck.IsSuspectLossy(codec, bitRateBps, channels, cutoffHz))
+        || integrityBad;
 
     // A Suspicious verdict colors the row yellow, unless it is an honest
     // lossy file's own high-bitrate wall (nothing a listener can act on).
