@@ -10,8 +10,6 @@ namespace Spektra.Cli;
 /// cleanly. Exit code 1 when anything is judged likely lossy, 2 on setup errors.
 internal static class Program
 {
-    private enum OutFormat { Text, Json, Csv }
-
     public static int Main(string[] args)
     {
         // UTF-8 output regardless of the console's legacy codepage: summaries
@@ -36,7 +34,7 @@ internal static class Program
         {
             try
             {
-                var (fmt, _, rest) = TakeOptions(args[1..]);
+                var (fmt, _, rest) = CliOptions.Take(args[1..], DefaultJobs);
                 return Manifest(rest, fmt);
             }
             catch (OptionException ex)
@@ -56,7 +54,7 @@ internal static class Program
 
         try
         {
-            var (fmt, jobs, rest) = TakeOptions(args[1..]);
+            var (fmt, jobs, rest) = CliOptions.Take(args[1..], DefaultJobs);
             return args[0] switch
             {
                 "--report" or "report" => Report(ffmpeg, rest, fmt, jobs),
@@ -80,65 +78,6 @@ internal static class Program
     // Default worker count: about 80% of the logical cores, leaving headroom for
     // the OS and for ffmpeg's own decode threads. Override with --jobs / -j.
     private static readonly int DefaultJobs = Math.Max(1, (int)(Environment.ProcessorCount * 0.8));
-
-    // A recognized option flag was given a missing or invalid value. Carried out
-    // to Main, which prints it and exits 2, instead of letting the flag and its
-    // value fall through and be misread as file arguments (which produced a
-    // baffling "give one audio file" error).
-    private sealed class OptionException(string message) : Exception(message);
-
-    // Consume the value following a recognized flag, or fail with a clear message.
-    private static string OptionValue(string flag, string[] args, ref int i) =>
-        i + 1 < args.Length ? args[++i] : throw new OptionException($"{flag} needs a value.");
-
-    private static int IntOption(string flag, string[] args, ref int i, int min)
-    {
-        var v = OptionValue(flag, args, ref i);
-        return int.TryParse(v, out var n) && n >= min ? n
-            : throw new OptionException($"{flag} must be a whole number >= {min}, got '{v}'.");
-    }
-
-    private static double DoubleOption(string flag, string[] args, ref int i)
-    {
-        var v = OptionValue(flag, args, ref i);
-        return double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? n
-            : throw new OptionException($"{flag} must be a number, got '{v}'.");
-    }
-
-    private static float FloatOption(string flag, string[] args, ref int i)
-    {
-        var v = OptionValue(flag, args, ref i);
-        return float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var n) ? n
-            : throw new OptionException($"{flag} must be a number, got '{v}'.");
-    }
-
-    /// Pulls "--html <path>" out of a verb's argument list; null when absent.
-    private static string? TakeHtml(ref string[] args)
-    {
-        var i = Array.IndexOf(args, "--html");
-        if (i < 0) return null;
-        if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
-            throw new OptionException("--html needs a file path.");
-        var path = args[i + 1];
-        args = [.. args[..i], .. args[(i + 2)..]];
-        return path;
-    }
-
-    private static (OutFormat fmt, int jobs, string[] rest) TakeOptions(string[] args)
-    {
-        var fmt = OutFormat.Text;
-        var jobs = DefaultJobs;
-        var rest = new List<string>();
-        for (var i = 0; i < args.Length; i++)
-        {
-            var a = args[i];
-            if (a is "--json") fmt = OutFormat.Json;
-            else if (a is "--csv") fmt = OutFormat.Csv;
-            else if (a is "--jobs" or "-j") jobs = IntOption(a, args, ref i, min: 1);
-            else rest.Add(a);
-        }
-        return (fmt, jobs, rest.ToArray());
-    }
 
     // Informational version (the csproj <Version>), minus any +buildmetadata.
     private static string Version()
@@ -167,10 +106,13 @@ internal static class Program
 
     // A single folder argument recurses into its audio files; otherwise the
     // arguments are taken as individual files.
-    private static IReadOnlyList<string> ResolveInputs(string[] paths) =>
-        paths.Length == 1 && Directory.Exists(paths[0])
+    private static IReadOnlyList<string> ResolveInputs(string[] paths)
+    {
+        CliOptions.RejectUnknownFlags(paths);
+        return paths.Length == 1 && Directory.Exists(paths[0])
             ? BandwidthReport.FindAudioFiles(paths[0]).ToList()
             : paths;
+    }
 
     private static void Emit<T>(IReadOnlyList<T> rows, OutFormat fmt)
     {
@@ -203,6 +145,7 @@ internal static class Program
 
     private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
     {
+        CliOptions.RejectUnknownFlags(args);
         if (args.Length == 0 || !Directory.Exists(args[0]))
         {
             Console.Error.WriteLine("spektra scan: give an existing folder to scan.");
@@ -295,7 +238,8 @@ internal static class Program
     {
         var fresh = paths.Contains("--fresh");
         paths = paths.Where(p => p != "--fresh").ToArray();
-        var html = TakeHtml(ref paths);
+        var html = CliOptions.TakeHtml(ref paths);
+        CliOptions.RejectUnknownFlags(paths);
         var folder = paths.Length == 1 && Directory.Exists(paths[0]) ? paths[0] : null;
         var targets = folder is not null
             ? FolderAudit.CollectTargets(folder)
@@ -361,7 +305,8 @@ internal static class Program
     {
         var fresh = args.Contains("--fresh");
         var roots = args.Where(a => a is not "--fresh").ToArray();
-        var html = TakeHtml(ref roots);
+        var html = CliOptions.TakeHtml(ref roots);
+        CliOptions.RejectUnknownFlags(roots);
         if (roots.Length == 0 || !roots.All(Directory.Exists))
         {
             Console.Error.WriteLine("spektra dupes: give one or more existing folders.");
@@ -438,7 +383,8 @@ internal static class Program
     // file was analyzed before, never decoding anything.
     private static int Manifest(string[] paths, OutFormat fmt)
     {
-        var html = TakeHtml(ref paths);
+        var html = CliOptions.TakeHtml(ref paths);
+        CliOptions.RejectUnknownFlags(paths);
         if (paths.Length != 1 || !Directory.Exists(paths[0]))
         {
             Console.Error.WriteLine("spektra manifest: give one existing folder.");
@@ -525,8 +471,9 @@ internal static class Program
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
-            if (a is "--offset") offsetMs = DoubleOption(a, args, ref i);
-            else if (a is "--threshold-db") thresholdDb = FloatOption(a, args, ref i);
+            if (a is "--offset") offsetMs = CliOptions.Double(a, args, ref i);
+            else if (a is "--threshold-db") thresholdDb = CliOptions.Float(a, args, ref i);
+            else if (a.StartsWith('-')) throw new OptionException($"unknown option '{a}'.");
             else files.Add(a);
         }
         if (files.Count != 2)
@@ -595,17 +542,18 @@ internal static class Program
         for (var i = 0; i < args.Length; i++)
         {
             var a = args[i];
-            if (a is "-o" or "--out") outPath = OptionValue(a, args, ref i);
-            else if (a is "--palette") paletteName = OptionValue(a, args, ref i);
+            if (a is "-o" or "--out") outPath = CliOptions.Value(a, args, ref i);
+            else if (a is "--palette") paletteName = CliOptions.Value(a, args, ref i);
             else if (a is "--gamma")
             {
-                var g = DoubleOption(a, args, ref i);
+                var g = CliOptions.Double(a, args, ref i);
                 gamma = g > 0 ? g : throw new OptionException($"--gamma must be greater than 0, got '{g}'.");
             }
-            else if (a is "--floor") options = options with { FloorDb = FloatOption(a, args, ref i) };
-            else if (a is "--fft") options = options with { WindowSize = IntOption(a, args, ref i, min: 16) };
-            else if (a is "--channel") options = options with { Channel = IntOption(a, args, ref i, min: 1) - 1 };
-            else if (a is "--columns") options = options with { MaxColumns = IntOption(a, args, ref i, min: 1) };
+            else if (a is "--floor") options = options with { FloorDb = CliOptions.Float(a, args, ref i) };
+            else if (a is "--fft") options = options with { WindowSize = CliOptions.Int(a, args, ref i, min: 16) };
+            else if (a is "--channel") options = options with { Channel = CliOptions.Int(a, args, ref i, min: 1) - 1 };
+            else if (a is "--columns") options = options with { MaxColumns = CliOptions.Int(a, args, ref i, min: 1) };
+            else if (a.StartsWith('-')) throw new OptionException($"unknown option '{a}'.");
             else files.Add(a);
         }
         if (files.Count != 1 || Directory.Exists(files[0]))
