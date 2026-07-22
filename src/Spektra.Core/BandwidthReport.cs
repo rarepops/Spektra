@@ -30,8 +30,18 @@ public static class BandwidthReport
     }
 
     public static IEnumerable<string> FindAudioFiles(string folder, bool recursive = true) =>
+        // IgnoreInaccessible skips a permission-denied subfolder (a drive root's
+        // System Volume Information, a mixed-permission share) instead of throwing
+        // and aborting the whole walk. AttributesToSkip = 0 keeps the old
+        // SearchOption behavior of including hidden/system files (the default here
+        // would drop them).
         Directory.EnumerateFiles(folder, "*",
-                recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                new EnumerationOptions
+                {
+                    RecurseSubdirectories = recursive,
+                    IgnoreInaccessible = true,
+                    AttributesToSkip = 0,
+                })
             .Where(f => AudioExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
 }
