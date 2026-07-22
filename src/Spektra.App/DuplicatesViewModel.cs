@@ -20,7 +20,7 @@ public sealed class DupeGroupItem(DupesGroupReport report)
         [.. report.Group.Members.Select(m => m.Path)];
 
     public string Headline { get; } =
-        $"{report.Group.Label} · {report.Group.Members.Count} files · sameness {report.Group.SamenessTier} · reclaim {Format.Bytes(report.ReclaimableBytes)}";
+        $"{report.Group.Label} · {report.Group.Members.Count} files · sameness {report.Group.SamenessTier} · reclaim {Reporting.FormatBytes(report.ReclaimableBytes)}";
     public string QualityLine { get; } = $"quality {report.Quality.Confidence}: {report.Quality.Reason}";
     public IReadOnlyList<DupeMemberItem> Members { get; } =
         [.. report.Group.Members.Select(m => new DupeMemberItem(m, report))];
@@ -43,7 +43,7 @@ public sealed class DupeMemberItem : IFileItem
         Codec = row.Codec ?? "";
         Bandwidth = $"{row.Bandwidth}{cutoff}";
         Integrity = row.Integrity;
-        SizeText = Format.Bytes(report.Sizes[member.Path]);
+        SizeText = Reporting.FormatBytes(report.Sizes[member.Path]);
         SamenessText = $"sameness {member.Sameness:0.00}";
         IntegrityBrush = row.Integrity switch
         {
@@ -73,16 +73,6 @@ public sealed class DupeMemberItem : IFileItem
     // Explicit: the display binding is Path, and renaming it would break the
     // XAML. The shared context-menu actions see it as FullPath.
     string IFileItem.FullPath => Path;
-}
-
-internal static class Format
-{
-    public static string Bytes(long b) => b switch
-    {
-        >= 1L << 30 => $"{b / (double)(1L << 30):0.0} GB",
-        >= 1L << 20 => $"{b / (double)(1L << 20):0.0} MB",
-        _ => $"{b / 1024.0:0.0} KB",
-    };
 }
 
 /// The Duplicate Detective window's state: scan roots, one run at a time, groups
@@ -268,7 +258,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 NotAnalyzed.Add(n);
             _baseFooter = $"{result.Groups.Count} groups · "
                 + $"{result.Groups.Sum(g => g.Group.Members.Count)} duplicate files · "
-                + $"reclaimable {Format.Bytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";
+                + $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";
             ApplyGroupFilter(); // populates Groups and writes the footer, honoring any typed filter
         }
         catch (OperationCanceledException)

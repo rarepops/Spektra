@@ -15,7 +15,7 @@ public sealed class ManifestFolderItem : IFileItem
         Header = folder.Unreadable
             ? $"{folder.Name} · unreadable"
             : folder.TotalBytes > 0
-                ? $"{folder.Name} · {folder.Rollup} · {Format.Bytes(folder.TotalBytes)}"
+                ? $"{folder.Name} · {folder.Rollup} · {Reporting.FormatBytes(folder.TotalBytes)}"
                 : $"{folder.Name} · {folder.Rollup}";
         FullPath = folder.Path;
         IsUnreadable = folder.Unreadable;
@@ -47,7 +47,7 @@ public sealed class ManifestFileItem(ManifestFile file) : IFileItem
     /// Gates the audio-only menu verbs: Open spectrogram is disabled on a
     /// jpg/nfo/cue rather than opening a tab that can only error.
     public bool IsAudio { get; } = file.IsAudio;
-    public string SizeText { get; } = Format.Bytes(file.SizeBytes);
+    public string SizeText { get; } = Reporting.FormatBytes(file.SizeBytes);
     public IBrush KindBrush { get; } = file.Severity switch
     {
         RowSeverity.Problem => NodeMarkers.Problem,

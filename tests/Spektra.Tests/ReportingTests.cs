@@ -57,6 +57,14 @@ public class ReportingTests
     }
 
     [Test]
+    public async Task FormatBytes_ScalesUnits_WithInvariantDecimal()
+    {
+        await Assert.That(Reporting.FormatBytes(1536)).IsEqualTo("1.5 KB");
+        await Assert.That(Reporting.FormatBytes(5L << 20)).IsEqualTo("5.0 MB");
+        await Assert.That(Reporting.FormatBytes(3L << 30)).IsEqualTo("3.0 GB");
+    }
+
+    [Test]
     public async Task ToBandwidthRow_MapsErrorFile()
     {
         var row = Reporting.ToBandwidthRow(new FileReport("x/missing.wav", null, null, "not found"));

@@ -350,7 +350,7 @@ internal static class Program
         {
             Console.WriteLine(
                 $"Group {g.Group.Id} · {g.Group.Label} · {g.Group.Members.Count} files · " +
-                $"sameness {g.Group.SamenessTier} · reclaim {Bytes(g.ReclaimableBytes)}");
+                $"sameness {g.Group.SamenessTier} · reclaim {Reporting.FormatBytes(g.ReclaimableBytes)}");
             foreach (var m in g.Group.Members)
             {
                 var row = g.Rows[m.Path];
@@ -367,16 +367,9 @@ internal static class Program
             Console.WriteLine($"  ! not analyzed: {na.Path} ({na.Reason})");
         Console.WriteLine(
             $"{result.Groups.Count} group(s) · {result.Groups.Sum(g => g.Group.Members.Count)} files · " +
-            $"reclaimable {Bytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned");
+            $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned");
         return result.Groups.Count > 0 ? 1 : 0;
     }
-
-    private static string Bytes(long b) => b switch
-    {
-        >= 1L << 30 => $"{b / (double)(1L << 30):0.0} GB",
-        >= 1L << 20 => $"{b / (double)(1L << 20):0.0} MB",
-        _ => $"{b / 1024.0:0.0} KB",
-    };
 
     // The GUI's Folder Manifest as a command: EVERYTHING in one folder with an
     // honest chip per file, codec/severity chips from the audit cache when a
@@ -425,9 +418,9 @@ internal static class Program
         foreach (var row in rows)
         {
             var severity = row.Severity is { } s ? $" · {s}" : "";
-            Console.WriteLine($"{row.Kind,-6} {Bytes(row.SizeBytes),10}  {row.Path}{severity}");
+            Console.WriteLine($"{row.Kind,-6} {Reporting.FormatBytes(row.SizeBytes),10}  {row.Path}{severity}");
         }
-        Console.WriteLine($"{rows.Count} file(s) · {root.Rollup} · {Bytes(root.TotalBytes)}");
+        Console.WriteLine($"{rows.Count} file(s) · {root.Rollup} · {Reporting.FormatBytes(root.TotalBytes)}");
         return 0;
     }
 

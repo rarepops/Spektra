@@ -89,6 +89,16 @@ public static class Reporting
         return sb.ToString();
     }
 
+    /// Human-readable byte size (GB/MB/KB, one decimal), invariant so the same
+    /// number reads identically in every report and locale. Shared by the HTML
+    /// report, the CLI summaries, and the Duplicate Detective UI.
+    public static string FormatBytes(long b) => b switch
+    {
+        >= 1L << 30 => $"{(b / (double)(1L << 30)).ToString("0.0", CultureInfo.InvariantCulture)} GB",
+        >= 1L << 20 => $"{(b / (double)(1L << 20)).ToString("0.0", CultureInfo.InvariantCulture)} MB",
+        _ => $"{(b / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} KB",
+    };
+
     private static string Format(object? v) => v switch
     {
         null => "",

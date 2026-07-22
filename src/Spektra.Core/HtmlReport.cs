@@ -20,7 +20,7 @@ public static class HtmlReport
         body.Append("<div class=\"stats\">");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Count}</b>groups</span>");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Sum(g => g.Group.Members.Count)}</b>duplicate files</span>");
-        body.Append($"<span class=\"stat\"><b>{Bytes(result.ReclaimableBytes)}</b>reclaimable</span>");
+        body.Append($"<span class=\"stat\"><b>{Reporting.FormatBytes(result.ReclaimableBytes)}</b>reclaimable</span>");
         body.Append($"<span class=\"stat\"><b>{result.FilesScanned}</b>scanned</span>");
         body.Append("</div>");
 
@@ -29,7 +29,7 @@ public static class HtmlReport
             var open = g.Group.Members.Count <= 3 ? " open" : "";
             body.Append($"<details{open}><summary>{Escape(g.Group.Label)}");
             body.Append($" · {g.Group.Members.Count} files · <span class=\"badge\">sameness {Escape(g.Group.SamenessTier)}</span>");
-            body.Append($" · reclaim {Bytes(g.ReclaimableBytes)}</summary>");
+            body.Append($" · reclaim {Reporting.FormatBytes(g.ReclaimableBytes)}</summary>");
             body.Append("<table><tbody>");
             foreach (var m in g.Group.Members)
             {
@@ -42,7 +42,7 @@ public static class HtmlReport
                 body.Append($"<td>{Escape(row.Codec)}</td>");
                 body.Append($"<td>{Escape(row.Bandwidth)}{cutoff}</td>");
                 body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");
-                body.Append($"<td>{Bytes(g.Sizes[m.Path])}</td>");
+                body.Append($"<td>{Reporting.FormatBytes(g.Sizes[m.Path])}</td>");
                 body.Append($"<td>sameness {m.Sameness.ToString("0.00", CultureInfo.InvariantCulture)}</td>");
                 body.Append($"<td>{(m.FoundByAudio ? "<span class=\"audio\">found by audio</span>" : "")}</td>");
                 body.Append("</tr>");
@@ -107,7 +107,7 @@ public static class HtmlReport
         body.Append(depth <= 1 ? "<details open>" : "<details>");
         // The badge carries the recursive byte total when there is one;
         // "empty · 0.0 KB" and "unreadable · 0.0 KB" would be noise.
-        var badge = f.TotalBytes > 0 ? $"{f.Rollup} · {Bytes(f.TotalBytes)}" : f.Rollup;
+        var badge = f.TotalBytes > 0 ? $"{f.Rollup} · {Reporting.FormatBytes(f.TotalBytes)}" : f.Rollup;
         body.Append($"<summary>{Escape(f.Name)} <span class=\"badge\">{Escape(badge)}</span></summary>");
         foreach (var sub in f.Folders) AppendManifestFolder(body, sub, depth + 1);
         foreach (var file in f.Files)
@@ -119,7 +119,7 @@ public static class HtmlReport
                 RowSeverity.Clean => "kind ok",
                 _ => "kind",
             };
-            body.Append($"<div class=\"manifest-file\">{Escape(file.Name)} <span class=\"{cls}\">{Escape(file.Kind)}</span> <span class=\"manifest-size\">{Bytes(file.SizeBytes)}</span></div>");
+            body.Append($"<div class=\"manifest-file\">{Escape(file.Name)} <span class=\"{cls}\">{Escape(file.Kind)}</span> <span class=\"manifest-size\">{Reporting.FormatBytes(file.SizeBytes)}</span></div>");
         }
         body.Append("</details>");
     }
@@ -149,13 +149,6 @@ public static class HtmlReport
     // Report generation time, invariant so a non-Gregorian machine calendar
     // (Buddhist, Hijri) cannot shift the year and the format stays portable.
     private static string Stamp => DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-
-    private static string Bytes(long b) => b switch
-    {
-        >= 1L << 30 => $"{(b / (double)(1L << 30)).ToString("0.0", CultureInfo.InvariantCulture)} GB",
-        >= 1L << 20 => $"{(b / (double)(1L << 20)).ToString("0.0", CultureInfo.InvariantCulture)} MB",
-        _ => $"{(b / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} KB",
-    };
 
     /// The shared page scaffold: dark theme, tree-marker verdict palette,
     /// generic table styling that all three document kinds use. A non-empty
