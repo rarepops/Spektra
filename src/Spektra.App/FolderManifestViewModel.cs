@@ -156,7 +156,7 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     public bool TryLoadTyped(string? raw)
     {
         if (IsLoading) { SetError(LoadBusyNote); return false; }
-        var path = (raw ?? "").Trim().Trim('"').Trim();
+        var path = PathInput.Normalize(raw);
         if (path.Length == 0) return false;
         if (!Directory.Exists(path))
         {

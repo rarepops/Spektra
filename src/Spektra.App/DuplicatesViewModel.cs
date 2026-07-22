@@ -184,7 +184,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     public bool TryAddTypedRoot(string? raw)
     {
         if (IsScanning) { SetError(ScanBusyNote); return false; }
-        var path = (raw ?? "").Trim().Trim('"').Trim();
+        var path = PathInput.Normalize(raw);
         if (path.Length == 0) return false;
         if (!Directory.Exists(path))
         {
