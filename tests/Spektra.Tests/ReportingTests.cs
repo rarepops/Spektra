@@ -1,3 +1,4 @@
+using System.Globalization;
 using Spektra.Core;
 
 namespace Spektra.Tests;
@@ -24,6 +25,25 @@ public class ReportingTests
         var lines = Reporting.ToCsv(Rows).Split('\n');
         await Assert.That(lines[1]).IsEqualTo("a.flac,flac,44100,900000,180.5,Lossless,,,");
         await Assert.That(lines[2]).StartsWith("\"b, live.mp3\",mp3,44100,128000,200,Lossy,16000,");
+    }
+
+    [Test]
+    public async Task Csv_FormatsNumbersInvariantly_UnderCommaDecimalCulture()
+    {
+        // A comma-decimal locale must not corrupt a comma-delimited CSV: numeric
+        // fields stay '.'-separated whatever the machine culture. Guards the
+        // explicit InvariantCulture in Reporting.Format against silent removal.
+        var previous = CultureInfo.CurrentCulture;
+        string csv;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            csv = Reporting.ToCsv(Rows);
+        }
+        finally { CultureInfo.CurrentCulture = previous; }
+
+        await Assert.That(csv.Split('\n')[1]).IsEqualTo("a.flac,flac,44100,900000,180.5,Lossless,,,");
+        await Assert.That(csv).DoesNotContain("180,5");
     }
 
     [Test]
