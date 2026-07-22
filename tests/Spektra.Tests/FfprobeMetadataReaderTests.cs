@@ -80,10 +80,10 @@ public class FfprobeMetadataReaderTests
     {
         var m = new AudioMetadata("flac", 44100, 2, 16, 1_017_000, TimeSpan.FromSeconds(252));
         await Assert.That(m.ToDisplayLine("song.flac"))
-            .IsEqualTo("song.flac — FLAC · 44.1 kHz · 16-bit · 2 ch · 4:12 · 1017 kbps");
+            .IsEqualTo("song.flac - FLAC · 44.1 kHz · 16-bit · 2 ch · 4:12 · 1017 kbps");
 
         var lossy = new AudioMetadata("mp3", 48000, 2, null, null, TimeSpan.FromSeconds(3661));
-        await Assert.That(lossy.ToDisplayLine("x.mp3")).IsEqualTo("x.mp3 — MP3 · 48 kHz · 2 ch · 1:01:01");
+        await Assert.That(lossy.ToDisplayLine("x.mp3")).IsEqualTo("x.mp3 - MP3 · 48 kHz · 2 ch · 1:01:01");
     }
 
     [Test]

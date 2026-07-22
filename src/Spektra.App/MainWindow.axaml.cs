@@ -163,7 +163,7 @@ public partial class MainWindow : Window
 
         ApplyDisplay();
 
-        Title = tab is null ? "Spektra" : $"{tab.TabTitle} — Spektra";
+        Title = tab is null ? "Spektra" : $"{tab.TabTitle} - Spektra";
     }
 
     private void ApplyDisplay()

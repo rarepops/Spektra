@@ -13,7 +13,7 @@ public sealed record AudioMetadata(
 {
     public string ToDisplayLine(string fileName)
     {
-        var sb = new StringBuilder(fileName).Append(" — ").Append(Codec.ToUpperInvariant());
+        var sb = new StringBuilder(fileName).Append(" - ").Append(Codec.ToUpperInvariant());
         var khz = SampleRate / 1000.0;
         sb.Append(" · ").Append(khz.ToString(khz % 1 == 0 ? "0" : "0.#")).Append(" kHz");
         if (BitsPerSample is { } bits) sb.Append(" · ").Append(bits).Append("-bit");
