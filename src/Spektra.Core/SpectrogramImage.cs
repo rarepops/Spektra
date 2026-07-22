@@ -21,7 +21,7 @@ public sealed class SpectrogramImage(FfmpegPaths ffmpeg)
         string path, ImageOptions options, CancellationToken ct = default)
     {
         var session = new AnalysisSession(ffmpeg);
-        var meta = session.ReadMetadata(path);
+        var meta = session.ReadMetadata(path, ct);
         var settings = new SpectrogramSettings(
             WindowSize: options.WindowSize, MaxColumns: options.MaxColumns);
         var columns = session.AnalyzeColumns(

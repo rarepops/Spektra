@@ -2,8 +2,8 @@ namespace Spektra.Core;
 
 public sealed class AnalysisSession(FfmpegPaths ffmpeg)
 {
-    public AudioMetadata ReadMetadata(string path) =>
-        new FfprobeMetadataReader(ffmpeg.FfprobePath).Read(path);
+    public AudioMetadata ReadMetadata(string path, CancellationToken ct = default) =>
+        new FfprobeMetadataReader(ffmpeg.FfprobePath).Read(path, ct);
 
     public IEnumerable<float[]> AnalyzeColumns(
         string path, AudioMetadata meta, SpectrogramSettings settings, CancellationToken ct,

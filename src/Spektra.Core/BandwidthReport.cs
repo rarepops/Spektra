@@ -18,7 +18,7 @@ public static class BandwidthReport
         try
         {
             var session = new AnalysisSession(ffmpeg);
-            var meta = session.ReadMetadata(path);
+            var meta = session.ReadMetadata(path, ct);
             var settings = new SpectrogramSettings(WindowSize: windowSize);
             var columns = session.AnalyzeColumns(path, meta, settings, ct).ToList();
             return new FileReport(path, meta, CutoffAnalyzer.Analyze(columns, meta.SampleRate), null);

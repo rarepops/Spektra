@@ -105,7 +105,7 @@ public static class FolderAudit
         long decodedSamples;
         try
         {
-            meta = session.ReadMetadata(path);
+            meta = session.ReadMetadata(path, ct);
             var settings = new SpectrogramSettings(WindowSize: 2048);
             (columns, dropouts, decodedSamples) =
                 session.AnalyzeColumnsWithSilence(path, meta, settings, ct, chunkObserver);

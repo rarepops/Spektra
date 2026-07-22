@@ -39,8 +39,8 @@ public sealed class AudioCompare(FfmpegPaths ffmpeg)
         string pathA, string pathB, CompareOptions options, CancellationToken ct = default)
     {
         var session = new AnalysisSession(ffmpeg);
-        var metaA = session.ReadMetadata(pathA);
-        var metaB = session.ReadMetadata(pathB);
+        var metaA = session.ReadMetadata(pathA, ct);
+        var metaB = session.ReadMetadata(pathB, ct);
 
         double offset;
         double? confidence;

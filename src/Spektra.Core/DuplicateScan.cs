@@ -213,7 +213,7 @@ public static class DuplicateScan
             // tag ride-along; AnalyzeFile probes again internally. Two ffprobe
             // runs cost tens of milliseconds against a decode that costs
             // seconds, and only on cache misses.
-            var meta = new AnalysisSession(ffmpeg).ReadMetadata(target.Path);
+            var meta = new AnalysisSession(ffmpeg).ReadMetadata(target.Path, ct);
             if (entry is null)
             {
                 var extractor = new FingerprintExtractor(meta.SampleRate);

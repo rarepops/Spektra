@@ -39,6 +39,15 @@ public class FfprobeMetadataReaderTests
     }
 
     [Test]
+    public async Task PreCancelled_ThrowsWithoutSpawningFfprobe()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.That(() => new FfprobeMetadataReader(@"C:\nope\ffprobe.exe")
+            .Read(@"C:\nope\file.wav", cts.Token)).Throws<OperationCanceledException>();
+    }
+
+    [Test]
     public async Task Parse_MalformedJson_ReadsAsDecodeError()
     {
         var ex = Assert.Throws<AudioDecodeException>(

@@ -4,8 +4,9 @@ namespace Spektra.Core;
 
 public sealed class FfprobeMetadataReader(string ffprobePath)
 {
-    public AudioMetadata Read(string filePath)
+    public AudioMetadata Read(string filePath, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (!File.Exists(filePath))
             throw new AudioDecodeException($"File not found: {filePath}");
 
@@ -18,6 +19,9 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         ]);
 
         using var p = FfmpegProcess.Start(psi, "ffprobe");
+        // Kill the probe when the token cancels, so the blocking reads and wait
+        // below unblock instead of hanging until ffprobe ends on its own.
+        using var killOnCancel = FfmpegProcess.KillOnCancel(p, ct);
         // Drain stderr concurrently with stdout. Reading stdout to EOF blocks
         // until ffprobe exits, and with -v warning a bad file can emit enough
         // stderr to fill the OS pipe buffer and block ffprobe writing it, which
@@ -27,6 +31,7 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         var stdout = p.StandardOutput.ReadToEnd();
         var stderr = stderrTask.GetAwaiter().GetResult();
         p.WaitForExit();
+        ct.ThrowIfCancellationRequested();
 
         if (p.ExitCode != 0)
             throw new AudioDecodeException("ffprobe could not read this file.", Tail(stderr));

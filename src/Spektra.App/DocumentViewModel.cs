@@ -259,7 +259,7 @@ public sealed class DocumentViewModel : TabViewModelBase
         try
         {
             var session = new AnalysisSession(_ffmpeg);
-            var meta = await Task.Run(() => session.ReadMetadata(FilePath), cts.Token);
+            var meta = await Task.Run(() => session.ReadMetadata(FilePath, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested) return;
             Metadata = meta;
             if (ChannelOptions.Count == 1 && meta.Channels > 1)
