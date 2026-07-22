@@ -285,9 +285,8 @@ public sealed class FolderViewModel : TabViewModelBase
             foreach (var folder in _folders)
                 folder.RefreshRollup();
 
-            AuditCache? cache = null;
-            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-            catch (Exception e) when (e is not OutOfMemoryException) { _cacheUnavailable = true; }
+            var cache = AuditCache.TryOpen(out _);
+            if (cache is null) _cacheUnavailable = true;
 
             try
             {
@@ -408,8 +407,8 @@ public sealed class FolderViewModel : TabViewModelBase
         AuditCache? cache = null;
         try
         {
-            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-            catch (Exception e) when (e is not OutOfMemoryException) { _cacheUnavailable = true; }
+            cache = AuditCache.TryOpen(out _);
+            if (cache is null) _cacheUnavailable = true;
 
             var progress = new Progress<AuditEntry>(OnEntry); // marshals to this (UI) thread
             var ct = _cts.Token;

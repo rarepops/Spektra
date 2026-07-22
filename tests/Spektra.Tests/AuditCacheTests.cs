@@ -24,6 +24,29 @@ public sealed class AuditCacheTests : IDisposable
     }
 
     [Test]
+    public async Task TryOpen_ValidPath_ReturnsCache_NoError()
+    {
+        using var cache = AuditCache.TryOpen(DbPath, out var error);
+        await Assert.That(cache).IsNotNull();
+        await Assert.That(error).IsNull();
+    }
+
+    [Test]
+    public async Task TryOpen_UnopenablePath_ReturnsNull_WithReason()
+    {
+        // A directory sitting where the db file should be: SQLite cannot open
+        // it, so TryOpen must report the reason and hand back null (the caller
+        // runs uncached) instead of throwing.
+        var asDir = Path.Combine(_dir, "as-a-directory.db");
+        Directory.CreateDirectory(asDir);
+
+        var cache = AuditCache.TryOpen(asDir, out var error);
+
+        await Assert.That(cache).IsNull();
+        await Assert.That(error).IsNotNull();
+    }
+
+    [Test]
     public async Task Put_TryGet_RoundTrips()
     {
         using var cache = AuditCache.Open(DbPath);

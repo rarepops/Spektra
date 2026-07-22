@@ -254,8 +254,8 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         var cacheNote = "";
         try
         {
-            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-            catch (Exception e) when (e is not OutOfMemoryException) { cacheNote = " · cache unavailable"; }
+            cache = AuditCache.TryOpen(out _);
+            if (cache is null) cacheNote = " · cache unavailable";
 
             var localCache = cache;
             var result = await Task.Run(() => DuplicateScan.Run(

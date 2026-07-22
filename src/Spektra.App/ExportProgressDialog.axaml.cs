@@ -31,9 +31,7 @@ public partial class ExportProgressDialog : Window
         });
         Opened += async (_, _) =>
         {
-            AuditCache? cache = null;
-            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-            catch (Exception e) when (e is not OutOfMemoryException) { cache = null; }
+            var cache = AuditCache.TryOpen(out _);
             try
             {
                 var jobs = Math.Max(1, (int)(Environment.ProcessorCount * 0.8));

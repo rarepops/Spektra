@@ -310,12 +310,9 @@ internal static class Program
             return Usage(1);
         }
 
-        AuditCache? cache = null;
-        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Console.Error.WriteLine($"spektra audit: cache unavailable ({ex.Message}); analyzing everything.");
-        }
+        var cache = AuditCache.TryOpen(out var cacheError);
+        if (cacheError is not null)
+            Console.Error.WriteLine($"spektra audit: cache unavailable ({cacheError}); analyzing everything.");
 
         AuditEntry[] results;
         try
@@ -371,12 +368,9 @@ internal static class Program
             return 2;
         }
 
-        AuditCache? cache = null;
-        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Console.Error.WriteLine($"spektra dupes: cache unavailable ({ex.Message}); analyzing everything.");
-        }
+        var cache = AuditCache.TryOpen(out var cacheError);
+        if (cacheError is not null)
+            Console.Error.WriteLine($"spektra dupes: cache unavailable ({cacheError}); analyzing everything.");
 
         DupesResult result;
         try
@@ -451,12 +445,9 @@ internal static class Program
             return 2;
         }
 
-        AuditCache? cache = null;
-        try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            Console.Error.WriteLine($"spektra manifest: cache unavailable ({ex.Message}); extension chips only.");
-        }
+        var cache = AuditCache.TryOpen(out var cacheError);
+        if (cacheError is not null)
+            Console.Error.WriteLine($"spektra manifest: cache unavailable ({cacheError}); extension chips only.");
 
         ManifestFolder root;
         try { root = FolderManifest.Build(paths[0], cache); }

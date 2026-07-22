@@ -60,6 +60,26 @@ public sealed class AuditCache : IDisposable
         }
     }
 
+    /// Opens the cache, or returns null with the failure reason when it cannot
+    /// be opened (a locked or unusable db). Only OutOfMemoryException is left to
+    /// propagate; every caller falls back to running uncached, so this collapses
+    /// the try/Open/catch block repeated across the CLI verbs and tool windows.
+    public static AuditCache? TryOpen(out string? error) => TryOpen(DefaultPath, out error);
+
+    public static AuditCache? TryOpen(string dbPath, out string? error)
+    {
+        try
+        {
+            error = null;
+            return Open(dbPath);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            error = ex.Message;
+            return null;
+        }
+    }
+
     /// SQLITE_CORRUPT (11) and SQLITE_NOTADB (26): the file itself is bad and
     /// a rebuild helps. Pure; unit-tested.
     public static bool IsCorruptionError(SqliteException e) =>

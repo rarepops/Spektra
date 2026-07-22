@@ -202,9 +202,8 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         var cacheNote = "";
         try
         {
-            AuditCache? cache = null;
-            try { cache = AuditCache.Open(AuditCache.DefaultPath); }
-            catch (Exception e) when (e is not OutOfMemoryException) { cacheNote = " · cache unavailable, no verdict chips"; }
+            var cache = AuditCache.TryOpen(out _);
+            if (cache is null) cacheNote = " · cache unavailable, no verdict chips";
 
             var localCache = cache;
             ManifestFolder root;
