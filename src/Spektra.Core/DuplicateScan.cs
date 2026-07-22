@@ -176,8 +176,7 @@ public static class DuplicateScan
     /// Splits results-filter text into lowercase tokens: spaces, commas and
     /// semicolons separate, duplicates collapse.
     public static IReadOnlyList<string> ParseFilterTokens(string? text) =>
-        [.. (text ?? "")
-            .Split([' ', ',', ';', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        [.. FilterTokens.Split(text)
             .Select(t => t.ToLowerInvariant())
             .Distinct()];
 

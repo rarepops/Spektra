@@ -63,8 +63,7 @@ public static class FolderManifest
     /// Splits filter box text into normalized kind tokens: spaces, commas and
     /// semicolons separate; "*.flac", ".FLAC" and "flac" all mean "flac".
     public static IReadOnlyList<string> ParseKinds(string? text) =>
-        [.. (text ?? "")
-            .Split([' ', ',', ';', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        [.. FilterTokens.Split(text)
             .Select(t => t.TrimStart('*').TrimStart('.').ToLowerInvariant())
             .Where(t => t.Length > 0)
             .Distinct()];
