@@ -56,6 +56,23 @@ public class AudioDecoderTests
     }
 
     [Test]
+    public async Task CancelledMidStream_AbortsPromptly_KillingFfmpeg()
+    {
+        // The other cancellation tests pre-cancel; this exercises the mid-run
+        // kill path (the token is checked at the top of each read loop and the
+        // ffmpeg child is killed). Cancelling after the first chunk must throw
+        // on the next pull rather than decode the file to the end.
+        using var cts = new CancellationTokenSource();
+        using var chunks = Decoder()
+            .DecodeMonoChunks(Path.Combine(Fixtures, "sine-1khz.wav"), cts.Token).GetEnumerator();
+
+        await Assert.That(chunks.MoveNext()).IsTrue(); // first chunk out, ffmpeg live
+        cts.Cancel();
+
+        await Assert.That(() => chunks.MoveNext()).Throws<OperationCanceledException>();
+    }
+
+    [Test]
     public async Task NonAudio_ThrowsWithStderr()
     {
         var ex = Assert.Throws<AudioDecodeException>(() =>
