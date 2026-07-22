@@ -1,0 +1,14 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The 0-warning gate, enforced by the compiler rather than by eye. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Single source for the shipped version: the release bump is one line
+         here, not one per shipping project. -->
+    <Version>0.15.1</Version>
+  </PropertyGroup>
+
+</Project>
