@@ -1,3 +1,4 @@
+using System.Globalization;
 using Spektra.Core;
 
 namespace Spektra.Tests;
@@ -67,6 +68,26 @@ public sealed class HtmlReportTests
         await Assert.That(html).Contains("clean.flac");
         await Assert.That(html.Split("data-sev=\"2\"").Length - 1).IsEqualTo(2); // transcode + corrupt
         await Assert.That(html).Contains("sortBy(this)");
+    }
+
+    [Test]
+    public async Task AuditDocument_CutoffSortKey_IsInvariantDecimal_UnderCommaCulture()
+    {
+        // The Cutoff column's data-v sort key is read by the report's own
+        // parseFloat; under a comma-decimal locale (de-DE) a value like
+        // "19843,7" truncates to 19843, mis-ordering the column. The key must
+        // always use an invariant '.' regardless of the generating machine.
+        var previous = CultureInfo.CurrentCulture;
+        string html;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            html = HtmlReport.AuditDocument([Row("x.mp3", "mp3", "Lossy", 19843.7)], "t");
+        }
+        finally { CultureInfo.CurrentCulture = previous; }
+
+        await Assert.That(html).Contains("data-v=\"19843.7\"");
+        await Assert.That(html).DoesNotContain("19843,7");
     }
 
     [Test]

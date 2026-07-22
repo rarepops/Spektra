@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Spektra.Core;
@@ -15,7 +16,7 @@ public static class HtmlReport
     {
         var body = new StringBuilder();
         body.Append($"<h1>{Escape(title)}</h1>");
-        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Duplicate Detective · view-only report</p>");
+        body.Append($"<p class=\"gen\">generated {Stamp} by Spektra Duplicate Detective · view-only report</p>");
         body.Append("<div class=\"stats\">");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Count}</b>groups</span>");
         body.Append($"<span class=\"stat\"><b>{result.Groups.Sum(g => g.Group.Members.Count)}</b>duplicate files</span>");
@@ -34,7 +35,7 @@ public static class HtmlReport
             {
                 var row = g.Rows[m.Path];
                 var winner = g.Quality.Winners.Contains(m.Path);
-                var cutoff = row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
+                var cutoff = row.CutoffHz is { } c ? $" {(c / 1000.0).ToString("0.0", CultureInfo.InvariantCulture)}k" : "";
                 body.Append("<tr>");
                 body.Append($"<td class=\"win\">{(winner ? "★" : "")}</td>");
                 body.Append($"<td>{Escape(m.Path)}</td>");
@@ -42,7 +43,7 @@ public static class HtmlReport
                 body.Append($"<td>{Escape(row.Bandwidth)}{cutoff}</td>");
                 body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");
                 body.Append($"<td>{Bytes(g.Sizes[m.Path])}</td>");
-                body.Append($"<td>sameness {m.Sameness:0.00}</td>");
+                body.Append($"<td>sameness {m.Sameness.ToString("0.00", CultureInfo.InvariantCulture)}</td>");
                 body.Append($"<td>{(m.FoundByAudio ? "<span class=\"audio\">found by audio</span>" : "")}</td>");
                 body.Append("</tr>");
             }
@@ -66,7 +67,7 @@ public static class HtmlReport
     {
         var body = new StringBuilder();
         body.Append($"<h1>{Escape(title)}</h1>");
-        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra · {rows.Count} file(s)</p>");
+        body.Append($"<p class=\"gen\">generated {Stamp} by Spektra · {rows.Count} file(s)</p>");
         body.Append("<table><thead><tr>");
         foreach (var h in (string[])["File", "Codec", "Bandwidth", "Cutoff kHz", "Integrity", "Errors", "Dropouts"])
             body.Append($"<th onclick=\"sortBy(this)\">{h}</th>");
@@ -79,7 +80,7 @@ public static class HtmlReport
             body.Append($"<td>{Escape(row.File)}</td>");
             body.Append($"<td>{Escape(row.Codec)}</td>");
             body.Append($"<td class=\"{(row.Bandwidth is "Upsampled" ? "up" : sevClass)}\">{Escape(row.Bandwidth)}</td>");
-            body.Append($"<td data-v=\"{row.CutoffHz ?? 0}\">{(row.CutoffHz is { } c ? $"{c / 1000.0:0.0}" : "")}</td>");
+            body.Append($"<td data-v=\"{(row.CutoffHz ?? 0).ToString(CultureInfo.InvariantCulture)}\">{(row.CutoffHz is { } c ? (c / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) : "")}</td>");
             body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");
             body.Append($"<td>{row.DecodeErrors}</td><td>{row.Dropouts}</td>");
             body.Append("</tr>");
@@ -95,7 +96,7 @@ public static class HtmlReport
     {
         var body = new StringBuilder();
         body.Append($"<h1>{Escape(title)}</h1>");
-        body.Append($"<p class=\"gen\">generated {DateTime.Now:yyyy-MM-dd HH:mm} by Spektra Folder Manifest · view-only report</p>");
+        body.Append($"<p class=\"gen\">generated {Stamp} by Spektra Folder Manifest · view-only report</p>");
         body.Append($"<p class=\"gen\">{Escape(root.Path)}</p>");
         AppendManifestFolder(body, root, depth: 0);
         return Page(title, body.ToString());
@@ -145,11 +146,15 @@ public static class HtmlReport
         return s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
     }
 
+    // Report generation time, invariant so a non-Gregorian machine calendar
+    // (Buddhist, Hijri) cannot shift the year and the format stays portable.
+    private static string Stamp => DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
     private static string Bytes(long b) => b switch
     {
-        >= 1L << 30 => $"{b / (double)(1L << 30):0.0} GB",
-        >= 1L << 20 => $"{b / (double)(1L << 20):0.0} MB",
-        _ => $"{b / 1024.0:0.0} KB",
+        >= 1L << 30 => $"{(b / (double)(1L << 30)).ToString("0.0", CultureInfo.InvariantCulture)} GB",
+        >= 1L << 20 => $"{(b / (double)(1L << 20)).ToString("0.0", CultureInfo.InvariantCulture)} MB",
+        _ => $"{(b / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)} KB",
     };
 
     /// The shared page scaffold: dark theme, tree-marker verdict palette,
