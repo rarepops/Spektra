@@ -9,7 +9,7 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _vm = new();
 
-    public MainWindow(string[] args)
+    public MainWindow(LaunchRequest request)
     {
         InitializeComponent();
         DataContext = _vm;
@@ -45,44 +45,39 @@ public partial class MainWindow : Window
             if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesOnStartupAsync();
         };
 
-        if (args is ["--compare", var pathA, var pathB, ..] && File.Exists(pathA) && File.Exists(pathB))
+        if (request.Compare is { } pair)
         {
-            var autoAlign = args.Contains("--auto");
-            var mi = Array.IndexOf(args, "--mode");
-            var startMode = mi >= 0 && mi + 1 < args.Length
-                ? args[mi + 1].ToLowerInvariant() switch
-                {
-                    "a" => (CompareMode?)CompareMode.A,
-                    "b" => CompareMode.B,
-                    "diff" => CompareMode.Diff,
-                    "both" => CompareMode.Both,
-                    _ => null,
-                }
-                : null;
+            var startMode = pair.Mode switch
+            {
+                "a" => (CompareMode?)CompareMode.A,
+                "b" => CompareMode.B,
+                "diff" => CompareMode.Diff,
+                "both" => CompareMode.Both,
+                _ => null,
+            };
             Opened += async (_, _) =>
             {
-                if (_vm.OpenComparison(pathA, pathB) is not { } cmp) return;
+                if (_vm.OpenComparison(pair.PathA, pair.PathB) is not { } cmp) return;
                 await cmp.Loaded; // real load completion, not a fixed delay
-                if (autoAlign) await cmp.AlignAsync();
+                if (pair.AutoAlign) await cmp.AlignAsync();
                 if (startMode is { } m) cmp.Mode = m;
             };
+            return;
         }
-        else
-        {
-            var files = args.Where(File.Exists).ToList();
-            var folders = args.Where(Directory.Exists).ToList();
-            if (files.Count > 0)
-                Opened += (_, _) => _vm.OpenFiles(files);
-            if (folders.Count > 0)
-                Opened += (_, _) =>
-                {
-                    foreach (var folder in folders) _vm.OpenFolder(folder);
-                };
-            // A targeted open stays targeted: restore only on a bare launch.
-            if (files.Count == 0 && folders.Count == 0)
-                Opened += (_, _) => _vm.RestoreSessionTabs();
-        }
+
+        if (request.Files.Count > 0)
+            Opened += (_, _) => _vm.OpenFiles(request.Files);
+        if (request.Folders.Count > 0)
+            Opened += (_, _) =>
+            {
+                foreach (var folder in request.Folders) _vm.OpenFolder(folder);
+            };
+        // A targeted open stays targeted: restore only on a bare launch.
+        if (request.IsBare)
+            Opened += (_, _) => _vm.RestoreSessionTabs();
     }
+
+    public MainWindow(string[] args) : this(LaunchArgs.Parse(args)) { }
 
     public MainWindow() : this([]) { }
 
