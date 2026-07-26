@@ -14,7 +14,11 @@
   The UpgradeCode must stay constant across versions so upgrades replace in place.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <!-- Mirrors Spektra.Core BandwidthReport.AudioExtensions. Keep in sync: the
+       audit pipeline and the shell verbs should agree on what counts as audio. -->
+  <?define AudioExts=.flac;.mp3;.wav;.ogg;.opus;.m4a;.aac;.wma;.ape;.wv;.aiff;.aif;.alac?>
   <Package Name="Spektra" Manufacturer="rarepops" Version="!(bind.FileVersion.spektraExe)"
            UpgradeCode="3F6E162E-15A4-4C40-A0B7-F0CEA4176DF3"
            Scope="perMachine" Compressed="yes">
@@ -54,6 +58,90 @@
         <Environment Id="SpektraPath" Name="PATH" Value="[INSTALLFOLDER]"
                      Permanent="no" Part="last" Action="set" System="yes" />
         <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="PathAdded"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </Feature>
+
+    <!-- Optional Explorer integration: an Open With entry, an "Analyze with
+         Spektra" verb on audio files, and a folder submenu. Level 1000 puts it
+         above the package install level, so it is OFF unless the user turns it
+         on in the Custom Setup page. It never becomes the default handler for
+         any extension. -->
+    <Feature Id="ShellIntegration" Title="Explorer integration" Level="1000"
+             Description="Adds Spektra to the Explorer right-click menu for audio files and folders. Does not change which program opens your audio files.">
+
+      <Component Id="ShellProgId" Directory="INSTALLFOLDER">
+        <RegistryKey Root="HKLM" Key="Software\Classes\rarepops.Spektra.1" ForceDeleteOnUninstall="yes">
+          <RegistryValue Type="string" Value="Spektra audio file" />
+          <RegistryValue Key="DefaultIcon" Type="string" Value="[#spektraExe],0" />
+          <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[#spektraExe]&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="ShellIntegration"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ShellOpenWith" Directory="INSTALLFOLDER">
+        <RegistryKey Root="HKLM" Key="Software\Classes\Applications\spektra.exe" ForceDeleteOnUninstall="yes">
+          <RegistryValue Name="FriendlyAppName" Type="string" Value="Spektra" />
+          <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[#spektraExe]&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <?foreach EXT in $(AudioExts)?>
+        <RegistryValue Root="HKLM" Key="Software\Classes\Applications\spektra.exe\SupportedTypes"
+                       Name="$(var.EXT)" Type="string" Value="" />
+        <!-- Joins the Open With list for this type without touching its default
+             handler. Documented shape: ProgID as the value NAME, empty data. -->
+        <RegistryValue Root="HKLM" Key="Software\Classes\$(var.EXT)\OpenWithProgids"
+                       Name="rarepops.Spektra.1" Type="string" Value="" />
+        <?endforeach?>
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="ShellOpenWith"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ShellFileVerb" Directory="INSTALLFOLDER">
+        <?foreach EXT in $(AudioExts)?>
+        <!-- SystemFileAssociations adds a verb without owning the association. -->
+        <RegistryKey Root="HKLM" Key="Software\Classes\SystemFileAssociations\$(var.EXT)\shell\Spektra.Analyze"
+                     ForceDeleteOnUninstall="yes">
+          <RegistryValue Type="string" Value="Analyze with Spektra" />
+          <RegistryValue Name="Icon" Type="string" Value="[#spektraExe],0" />
+          <!-- Player: one process receives the whole selection, so 20 selected
+               files become 20 tabs in one window instead of 20 windows. -->
+          <RegistryValue Name="MultiSelectModel" Type="string" Value="Player" />
+          <RegistryValue Key="command" Type="string" Value="&quot;[#spektraExe]&quot; %*" />
+        </RegistryKey>
+        <?endforeach?>
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="ShellFileVerb"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="ShellFolderVerbs" Directory="INSTALLFOLDER">
+        <!-- One cascading "Spektra" entry rather than three top-level rows.
+             %1 is the folder for Directory\shell. -->
+        <RegistryKey Root="HKLM" Key="Software\Classes\Directory\shell\Spektra" ForceDeleteOnUninstall="yes">
+          <RegistryValue Name="MUIVerb" Type="string" Value="Spektra" />
+          <RegistryValue Name="Icon" Type="string" Value="[#spektraExe],0" />
+          <RegistryValue Name="SubCommands" Type="string" Value="" />
+          <RegistryValue Key="shell\01Open" Type="string" Value="Open in Spektra" />
+          <RegistryValue Key="shell\01Open\command" Type="string" Value="&quot;[#spektraExe]&quot; &quot;%1&quot;" />
+          <RegistryValue Key="shell\02Duplicates" Type="string" Value="Find duplicates" />
+          <RegistryValue Key="shell\02Duplicates\command" Type="string" Value="&quot;[#spektraExe]&quot; --dupes &quot;%1&quot;" />
+          <RegistryValue Key="shell\03Manifest" Type="string" Value="List folder contents" />
+          <RegistryValue Key="shell\03Manifest\command" Type="string" Value="&quot;[#spektraExe]&quot; --manifest &quot;%1&quot;" />
+        </RegistryKey>
+        <!-- Same menu on the folder background (right-click empty space inside
+             an open folder). %V is the folder there; %1 is not. -->
+        <RegistryKey Root="HKLM" Key="Software\Classes\Directory\Background\shell\Spektra" ForceDeleteOnUninstall="yes">
+          <RegistryValue Name="MUIVerb" Type="string" Value="Spektra" />
+          <RegistryValue Name="Icon" Type="string" Value="[#spektraExe],0" />
+          <RegistryValue Name="SubCommands" Type="string" Value="" />
+          <RegistryValue Key="shell\01Open" Type="string" Value="Open in Spektra" />
+          <RegistryValue Key="shell\01Open\command" Type="string" Value="&quot;[#spektraExe]&quot; &quot;%V&quot;" />
+          <RegistryValue Key="shell\02Duplicates" Type="string" Value="Find duplicates" />
+          <RegistryValue Key="shell\02Duplicates\command" Type="string" Value="&quot;[#spektraExe]&quot; --dupes &quot;%V&quot;" />
+          <RegistryValue Key="shell\03Manifest" Type="string" Value="List folder contents" />
+          <RegistryValue Key="shell\03Manifest\command" Type="string" Value="&quot;[#spektraExe]&quot; --manifest &quot;%V&quot;" />
+        </RegistryKey>
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="ShellFolderVerbs"
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </Feature>
