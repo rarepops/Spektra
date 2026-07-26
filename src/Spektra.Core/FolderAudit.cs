@@ -27,6 +27,7 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
         FolderAudit.IsProblem(
             Report.Error,
             Report.Verdict?.Kind is VerdictKind.Upsampled,
+            Report.Verdict?.Kind is VerdictKind.Mixed,
             Report.Verdict?.Kind is VerdictKind.Lossy,
             Report.Metadata?.Codec, Report.Metadata?.BitRateBps,
             Report.Metadata?.Channels, Report.Verdict?.CutoffHz,
@@ -59,6 +60,7 @@ public static class FolderAudit
         var problem = IsProblem(
             row.Error,
             row.Bandwidth is "Upsampled",
+            row.Bandwidth is "Mixed",
             row.Bandwidth is "Lossy",
             row.Codec, row.BitrateBps, row.Channels, row.CutoffHz,
             row.Integrity is "Corrupt" or "Error");
@@ -73,11 +75,12 @@ public static class FolderAudit
     /// A new problem dimension is a new parameter here, which the compiler then
     /// forces both callers to fill, so the two can no longer silently drift.
     internal static bool IsProblem(
-        string? error, bool upsampled, bool lossy,
+        string? error, bool upsampled, bool mixed, bool lossy,
         string? codec, long? bitRateBps, int? channels, double? cutoffHz,
         bool integrityBad) =>
         error is not null
         || upsampled
+        || mixed
         || (lossy && TranscodeCheck.IsSuspectLossy(codec, bitRateBps, channels, cutoffHz))
         || integrityBad;
 

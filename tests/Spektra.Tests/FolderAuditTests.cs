@@ -294,4 +294,32 @@ public class FolderAuditTests
         await Assert.That(FolderAudit.RowSeverityOf(honest)).IsEqualTo(RowSeverity.Clean);
         await Assert.That(FolderAudit.RowSeverityOf(corrupt)).IsEqualTo(RowSeverity.Problem);
     }
+
+    [Test]
+    public async Task Mixed_IsAProblem_InBothShapes()
+    {
+        // A Mixed verdict is lossy-as-lossless by another name: a transcode
+        // hidden inside an otherwise-clean file, so it flags like the transcodes
+        // the audit already catches.
+        var row = new AuditRow("f", "flac", 44100, 2, 900_000, 60, "Mixed", 16_000, "Ok", 0, 0, false, null);
+        await Assert.That(FolderAudit.RowSeverityOf(row)).IsEqualTo(RowSeverity.Problem);
+
+        var meta = new AudioMetadata("flac", 44100, 2, 16, 900_000, TimeSpan.FromSeconds(120));
+        var report = new FileReport("f", meta,
+            new LosslessVerdict(VerdictKind.Mixed, 16_000, "mixed", "MP3 128 / AAC ~128"), null);
+        var result = new AuditResult(report, null, null);
+        await Assert.That(result.HasProblem).IsTrue();
+        await Assert.That(result.ToRow().Bandwidth).IsEqualTo("Mixed");
+    }
+
+    [Test]
+    public async Task QualityRanker_ToleratesAMixedRow_WithoutThrowing()
+    {
+        // Graceful handling only (per spec non-goal): the ranker must not choke
+        // on the new verdict word. It is not re-tuned to rank Mixed here.
+        var clean = new AuditRow("a.flac", "flac", 44100, 2, 900_000, 60, "Lossless", null, "Ok", 0, 0, false, null);
+        var mixed = new AuditRow("b.flac", "flac", 44100, 2, 900_000, 60, "Mixed", 16_000, "Ok", 0, 0, false, null);
+        var ranking = QualityRanker.Rank([("a.flac", clean), ("b.flac", mixed)], (_, _) => 0.0);
+        await Assert.That(ranking.Winners.All(w => w is "a.flac" or "b.flac")).IsTrue();
+    }
 }
