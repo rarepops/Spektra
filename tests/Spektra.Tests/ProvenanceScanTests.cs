@@ -102,6 +102,24 @@ public class ProvenanceScanTests
     }
 
     [Test]
+    public async Task WalledTail_WithColumnCountNotAMultipleOfTheWindow_StillTriggers()
+    {
+        // The decoder does not hand out one column per second, so the column count
+        // is rarely a whole number of windows. 103 columns over 120 s makes the
+        // window 26 columns wide, and 103 / 26 is 3.96: flooring that to 3 windows
+        // swallowed the entire 60 s walled tail into one window, one short of the
+        // two-window trigger, so a real compilation read clean. Caught by running
+        // the built CLI on a synthesized compilation, not by the even-count tests.
+        List<float[]> columns =
+        [
+            .. Enumerable.Range(0, 52).Select(_ => Column(Nyquist)),
+            .. Enumerable.Range(0, 51).Select(_ => Column(16_000)),
+        ];
+        var v = ProvenanceScan.Analyze(columns, Flac(120));
+        await Assert.That(v.Kind).IsEqualTo(VerdictKind.Mixed);
+    }
+
+    [Test]
     public async Task HonestLossyWindowsInAnMp3_AreNotMixed()
     {
         // Same shape as the Mixed case, but the container is a 128 kbps MP3: the

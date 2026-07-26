@@ -29,7 +29,12 @@ public static class ProvenanceScan
 
         var secondsPerColumn = totalSeconds / columns.Count;
         var windowCols = Math.Max(1, (int)Math.Round(WindowSeconds / secondsPerColumn));
-        var windowCount = Math.Max(1, columns.Count / windowCols);
+        // Rounded, not truncated: the column count is rarely a whole number of
+        // windows, and flooring folded the remainder into the last window. That
+        // could swallow a two-window walled tail into one, putting a genuine
+        // compilation back under the trigger. Rounding keeps a substantial
+        // remainder as its own window and still absorbs a negligible one.
+        var windowCount = Math.Max(1, (int)Math.Round((double)columns.Count / windowCols));
 
         var suspect = new bool[windowCount];
         var cutoffs = new double?[windowCount];
