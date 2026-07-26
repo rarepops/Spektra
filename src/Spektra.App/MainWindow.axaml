@@ -52,6 +52,11 @@
     <Style Selector="Border.verdict.upsampled">
       <Setter Property="Background" Value="#2C1F3A" />
     </Style>
+    <!-- Mixed is a transcode hidden inside an otherwise-clean file, so it reads
+         as the same problem red the audit grid paints it. -->
+    <Style Selector="Border.verdict.mixed">
+      <Setter Property="Background" Value="#3A1717" />
+    </Style>
     <Style Selector="Border.integrity">
       <Setter Property="Padding" Value="12,6" />
       <Setter Property="Background" Value="#1E1E1E" />
@@ -218,6 +223,7 @@
               Classes.suspicious="{Binding VerdictIsSuspicious}"
               Classes.lossy="{Binding VerdictIsLossy}"
               Classes.upsampled="{Binding VerdictIsUpsampled}"
+              Classes.mixed="{Binding VerdictIsMixed}"
               IsVisible="{Binding HasVerdict}">
         <StackPanel Orientation="Horizontal" Spacing="4">
           <TextBlock Text="Bandwidth:" Foreground="#888888" FontSize="12" VerticalAlignment="Center" />

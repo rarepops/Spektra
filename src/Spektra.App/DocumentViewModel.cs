@@ -66,6 +66,7 @@ public sealed class DocumentViewModel : TabViewModelBase
             RaisePropertyChanged(nameof(VerdictIsSuspicious));
             RaisePropertyChanged(nameof(VerdictIsLossy));
             RaisePropertyChanged(nameof(VerdictIsUpsampled));
+            RaisePropertyChanged(nameof(VerdictIsMixed));
             RaisePropertyChanged(nameof(CutoffHz));
         }
     }
@@ -76,6 +77,7 @@ public sealed class DocumentViewModel : TabViewModelBase
     public bool VerdictIsSuspicious => _verdict?.Kind == VerdictKind.Suspicious;
     public bool VerdictIsLossy => _verdict?.Kind == VerdictKind.Lossy;
     public bool VerdictIsUpsampled => _verdict?.Kind == VerdictKind.Upsampled;
+    public bool VerdictIsMixed => _verdict?.Kind == VerdictKind.Mixed;
 
     /// The detected cutoff frequency in Hz for the shown verdict, or null when
     /// none is reported (lossless, or too little signal to judge). Drives the

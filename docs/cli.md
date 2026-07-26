@@ -6,20 +6,20 @@ The `spektra` command-line tool reuses the desktop app's analysis engine. It wri
 
 - A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy or upsampled, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. Requires ffmpeg + ffprobe on `PATH`.
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. Requires ffmpeg + ffprobe on `PATH`.
 
 ## report: bandwidth verdict per file
 
     $ spektra report rip.flac
     rip.flac
-      rip.flac — FLAC · 44.1 kHz · 16-bit · 2 ch · 3:41 · 1040 kbps
+      rip.flac - FLAC · 44.1 kHz · 16-bit · 2 ch · 3:41 · 1040 kbps
       Sharp cutoff at 16.0 kHz. Consistent with lossy encoding (MP3 128 / AAC ~128).
 
 A hi-res file whose content stops at a lower standard rate is called out as upsampled instead of lossy:
 
     $ spektra report "vinyl-96k.flac"
     vinyl-96k.flac
-      vinyl-96k.flac — FLAC · 96 kHz · 24-bit · 2 ch · 4:02 · 2116 kbps
+      vinyl-96k.flac - FLAC · 96 kHz · 24-bit · 2 ch · 4:02 · 2116 kbps
       Bandwidth ends near 22.0 kHz; matches a 44.1 kHz source upsampled to 96 kHz.
 
 Possible verdicts: **Lossless** (full-band), **Suspicious** (a rolloff that could be natural, or a sharp wall at 20 kHz or above, which high-bitrate lossy and band-limited masters share), **Lossy** (sharp codec cutoff, with a codec/bitrate guess), **Upsampled** (bandwidth matches a lower standard rate's Nyquist), **Mixed** (a transcode-suspect segment hides inside an otherwise-clean file, as in a compilation or continuous mix), **Unknown** (too quiet / too band-limited to judge).
@@ -113,16 +113,16 @@ Add `--html manifest.html` for the self-contained collapsible tree page, or `--c
 Aligns the files automatically (cross-correlation, like the desktop app's Auto button), runs a spectral diff and a time-domain null test over their overlapping span, and turns the result into a SAME / DIFFERS verdict:
 
     $ spektra diff track.wav track-copy.wav
-    A: track.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
-    B: track-copy.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    A: track.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    B: track-copy.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
     Aligned +0 ms (confidence 1.00) · overlap 0:03
     Spectral: mean |Δ| 0.0 dB · RMS 0.0 dB · max 0.0 dB · 100% within tolerance
     Null:     Perfect null: identical samples over this span.
     SAME      perfect null (identical samples)
 
     $ spektra diff track.wav track-128k.mp3
-    A: track.wav — PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
-    B: track-128k.mp3 — MP3 · 44.1 kHz · 2 ch · 0:03 · 128 kbps
+    A: track.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
+    B: track-128k.mp3 - MP3 · 44.1 kHz · 2 ch · 0:03 · 128 kbps
     Aligned +0 ms (confidence 1.00) · overlap 0:03
     Spectral: mean |Δ| 1.6 dB · RMS 8.3 dB · max 113.6 dB · 91% within tolerance
     Null:     Residual -9.4 dB RMS (6.0 dB below signal), peak 0.0 dB.

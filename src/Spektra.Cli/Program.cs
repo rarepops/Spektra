@@ -140,7 +140,7 @@ internal static class Program
                 Console.WriteLine("  " + r.Metadata!.ToDisplayLine(Path.GetFileName(r.Path)));
                 Console.WriteLine("  " + r.Verdict!.Summary);
             }
-        return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
+        return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
     }
 
     private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
@@ -156,7 +156,7 @@ internal static class Program
         var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
         // One exit-code rule for both output paths: 1 when any file is likely
         // lossy or upsampled (computed once so the two branches can't drift).
-        var findings = reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled) ? 1 : 0;
+        var findings = reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
 
         if (fmt != OutFormat.Text)
         {
@@ -165,7 +165,7 @@ internal static class Program
         }
 
         Console.WriteLine($"Scanning {files.Count} audio file(s) under {root} ...");
-        int lossless = 0, suspect = 0, lossy = 0, upsampled = 0, unknown = 0, errors = 0;
+        int lossless = 0, suspect = 0, lossy = 0, upsampled = 0, mixed = 0, unknown = 0, errors = 0;
         foreach (var r in reports)
         {
             Console.WriteLine($"  {Tag(r)}  {Path.GetRelativePath(root, r.Path)}");
@@ -175,12 +175,13 @@ internal static class Program
                 case VerdictKind.Suspicious: suspect++; break;
                 case VerdictKind.Lossy: lossy++; break;
                 case VerdictKind.Upsampled: upsampled++; break;
+                case VerdictKind.Mixed: mixed++; break;
                 default: if (r.Error is not null) errors++; else unknown++; break;
             }
         }
         Console.WriteLine(
             $"{Environment.NewLine}{files.Count} files: {lossless} lossless, {suspect} suspect, " +
-            $"{lossy} likely lossy, {upsampled} upsampled, {unknown} unknown, {errors} errors.");
+            $"{lossy} likely lossy, {upsampled} upsampled, {mixed} mixed, {unknown} unknown, {errors} errors.");
         return findings;
     }
 
@@ -597,6 +598,7 @@ internal static class Program
             VerdictKind.Suspicious => "[SUSPECT ]",
             VerdictKind.Lossy => "[LOSSY   ]",
             VerdictKind.Upsampled => "[UPSAMPLE]",
+            VerdictKind.Mixed => "[MIXED   ]",
             _ => "[UNKNOWN ]",
         };
         var cut = r.Verdict.CutoffHz is { } hz ? $" {hz / 1000:0.0}k".PadRight(6) : "      ";
@@ -653,7 +655,7 @@ internal static class Program
             files dropped in %APPDATA%\Spektra\palettes or a palettes folder next
             to the app (see docs/cli.md for the format).
 
-            Exit code is 1 on findings (report/scan: lossy or upsampled; check:
+            Exit code is 1 on findings (report/scan: lossy, upsampled, or mixed; check:
             corrupt files; audit: a transcode, an upsample, or corruption - an
             honest lossy file is not a problem; dupes: one or more duplicate
             groups found; loudness: a file could not be measured; diff: the
