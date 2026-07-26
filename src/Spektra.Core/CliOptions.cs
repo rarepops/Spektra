@@ -17,9 +17,16 @@ public static class CliOptions
     /// message. Rejects a value that is itself a flag, so "--palette --gamma"
     /// does not silently eat the next flag as the palette name.
     public static string Value(string flag, string[] args, ref int i) =>
-        i + 1 < args.Length && !args[i + 1].StartsWith('-')
+        i + 1 < args.Length && !IsFlag(args[i + 1])
             ? args[++i]
             : throw new OptionException($"{flag} needs a value.");
+
+    /// A '-' token is a flag only when it is not a number: --floor takes a
+    /// negative dB level and --offset a signed millisecond count, so "-100" is
+    /// a value while "--gamma" is the next flag.
+    private static bool IsFlag(string a) =>
+        a.StartsWith('-')
+        && !double.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
 
     public static int Int(string flag, string[] args, ref int i, int min)
     {

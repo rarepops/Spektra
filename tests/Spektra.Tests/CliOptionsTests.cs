@@ -61,6 +61,22 @@ public class CliOptionsTests
     }
 
     [Test]
+    public async Task Value_NegativeNumber_IsAValueNotAFlag()
+    {
+        // --floor takes a dB level (default -120) and --offset a signed
+        // millisecond count, so a leading '-' on a NUMBER must not read as a
+        // flag. Only a non-numeric '-' token is a flag (see the --palette case).
+        var i = 0;
+        await Assert.That(CliOptions.Value("--floor", ["--floor", "-100"], ref i)).IsEqualTo("-100");
+
+        var j = 0;
+        await Assert.That(CliOptions.Float("--floor", ["--floor", "-100.5"], ref j)).IsEqualTo(-100.5f);
+
+        var k = 0;
+        await Assert.That(CliOptions.Double("--offset", ["--offset", "-500"], ref k)).IsEqualTo(-500.0);
+    }
+
+    [Test]
     public async Task Value_MissingValue_Throws()
     {
         await Assert.That(() => Consume(["--palette"])).Throws<OptionException>();
