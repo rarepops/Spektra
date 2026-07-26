@@ -1,6 +1,6 @@
 namespace Spektra.Core;
 
-public enum VerdictKind { Unknown, Lossless, Suspicious, Lossy, Upsampled }
+public enum VerdictKind { Unknown, Lossless, Suspicious, Lossy, Upsampled, Mixed }
 
 /// The outcome of a bandwidth/cutoff analysis. `CutoffHz` is the highest
 /// frequency carrying real energy (null when the signal reaches Nyquist).

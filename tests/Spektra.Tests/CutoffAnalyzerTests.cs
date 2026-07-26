@@ -272,8 +272,9 @@ public class CutoffAnalyzerTests
         // mix, a continuous set). Analyze runs on PeakHold, the loudest each bin
         // EVER gets, so one genuinely lossless track fills the high bins a
         // transcoded track left dead, and the whole file inherits the best
-        // segment. A segmented analyzer (per-track or windowed) would flip the
-        // final assertion here to a "mixed" verdict.
+        // segment. ProvenanceScan.Analyze returns Mixed for these same columns;
+        // raw CutoffAnalyzer.Analyze stays whole-file, so this characterization
+        // holds.
         var lossless = SyntheticColumn(22050, 22050);    // a full-band track
         var transcoded = SyntheticColumn(22050, 16000);  // an MP3-128-class 16 kHz wall
 
