@@ -4,6 +4,20 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-07-26
+
+### Added
+- Mixed, a bandwidth verdict for a file whose provenance changes partway through. A compilation, DJ mix, or continuous set can carry a transcoded track among genuine ones, and judging the file as a whole missed it: the genuine tracks supplied the high frequencies the transcoded one lacked, so the file read as clean. Spektra now scans in 30-second windows and reports Mixed, naming the suspect stretch's start and end, when a wall that does not belong there covers two consecutive windows. A file that already reads lossy or upsampled is returned as it was, so only an otherwise-clean or ambiguous read can be escalated, and each window is judged by the rule the row flag already used: inside a lossless container any lossy wall counts, while an mp3 or aac is measured against its own declared bitrate. Mixed appears everywhere a verdict does (the bandwidth banner, the audit grid, tree markers, HTML reports, `[MIXED]` in `scan`) and counts as a finding in the `audit`, `report`, and `scan` exit codes. Cached audits re-analyze once, so an existing library gets re-judged.
+
+### Changed
+- The command line rejects an unknown option instead of ignoring it, and an option that expects a value no longer takes the following flag as that value: `spektra image --palette --gamma 1.2 file.wav` now answers `--palette needs a value`, while a negative number such as `--floor -100` is still read as a value. A verb exits 2 when its arguments or environment are wrong, keeping exit 1 for what the analysis found.
+- Cancelling a folder audit or a duplicate scan takes effect while a file's metadata is being read, instead of waiting for that read to finish.
+
+### Fixed
+- A folder audit, duplicate scan, or any other command that walks a folder (`report`, `scan`, `check`, `loudness`) no longer stops when it reaches a folder Windows will not let it read. The unreadable folder is skipped and the walk goes on, so one protected subfolder cannot cut a scan short.
+- HTML reports no longer follow the machine's locale: cutoff and sameness numbers keep a dot decimal, so the sortable Cutoff column sorts by the true value rather than a truncated one, and the generated-on timestamp cannot shift its year on a machine with a non-Gregorian calendar. Byte sizes read the same everywhere in the app for the same reason.
+- A malformed fingerprint in the cache can no longer pass its length check and ask for an enormous allocation.
+
 ## [0.15.1] - 2026-07-21
 
 ### Changed
@@ -378,7 +392,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/rarepops/Spektra/releases/tag/v0.16.0
+[0.15.1]: https://github.com/rarepops/Spektra/releases/tag/v0.15.1
+[0.15.0]: https://github.com/rarepops/Spektra/releases/tag/v0.15.0
+[0.14.0]: https://github.com/rarepops/Spektra/releases/tag/v0.14.0
+[0.13.6]: https://github.com/rarepops/Spektra/releases/tag/v0.13.6
+[0.13.5]: https://github.com/rarepops/Spektra/releases/tag/v0.13.5
+[0.13.4]: https://github.com/rarepops/Spektra/releases/tag/v0.13.4
+[0.13.3]: https://github.com/rarepops/Spektra/releases/tag/v0.13.3
+[0.13.2]: https://github.com/rarepops/Spektra/releases/tag/v0.13.2
+[0.13.1]: https://github.com/rarepops/Spektra/releases/tag/v0.13.1
+[0.13.0]: https://github.com/rarepops/Spektra/releases/tag/v0.13.0
 [0.12.0]: https://github.com/rarepops/Spektra/releases/tag/v0.12.0
 [0.11.3]: https://github.com/rarepops/Spektra/releases/tag/v0.11.3
 [0.11.2]: https://github.com/rarepops/Spektra/releases/tag/v0.11.2
