@@ -177,12 +177,23 @@ public partial class MainWindow
     private void OnDismissUpdateClicked(object? sender, RoutedEventArgs e) => _vm.DismissUpdate();
 
     private DuplicatesWindow? _dupesWindow;
+    private DuplicatesViewModel? _dupesVm;
 
-    private void OnDuplicateDetectiveClicked(object? sender, RoutedEventArgs e)
+    private void OnDuplicateDetectiveClicked(object? sender, RoutedEventArgs e) => EnsureDupesWindow();
+
+    /// Opens or focuses the one Duplicate Detective window. With a root given
+    /// (the --dupes launch switch) that folder becomes the only scan root and
+    /// the scan starts immediately, which is what the Explorer verb promises.
+    private void EnsureDupesWindow(string? root = null)
     {
         if (_dupesWindow is not null)
         {
             _dupesWindow.Activate();
+            if (root is not null && _dupesVm is { } existingVm)
+            {
+                existingVm.SetSingleRoot(root);
+                _ = existingVm.ScanAsync();
+            }
             return;
         }
         if (_vm.Ffmpeg is not { } ffmpeg) return;
@@ -197,9 +208,15 @@ public partial class MainWindow
             _vm.OpenComparison(winner, challenger);
             Activate();
         };
+        _dupesVm = vm;
         _dupesWindow = new DuplicatesWindow(vm, _vm.Settings);
-        _dupesWindow.Closed += (_, _) => _dupesWindow = null;
+        _dupesWindow.Closed += (_, _) => { _dupesWindow = null; _dupesVm = null; };
         _dupesWindow.Show(this);
+        if (root is not null)
+        {
+            vm.SetSingleRoot(root);
+            _ = vm.ScanAsync();
+        }
     }
 
     private FolderManifestWindow? _manifestWindow;

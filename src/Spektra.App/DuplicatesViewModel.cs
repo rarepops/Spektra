@@ -176,6 +176,17 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         RaisePropertyChanged(nameof(CanScan));
     }
 
+    /// The launch-argument path ("Find duplicates" from Explorer): scan exactly
+    /// the folder that was right-clicked. Roots are NOT persisted here, so the
+    /// user's saved root list survives a one-off context-menu scan untouched.
+    public void SetSingleRoot(string folder)
+    {
+        if (IsScanning) { SetError(ScanBusyNote); return; }
+        Roots.Clear();
+        Roots.Add(folder);
+        RaisePropertyChanged(nameof(CanScan));
+    }
+
     /// Add a pasted or typed path. The picker and drag-drop always hand back
     /// real folders, but typed text can be wrong, so check it exists first.
     /// Windows "Copy as path" wraps the path in quotes, so strip those too.

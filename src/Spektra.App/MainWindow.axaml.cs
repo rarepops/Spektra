@@ -45,6 +45,11 @@ public partial class MainWindow : Window
             if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesOnStartupAsync();
         };
 
+        if (request.DupesRoot is { } dupesRoot)
+            Opened += (_, _) => EnsureDupesWindow(dupesRoot);
+        if (request.ManifestRoot is { } manifestRoot)
+            Opened += (_, _) => EnsureManifestWindow(manifestRoot);
+
         if (request.Compare is { } pair)
         {
             var startMode = pair.Mode switch
