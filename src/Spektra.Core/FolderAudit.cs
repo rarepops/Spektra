@@ -133,7 +133,7 @@ public static class FolderAudit
             return new AuditResult(new FileReport(path, null, null, ex.Message), null, null);
         }
 
-        var report = new FileReport(path, meta, CutoffAnalyzer.Analyze(columns, meta.SampleRate), null);
+        var report = new FileReport(path, meta, ProvenanceScan.Analyze(columns, meta), null);
 
         IntegrityReport? integrity = null;
         string? integrityError = null;

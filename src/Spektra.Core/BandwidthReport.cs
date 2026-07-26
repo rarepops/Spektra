@@ -21,7 +21,7 @@ public static class BandwidthReport
             var meta = session.ReadMetadata(path, ct);
             var settings = new SpectrogramSettings(WindowSize: windowSize);
             var columns = session.AnalyzeColumns(path, meta, settings, ct).ToList();
-            return new FileReport(path, meta, CutoffAnalyzer.Analyze(columns, meta.SampleRate), null);
+            return new FileReport(path, meta, ProvenanceScan.Analyze(columns, meta), null);
         }
         catch (Exception ex) when (ex is AudioDecodeException or IOException or InvalidOperationException)
         {

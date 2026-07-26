@@ -416,7 +416,7 @@ public sealed class DocumentViewModel : TabViewModelBase
             }
         }, ct);
 
-        var verdict = await Task.Run(() => AnalyzeBandwidth(doc, meta.SampleRate), ct);
+        var verdict = await Task.Run(() => AnalyzeBandwidth(doc, meta), ct);
         return new ChannelOverview(doc, verdict, null);
     }
 
@@ -528,15 +528,15 @@ public sealed class DocumentViewModel : TabViewModelBase
         catch (AudioDecodeException ex) { SetErrorStatus(ex.Message); }
     }
 
-    /// Snapshots the finished overview columns and runs the bandwidth/lossless
-    /// analysis. Peak-hold over the whole file, so the zoomed-out max-merged
-    /// columns are exactly what the detector needs.
-    private static LosslessVerdict AnalyzeBandwidth(SpectrogramDocument doc, int sampleRate)
+    /// Snapshots the finished overview columns and runs the provenance-aware
+    /// bandwidth analysis. Peak-hold is associative, so the zoomed-out
+    /// max-merged columns give the same per-window verdicts the full frames would.
+    private static LosslessVerdict AnalyzeBandwidth(SpectrogramDocument doc, AudioMetadata meta)
     {
         var count = doc.Count;
         var columns = new List<float[]>(count);
         for (var i = 0; i < count; i++) columns.Add(doc.GetColumn(i));
-        return CutoffAnalyzer.Analyze(columns, sampleRate);
+        return ProvenanceScan.Analyze(columns, meta);
     }
 
     /// One channel's finished analysis: the overview document, its bandwidth

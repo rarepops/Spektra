@@ -23,7 +23,10 @@ public sealed class AuditCache : IDisposable
     /// 7: high-cutoff suspicion zone: a sharp wall at or above 20 kHz reads
     ///    Suspicious (was full-band Lossless at 44.1 kHz, accusatory Lossy
     ///    elsewhere), so cached Bandwidth verdicts and cutoffs change.
-    public const int AnalysisVersion = 7;
+    /// 8: ProvenanceScan replaces the whole-file cutoff read, so a compilation
+    ///    hiding a transcoded segment now yields Mixed where it previously
+    ///    cached as clean.
+    public const int AnalysisVersion = 8;
 
     /// Bump whenever FingerprintExtractor's bits change shape or meaning, so
     /// stale fingerprints re-extract. Independent of AnalysisVersion: verdict
