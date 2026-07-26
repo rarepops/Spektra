@@ -263,4 +263,30 @@ public class CutoffAnalyzerTests
         var normal = CutoffAnalyzer.Analyze([SyntheticColumn(24000, 16000)], 48000);
         await Assert.That(normal.Kind).IsEqualTo(VerdictKind.Lossy);
     }
+
+    [Test]
+    public async Task Compilation_FullBandTrackMasksTranscodedTrack_YieldsFalseClean()
+    {
+        // KNOWN LIMITATION, not desired behavior. A single whole-file cutoff is
+        // blind to provenance that varies within the file (a compilation, a DJ
+        // mix, a continuous set). Analyze runs on PeakHold, the loudest each bin
+        // EVER gets, so one genuinely lossless track fills the high bins a
+        // transcoded track left dead, and the whole file inherits the best
+        // segment. A segmented analyzer (per-track or windowed) would flip the
+        // final assertion here to a "mixed" verdict.
+        var lossless = SyntheticColumn(22050, 22050);    // a full-band track
+        var transcoded = SyntheticColumn(22050, 16000);  // an MP3-128-class 16 kHz wall
+
+        // Each segment, judged on its own, is classified correctly.
+        await Assert.That(CutoffAnalyzer.Analyze([lossless], 44100).Kind)
+            .IsEqualTo(VerdictKind.Lossless);
+        await Assert.That(CutoffAnalyzer.Analyze([transcoded], 44100).Kind)
+            .IsEqualTo(VerdictKind.Lossy);
+
+        // Concatenated into one file, the transcoded track vanishes: the mix
+        // reads fully clean, cutoff and all.
+        var mix = CutoffAnalyzer.Analyze([lossless, transcoded], 44100);
+        await Assert.That(mix.Kind).IsEqualTo(VerdictKind.Lossless);
+        await Assert.That(mix.CutoffHz).IsNull();
+    }
 }
