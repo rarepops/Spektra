@@ -77,7 +77,7 @@ What it adds:
 - **A cascading Spektra submenu** on folders, on the folder itself and on empty space inside an open folder: Open in Spektra (browse the folder with cached verdicts already showing; nothing is analyzed until you ask), Find duplicates (opens Duplicate Detective on that folder and starts scanning), List folder contents (opens Folder Manifest on that folder).
 - **Spektra in the Open With list** for audio files.
 
-On Windows 11 these entries sit under "Show more options" rather than on the top-level right-click menu.
+On Windows 11 the file verb and the folder submenu sit under "Show more options" rather than on the top-level right-click menu; Open With is unaffected.
 
 The same things work from a command line or a shortcut:
 
