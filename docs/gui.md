@@ -66,3 +66,25 @@ Open both files, then **File → Compare…** (or `spektra --compare A B`). The 
 ## Preferences (Ctrl+E)
 
 FFT size (512-8192) and window function (Hann/Hamming/Blackman/Blackman-Harris) are analysis settings that re-analyze open tabs; the folder analysis order (folder order / smallest first / largest first) schedules the folder tab's Analyze and applies from the next run; the integrity toggle decides whether every opened file checks itself (on by default; applies to files opened afterwards); palette (Turbo by default; Magma, Inferno, Plasma, Viridis, Cividis, Grayscale, single-hue MonoGreen/MonoAmber ramps where saturation tracks intensity, plus any custom palette JSON dropped in `%APPDATA%\Spektra\palettes` or a `palettes` folder next to the app - see the CLI guide for the format; the list refreshes when Preferences opens), tightness (a level curve: higher keeps quiet detail darker so peaks read tighter, lower blooms), dB floor, and linear/log frequency axis are display settings applied instantly. On launch (the Session section) picks Start new or Keep last: Start new (the default) opens the app and its tool windows empty, while Keep last brings back the previous session's tabs, Duplicate Detective folders, and manifest folder; a launch with a file argument stays targeted either way, and layouts, column widths, and window placements persist regardless. The once-a-day update check toggle also lives here; updates are notify-only (Help → Check for Updates).
+
+## Launching from Explorer
+
+The installer can add Spektra to the Explorer right-click menu. It is off by default: choose Custom Setup during installation and switch on "Explorer integration". It never changes which program opens your audio files.
+
+What it adds:
+
+- **Analyze with Spektra** on audio files. Select several and they open as tabs in one window, not a window each.
+- **A cascading Spektra submenu** on folders, on the folder itself and on empty space inside an open folder: Open in Spektra (browse the folder with cached verdicts already showing; nothing is analyzed until you ask), Find duplicates (opens Duplicate Detective on that folder and starts scanning), List folder contents (opens Folder Manifest on that folder).
+- **Spektra in the Open With list** for audio files.
+
+On Windows 11 these entries sit under "Show more options" rather than on the top-level right-click menu.
+
+The same things work from a command line or a shortcut:
+
+    spektra "song.flac" "other.flac"          # one tab each
+    spektra "D:\Music\Albums"                 # browse and audit a folder
+    spektra --dupes "D:\Music\Albums"         # Duplicate Detective on a folder
+    spektra --manifest "D:\Music\Albums"      # Folder Manifest on a folder
+    spektra --compare a.flac b.flac --auto --mode diff
+
+Each invocation opens its own window; Spektra does not funnel them into a single running instance.

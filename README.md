@@ -78,6 +78,8 @@ Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protec
     # Linux / macOS
     sha256sum -c SHA256SUMS.txt
 
+Uninstalling removes Spektra and its downloaded copy of ffmpeg. Your settings, custom palettes, and the analysis cache in `%APPDATA%\Spektra` are kept unless you tick "Also remove settings, palettes, and the analysis cache" while uninstalling.
+
 ## Requirements
 
 - Windows (primary target; Avalonia keeps Linux/macOS possible)

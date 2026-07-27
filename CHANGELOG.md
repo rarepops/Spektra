@@ -4,6 +4,16 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Optional Explorer integration, off by default and switched on from the installer's Custom Setup page: an "Analyze with Spektra" verb on audio files (a multi-file selection opens as tabs in one window), a Spektra submenu on folders and folder backgrounds with Open in Spektra · Find duplicates · List folder contents, and Spektra in the Open With list. It never changes which program opens your audio files.
+- `--dupes <folder>` and `--manifest <folder>` launch switches, opening Duplicate Detective or Folder Manifest straight onto a folder.
+- An "Uninstall Spektra" Start Menu entry.
+
+### Changed
+- Uninstalling now removes the downloaded copy of ffmpeg, and offers to remove settings, custom palettes, and the analysis cache. Both were previously left behind.
+
 ## [0.16.0] - 2026-07-26
 
 ### Added
