@@ -51,11 +51,22 @@
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
 
-      <!-- The downloaded ffmpeg always goes: it is a runtime-fetched dependency
-           rather than user data, it is the largest thing left behind, and the
-           app can fetch it again. -->
+      <!-- The downloaded ffmpeg always goes on a real uninstall: it is a
+           runtime-fetched dependency rather than user data, it is the largest
+           thing left behind, and the app can fetch it again. NOT
+           UPGRADINGPRODUCTCODE is the other half of that "real uninstall":
+           MajorUpgrade's RemoveExistingProducts runs the old package's own
+           InstallExecuteSequence, REMOVE=ALL, as part of every
+           version-to-version upgrade, with UPGRADINGPRODUCTCODE set in that
+           session. Without the guard this row fires there too, so every
+           update would delete the ffmpeg download and force a re-download on
+           next launch, with no dialog and nothing to restore it (the folder
+           was never MSI-owned). UPGRADINGPRODUCTCODE is set in exactly that
+           one situation, so it is the only condition that discriminates;
+           REMOVE="ALL" is not usable here because the upgrade-removal session
+           also runs with REMOVE=ALL. -->
       <Component Id="RemoveDownloadedFfmpeg" Directory="INSTALLFOLDER">
-        <util:RemoveFolderEx On="uninstall" Property="SPEKTRALOCALDATA" />
+        <util:RemoveFolderEx On="uninstall" Property="SPEKTRAFFMPEGDIR" Condition="NOT UPGRADINGPRODUCTCODE" />
         <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="FfmpegCleanup"
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -65,9 +76,14 @@
            whose condition is false is never installed, so at uninstall time it
            is not "being removed" and its removal would never fire, making the
            checkbox a no-op. The row condition is evaluated during the uninstall
-           itself, which is when the checkbox has actually been answered. -->
+           itself, which is when the checkbox has actually been answered.
+           AND NOT UPGRADINGPRODUCTCODE excludes the same upgrade-triggered
+           removal session as the ffmpeg row above. User data already survives
+           an upgrade through other mechanisms, but the guard belongs on this
+           row too so the invariant is explicit here rather than something a
+           future maintainer has to re-derive from those other mechanisms. -->
       <Component Id="RemoveUserData" Directory="INSTALLFOLDER">
-        <util:RemoveFolderEx On="uninstall" Property="SPEKTRAAPPDATA" Condition="REMOVEUSERDATA" />
+        <util:RemoveFolderEx On="uninstall" Property="SPEKTRAAPPDATA" Condition="REMOVEUSERDATA AND NOT UPGRADINGPRODUCTCODE" />
         <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="UserDataCleanup"
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -93,9 +109,14 @@
          that action return E_INVALIDARG and fail the whole transaction, so the
          package would not install at all. These are per-user paths, so they
          resolve for whoever runs the uninstall: a per-machine package cannot
-         clean other profiles, and this deliberately does not pretend to. -->
+         clean other profiles, and this deliberately does not pretend to.
+         SPEKTRAFFMPEGDIR points at the ffmpeg subfolder specifically (matching
+         FfmpegLocator.DownloadDir), not all of %LOCALAPPDATA%\Spektra: the
+         dialog and the comment above only promise to remove "the ffmpeg
+         download", and a wider value would silently start deleting anything
+         else Spektra later writes under that root. -->
     <SetProperty Id="SPEKTRAAPPDATA" Value="[AppDataFolder]Spektra" Before="CostInitialize" Sequence="both" />
-    <SetProperty Id="SPEKTRALOCALDATA" Value="[LocalAppDataFolder]Spektra" Before="CostInitialize" Sequence="both" />
+    <SetProperty Id="SPEKTRAFFMPEGDIR" Value="[LocalAppDataFolder]Spektra\ffmpeg" Before="CostInitialize" Sequence="both" />
 
     <!-- Unticked by default. Public (uppercase) and Secure so it survives into
          the elevated context, and settable for scripted removal:
