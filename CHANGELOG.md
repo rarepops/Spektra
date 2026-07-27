@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.17.0] - 2026-07-27
 
 ### Added
 - Optional Explorer integration, off by default and switched on from the installer's Custom Setup page: an "Analyze with Spektra" verb on audio files (a multi-file selection opens as tabs in one window), a Spektra submenu on folders and folder backgrounds with Open in Spektra · Find duplicates · List folder contents, and Spektra in the Open With list. It never changes which program opens your audio files.
@@ -402,7 +402,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/rarepops/Spektra/releases/tag/v0.17.0
 [0.16.0]: https://github.com/rarepops/Spektra/releases/tag/v0.16.0
 [0.15.1]: https://github.com/rarepops/Spektra/releases/tag/v0.15.1
 [0.15.0]: https://github.com/rarepops/Spektra/releases/tag/v0.15.0
