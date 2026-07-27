@@ -148,4 +148,32 @@ public class LaunchArgsTests
         var r = LaunchArgs.Parse(["-weird-name.flac"], IsFile, IsDir);
         await Assert.That(r.Files.Count).IsEqualTo(1);
     }
+
+    [Test]
+    public async Task Compare_WinsTheWholeLine_LeavingNoToolRoots()
+    {
+        // The compare path returns early, so a tool switch alongside it is
+        // structurally impossible. MainWindow's dispatcher relies on that.
+        var r = Parse("--compare", "a.flac", "b.flac", "--dupes", "D:\\Music\\Albums");
+        await Assert.That(r.Compare).IsNotNull();
+        await Assert.That(r.DupesRoot).IsNull();
+        await Assert.That(r.ManifestRoot).IsNull();
+    }
+
+    [Test]
+    public async Task SwitchFollowedByAnotherFlag_DoesNotEatIt()
+    {
+        var r = Parse("--manifest", "--dupes", "D:\\Music\\Albums");
+        await Assert.That(r.ManifestRoot).IsNull();
+        await Assert.That(r.DupesRoot).IsEqualTo("D:\\Music\\Albums");
+    }
+
+    [Test]
+    public async Task PathStartingWithASingleDash_IsStillTakenAsAValue()
+    {
+        // Only a double dash reads as a flag: the CLI once regressed by
+        // rejecting every "-" prefixed token, which broke negative numbers.
+        var r = LaunchArgs.Parse(["--dupes", "-oddly-named"], IsFile, p => p == "-oddly-named");
+        await Assert.That(r.DupesRoot).IsEqualTo("-oddly-named");
+    }
 }

@@ -66,7 +66,7 @@ Check for a newer release any time from **Help → Check for Updates**. Spektra 
 
 Grab the latest build from the **[releases page](https://github.com/rarepops/Spektra/releases/latest)**:
 
-- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app (can add `spektra` to your PATH).
+- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app. Custom Setup can add `spektra` to your PATH and add Spektra to the Explorer right-click menu.
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
 - `spektra-cli-<version>-<os>.zip`: the command-line tool (Windows, Linux, macOS).
 
@@ -78,7 +78,7 @@ Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protec
     # Linux / macOS
     sha256sum -c SHA256SUMS.txt
 
-Uninstalling the MSI installer removes Spektra and its downloaded copy of ffmpeg. Your settings, custom palettes, and the analysis cache in `%APPDATA%\Spektra` are kept unless you tick "Also remove settings, palettes, and the analysis cache" while uninstalling.
+The MSI build's uninstaller removes Spektra and its downloaded copy of ffmpeg. Your settings, custom palettes, and the analysis cache in `%APPDATA%\Spektra` are kept unless you tick "Also remove settings, palettes, and the analysis cache" while uninstalling.
 
 ## Requirements
 

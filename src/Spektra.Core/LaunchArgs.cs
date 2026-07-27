@@ -52,12 +52,12 @@ public static class LaunchArgs
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
-            if (string.Equals(arg, "--dupes", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(arg, "--dupes", StringComparison.Ordinal))
             {
                 dupesRoot = TakeFolder(args, ref i, isDir) ?? dupesRoot;
                 continue;
             }
-            if (string.Equals(arg, "--manifest", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(arg, "--manifest", StringComparison.Ordinal))
             {
                 manifestRoot = TakeFolder(args, ref i, isDir) ?? manifestRoot;
                 continue;
@@ -72,11 +72,17 @@ public static class LaunchArgs
 
     /// Consumes the argument after a switch when it is a real folder. The index
     /// advances either way for a present-but-bad value, so a bogus folder is not
-    /// then re-read as a path.
+    /// then re-read as a path. A candidate that starts with "--" is left alone
+    /// (the index does not advance) so it is re-read as a flag on the next
+    /// loop iteration, rather than being swallowed as this switch's value. A
+    /// single leading "-" does not count: folder paths never start with "--",
+    /// but they (and negative numbers, for other switches) can start with "-".
     private static string? TakeFolder(string[] args, ref int i, Func<string, bool> isDir)
     {
         if (i + 1 >= args.Length) return null;
-        var candidate = args[++i];
+        var candidate = args[i + 1];
+        if (candidate.StartsWith("--", StringComparison.Ordinal)) return null;
+        i++;
         return isDir(candidate) ? candidate : null;
     }
 

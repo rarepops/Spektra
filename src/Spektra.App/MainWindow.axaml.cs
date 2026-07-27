@@ -45,11 +45,6 @@ public partial class MainWindow : Window
             if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesOnStartupAsync();
         };
 
-        if (request.DupesRoot is { } dupesRoot)
-            Opened += (_, _) => EnsureDupesWindow(dupesRoot);
-        if (request.ManifestRoot is { } manifestRoot)
-            Opened += (_, _) => EnsureManifestWindow(manifestRoot);
-
         if (request.Compare is { } pair)
         {
             var startMode = pair.Mode switch
@@ -69,6 +64,14 @@ public partial class MainWindow : Window
             };
             return;
         }
+
+        // Parse's compare path returns early, so DupesRoot/ManifestRoot are
+        // structurally impossible alongside a Compare; these run only when
+        // the block above did not already return.
+        if (request.DupesRoot is { } dupesRoot)
+            Opened += (_, _) => EnsureDupesWindow(dupesRoot);
+        if (request.ManifestRoot is { } manifestRoot)
+            Opened += (_, _) => EnsureManifestWindow(manifestRoot);
 
         if (request.Files.Count > 0)
             Opened += (_, _) => _vm.OpenFiles(request.Files);

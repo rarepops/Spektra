@@ -33,20 +33,22 @@
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="Spektra" />
     </StandardDirectory>
-    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="SpektraMenuFolder" Name="Spektra" />
+    </StandardDirectory>
 
     <Feature Id="Main" Title="Spektra" Level="1" AllowAbsent="no"
              Description="The Spektra application and its Start Menu shortcut.">
       <Component Id="MainExe" Directory="INSTALLFOLDER">
         <File Id="spektraExe" Source="dist\gui-win-x64\spektra.exe" KeyPath="yes" />
       </Component>
-      <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Directory="SpektraMenuFolder">
         <Shortcut Id="AppShortcut" Name="Spektra"
                   Target="[INSTALLFOLDER]spektra.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
         <Shortcut Id="UninstallShortcut" Name="Uninstall Spektra"
                   Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]"
-                  Description="Remove Spektra from this computer" />
-        <RemoveFolder Id="RemoveProgramMenuFolder" On="uninstall" />
+                  Description="Remove Spektra from this computer" Icon="AppIcon" />
+        <RemoveFolder Id="RemoveSpektraMenuFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\rarepops\Spektra" Name="installed"
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
@@ -114,7 +116,11 @@
          FfmpegLocator.DownloadDir), not all of %LOCALAPPDATA%\Spektra: the
          dialog and the comment above only promise to remove "the ffmpeg
          download", and a wider value would silently start deleting anything
-         else Spektra later writes under that root. -->
+         else Spektra later writes under that root. SPEKTRAAPPDATA has no such
+         narrowing: %APPDATA%\Spektra is itself the user-data root, nothing
+         else lives under it, so removing the whole folder is exactly what the
+         "remove settings, palettes, and the analysis cache" checkbox
+         consents to, not an oversight. -->
     <SetProperty Id="SPEKTRAAPPDATA" Value="[AppDataFolder]Spektra" Before="CostInitialize" Sequence="both" />
     <SetProperty Id="SPEKTRAFFMPEGDIR" Value="[LocalAppDataFolder]Spektra\ffmpeg" Before="CostInitialize" Sequence="both" />
 
