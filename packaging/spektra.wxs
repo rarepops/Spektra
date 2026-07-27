@@ -43,8 +43,32 @@
       <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder">
         <Shortcut Id="AppShortcut" Name="Spektra"
                   Target="[INSTALLFOLDER]spektra.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <Shortcut Id="UninstallShortcut" Name="Uninstall Spektra"
+                  Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]"
+                  Description="Remove Spektra from this computer" />
         <RemoveFolder Id="RemoveProgramMenuFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\rarepops\Spektra" Name="installed"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <!-- The downloaded ffmpeg always goes: it is a runtime-fetched dependency
+           rather than user data, it is the largest thing left behind, and the
+           app can fetch it again. -->
+      <Component Id="RemoveDownloadedFfmpeg" Directory="INSTALLFOLDER">
+        <util:RemoveFolderEx On="uninstall" Property="SPEKTRALOCALDATA" />
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="FfmpegCleanup"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <!-- Settings, palettes, and the analysis cache: only on request. The gate
+           sits on the RemoveFolderEx row, not on the component. A component
+           whose condition is false is never installed, so at uninstall time it
+           is not "being removed" and its removal would never fire, making the
+           checkbox a no-op. The row condition is evaluated during the uninstall
+           itself, which is when the checkbox has actually been answered. -->
+      <Component Id="RemoveUserData" Directory="INSTALLFOLDER">
+        <util:RemoveFolderEx On="uninstall" Property="SPEKTRAAPPDATA" Condition="REMOVEUSERDATA" />
+        <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="UserDataCleanup"
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </Feature>
@@ -61,6 +85,22 @@
                        Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </Feature>
+
+    <!-- util:RemoveFolderEx resolves its folder from a property, and the
+         Wix4RemoveFoldersEx action that reads it is itself scheduled before
+         CostInitialize, so these have to be set earlier still. Scheduling them
+         before CostFinalize instead is not merely late: an empty property makes
+         that action return E_INVALIDARG and fail the whole transaction, so the
+         package would not install at all. These are per-user paths, so they
+         resolve for whoever runs the uninstall: a per-machine package cannot
+         clean other profiles, and this deliberately does not pretend to. -->
+    <SetProperty Id="SPEKTRAAPPDATA" Value="[AppDataFolder]Spektra" Before="CostInitialize" Sequence="both" />
+    <SetProperty Id="SPEKTRALOCALDATA" Value="[LocalAppDataFolder]Spektra" Before="CostInitialize" Sequence="both" />
+
+    <!-- Unticked by default. Public (uppercase) and Secure so it survives into
+         the elevated context, and settable for scripted removal:
+         msiexec /x <msi> REMOVEUSERDATA=1 /qn -->
+    <Property Id="REMOVEUSERDATA" Secure="yes" />
 
     <!-- Optional Explorer integration: an Open With entry, an "Analyze with
          Spektra" verb on audio files, and a folder submenu. Level 1000 puts it
@@ -104,8 +144,8 @@
                      ForceDeleteOnUninstall="yes">
           <RegistryValue Type="string" Value="Analyze with Spektra" />
           <RegistryValue Name="Icon" Type="string" Value="[#spektraExe],0" />
-          <!-- Player: one process receives the whole selection, so 20 selected
-               files become 20 tabs in one window instead of 20 windows. -->
+          <!-- Player: the whole selection arrives as one process (tabs in one
+               window, not a window each), up to Explorer's multi-select cap. -->
           <RegistryValue Name="MultiSelectModel" Type="string" Value="Player" />
           <RegistryValue Key="command" Type="string" Value="&quot;[#spektraExe]&quot; %*" />
         </RegistryKey>
@@ -161,6 +201,41 @@
     <UI>
       <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
                Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+
+      <!-- Asked only on the Remove path, between MaintenanceTypeDlg and
+           VerifyReadyDlg. One checkbox, unticked by default. -->
+      <Dialog Id="SpektraRemoveDataDlg" Width="370" Height="270" Title="Spektra Setup">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44"
+                 TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes"
+                 NoPrefix="yes" Text="{\WixUI_Font_Title}Remove Spektra" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="340" Height="15" Transparent="yes"
+                 NoPrefix="yes" Text="Choose what to keep." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BodyText" Type="Text" X="20" Y="60" Width="330" Height="48" NoPrefix="yes"
+                 Text="The ffmpeg download is always removed; Spektra can fetch it again. Your settings, custom palettes, and the analysis cache are kept unless you ask for them to go." />
+        <Control Id="RemoveDataCheckBox" Type="CheckBox" X="20" Y="116" Width="330" Height="18"
+                 Property="REMOVEUSERDATA" CheckBoxValue="1"
+                 Text="Also remove settings, palettes, and the analysis cache" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17"
+                 Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="MaintenanceTypeDlg" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes"
+                 Text="!(loc.WixUINext)">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes"
+                 Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- Reroute Remove through the question. A higher Order than WixUI's own
+           row is how the documented WixUI customization overrides navigation. -->
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog"
+               Value="SpektraRemoveDataDlg" Order="10" Condition="1" />
     </UI>
   </Package>
 </Wix>
