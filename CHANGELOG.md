@@ -4,6 +4,14 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- "Analyze with Spektra" opens the file you clicked. The verb handed the selection over as `%*`, which in a shell verb command expands to the arguments that follow the file rather than to the file itself, so it arrived empty: the app started with no command line at all and restored the previous session, which looks like an ordinary window that ignored the click. Every audio extension's verb was affected in 0.17.0. Installing this version rewrites the registry rows.
+
+### Changed
+- Spektra runs as a single instance. Launching it while it is already open hands the new command line to the running window instead of starting a second one: files arrive as extra tabs, a folder as another browse, `--dupes` and `--manifest` open their windows, and a bare launch brings the window to the front. This is also what puts a multiple selection into one window, because Windows invokes a right-click verb once per selected file and a command-line verb receives one file per invocation, so three files mean three launches.
+
 ## [0.17.0] - 2026-07-27
 
 ### Added

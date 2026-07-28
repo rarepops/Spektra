@@ -87,4 +87,4 @@ The same things work from a command line or a shortcut:
     spektra --manifest "D:\Music\Albums"      # Folder Manifest on a folder
     spektra --compare a.flac b.flac --auto --mode diff
 
-Each invocation opens its own window; Spektra does not funnel them into a single running instance.
+Spektra runs as one instance. Launching it while it is already open sends the new command line to the running window rather than starting a second one: files arrive as extra tabs, a folder as another browse, and a bare launch just brings the window to the front. This is also what makes a multiple selection land in one window, because Windows invokes a right-click verb once per selected file.

@@ -45,6 +45,13 @@ public partial class MainWindow : Window
             if (_vm.CheckForUpdatesOnStartup) await _vm.CheckForUpdatesOnStartupAsync();
         };
 
+        Opened += async (_, _) => await ApplyAsync(request, isStartup: true);
+    }
+
+    /// Acts on one launch's request. Runs on startup for this process's own
+    /// command line, and again for every command line a later process hands over.
+    private async Task ApplyAsync(LaunchRequest request, bool isStartup)
+    {
         if (request.Compare is { } pair)
         {
             var startMode = pair.Mode switch
@@ -55,34 +62,37 @@ public partial class MainWindow : Window
                 "both" => CompareMode.Both,
                 _ => null,
             };
-            Opened += async (_, _) =>
-            {
-                if (_vm.OpenComparison(pair.PathA, pair.PathB) is not { } cmp) return;
-                await cmp.Loaded; // real load completion, not a fixed delay
-                if (pair.AutoAlign) await cmp.AlignAsync();
-                if (startMode is { } m) cmp.Mode = m;
-            };
+            if (_vm.OpenComparison(pair.PathA, pair.PathB) is not { } cmp) return;
+            await cmp.Loaded; // real load completion, not a fixed delay
+            if (pair.AutoAlign) await cmp.AlignAsync();
+            if (startMode is { } m) cmp.Mode = m;
             return;
         }
 
         // Parse's compare path returns early, so DupesRoot/ManifestRoot are
         // structurally impossible alongside a Compare; these run only when
         // the block above did not already return.
-        if (request.DupesRoot is { } dupesRoot)
-            Opened += (_, _) => EnsureDupesWindow(dupesRoot);
-        if (request.ManifestRoot is { } manifestRoot)
-            Opened += (_, _) => EnsureManifestWindow(manifestRoot);
+        if (request.DupesRoot is { } dupesRoot) EnsureDupesWindow(dupesRoot);
+        if (request.ManifestRoot is { } manifestRoot) EnsureManifestWindow(manifestRoot);
 
-        if (request.Files.Count > 0)
-            Opened += (_, _) => _vm.OpenFiles(request.Files);
-        if (request.Folders.Count > 0)
-            Opened += (_, _) =>
-            {
-                foreach (var folder in request.Folders) _vm.OpenFolder(folder);
-            };
-        // A targeted open stays targeted: restore only on a bare launch.
-        if (request.IsBare)
-            Opened += (_, _) => _vm.RestoreSessionTabs();
+        if (request.Files.Count > 0) _vm.OpenFiles(request.Files);
+        foreach (var folder in request.Folders) _vm.OpenFolder(folder);
+
+        // A targeted open stays targeted: restore only on a bare launch, and
+        // never on a handoff, where those tabs are already on screen.
+        if (request.IsBare && isStartup) _vm.RestoreSessionTabs();
+    }
+
+    /// A second process handed us its command line. Surface first, so the user
+    /// sees the window they just asked for even when nothing else happens.
+    public void AcceptHandoff(LaunchRequest request)
+    {
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+
+        if (request.IsBare) return; // raising the window was the whole job
+        _ = ApplyAsync(request, isStartup: false);
     }
 
     public MainWindow(string[] args) : this(LaunchArgs.Parse(args)) { }
