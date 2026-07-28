@@ -171,10 +171,17 @@
                      ForceDeleteOnUninstall="yes">
           <RegistryValue Type="string" Value="Analyze with Spektra" />
           <RegistryValue Name="Icon" Type="string" Value="[#spektraExe],0" />
-          <!-- Player: the whole selection arrives as one process (tabs in one
-               window, not a window each), up to Explorer's multi-select cap. -->
+          <!-- "%1", never %*. A command-line verb is invoked once per selected
+               file, and %* expands to the parameters AFTER the file, so it
+               arrives empty: 0.17.0 shipped %* and every click launched the app
+               with a bare command line, which restored the previous session
+               instead of opening the file. Measured on Windows 11, both
+               templates, single and multi selections. Player caps how many
+               invocations a big selection spawns; turning those invocations
+               into tabs in one window is the app's single-instance handoff,
+               not something the shell will do for a command-line verb. -->
           <RegistryValue Name="MultiSelectModel" Type="string" Value="Player" />
-          <RegistryValue Key="command" Type="string" Value="&quot;[#spektraExe]&quot; %*" />
+          <RegistryValue Key="command" Type="string" Value="&quot;[#spektraExe]&quot; &quot;%1&quot;" />
         </RegistryKey>
         <?endforeach?>
         <RegistryValue Root="HKLM" Key="Software\rarepops\Spektra" Name="ShellFileVerb"
