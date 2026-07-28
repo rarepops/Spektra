@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.18.0] - 2026-07-28
 
 ### Fixed
 - "Analyze with Spektra" opens the file you clicked. The verb handed the selection over as `%*`, which in a shell verb command expands to the arguments that follow the file rather than to the file itself, so it arrived empty: the app started with no command line at all and restored the previous session, which looks like an ordinary window that ignored the click. Every audio extension's verb was affected in 0.17.0. Installing this version rewrites the registry rows.
@@ -410,7 +410,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/rarepops/Spektra/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rarepops/Spektra/releases/tag/v0.17.0
 [0.16.0]: https://github.com/rarepops/Spektra/releases/tag/v0.16.0
 [0.15.1]: https://github.com/rarepops/Spektra/releases/tag/v0.15.1
