@@ -69,7 +69,7 @@ FFT size (512-8192) and window function (Hann/Hamming/Blackman/Blackman-Harris) 
 
 ## Launching from Explorer
 
-The installer can add Spektra to the Explorer right-click menu. It is off by default: choose Custom Setup during installation and switch on "Explorer integration". It never changes which program opens your audio files.
+The installer can add Spektra to the Explorer right-click menu. It is off by default: tick "Add Spektra to the Explorer right-click menu" on the installer's Options page. It never changes which program opens your audio files. To change your mind later, open Installed apps (or Programs and Features), choose Modify on Spektra, and tick or untick the same box; the wizard remembers what you chose last time, including across updates.
 
 What it adds:
 

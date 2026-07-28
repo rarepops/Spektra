@@ -129,6 +129,23 @@
          msiexec /x <msi> REMOVEUSERDATA=1 /qn -->
     <Property Id="REMOVEUSERDATA" Secure="yes" />
 
+    <!-- The two optional pieces are chosen with checkboxes on SpektraOptionsDlg
+         below, which publishes AddLocal or Remove for the matching feature. The
+         feature Levels stay the source of truth for anything that runs without
+         the wizard, so a silent install is unchanged: PATH on, Explorer
+         integration off, and
+         msiexec /i <msi> ADDLOCAL=Main,PathFeature,ShellIntegration /qn
+         to choose explicitly. A CheckBox control stores its CheckBoxValue when
+         ticked and null when unticked, so every condition below compares
+         against "1" instead of leaning on a bare property being truthy: that
+         way a stray SPEKTRAADDTOPATH=0 on a command line reads as off rather
+         than as a non-empty string. -->
+    <Property Id="SPEKTRAADDTOPATH" Value="1" />
+    <!-- SPEKTRASHELLMENU is deliberately not declared. An unticked checkbox
+         holds null, which is what an undeclared property already is, and WiX
+         drops a valueless Property row anyway (WIX1006). -->
+
+
     <!-- Optional Explorer integration: an Open With entry, an "Analyze with
          Spektra" verb on audio files, and a folder submenu. Level 1000 puts it
          above the package install level, so it is OFF unless the user turns it
@@ -220,9 +237,14 @@
       </Component>
     </Feature>
 
-    <!-- Wizard UI: welcome, license, a Custom Setup page (to toggle "Add to
-         PATH"), progress, and a finish page. Without this a double-clicked MSI
-         shows no dialogs and looks like it did nothing. -->
+    <!-- Wizard UI: welcome, license, an Options page holding one checkbox per
+         optional piece, progress, and a finish page. Without this a
+         double-clicked MSI shows no dialogs and looks like it did nothing.
+         WixUI_FeatureTree supplies the dialogs, but its own Custom Setup page
+         is rerouted out of the chain below: an MSI feature tree hides an on or
+         off choice behind a drive icon that turns out to be a dropdown, which
+         nobody outside packaging recognises, so 0.17.0 and 0.18.0 shipped
+         Explorer integration behind a control most people would never find. -->
     <ui:WixUI Id="WixUI_FeatureTree" />
     <WixVariable Id="WixUILicenseRtf" Value="packaging\license.rtf" />
 
@@ -235,6 +257,107 @@
     <UI>
       <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
                Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+
+      <!-- The Options page, in place of WixUI's Custom Setup tree. Next
+           publishes AddLocal or Remove per feature rather than setting a
+           feature condition, because feature selection is calculated by
+           CostFinalize (UI sequence 1000) and every dialog is shown after it,
+           so a condition read at that point could never see these checkboxes.
+           AddLocal and Remove are the documented control events for choosing a
+           feature from a dialog. -->
+      <Dialog Id="SpektraOptionsDlg" Width="370" Height="270" Title="Spektra Setup">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44"
+                 TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes"
+                 NoPrefix="yes" Text="{\WixUI_Font_Title}Options" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="340" Height="15" Transparent="yes"
+                 NoPrefix="yes" Text="Choose what to set up alongside the app." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+        <Control Id="PathCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="17"
+                 Property="SPEKTRAADDTOPATH" CheckBoxValue="1"
+                 Text="Add Spektra to my PATH" />
+        <Control Id="PathText" Type="Text" X="33" Y="78" Width="317" Height="16" NoPrefix="yes"
+                 Text="Lets you start Spektra by typing &quot;spektra&quot; in a terminal." />
+
+        <Control Id="ShellCheckBox" Type="CheckBox" X="20" Y="106" Width="330" Height="17"
+                 Property="SPEKTRASHELLMENU" CheckBoxValue="1"
+                 Text="Add Spektra to the Explorer right-click menu" />
+        <Control Id="ShellText" Type="Text" X="33" Y="124" Width="317" Height="40" NoPrefix="yes"
+                 Text="Adds &quot;Analyze with Spektra&quot; to audio files, a Spektra menu on folders and folder backgrounds, and Spektra in the Open With list. It never changes which program opens your audio files." />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17"
+                 Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="LicenseAgreementDlg" Condition="NOT Installed" />
+          <Publish Event="NewDialog" Value="MaintenanceTypeDlg" Condition="Installed" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes"
+                 Text="!(loc.WixUINext)">
+          <Publish Event="AddLocal" Value="PathFeature" Order="1"
+                   Condition="SPEKTRAADDTOPATH = &quot;1&quot;" />
+          <Publish Event="Remove" Value="PathFeature" Order="2"
+                   Condition="SPEKTRAADDTOPATH &lt;&gt; &quot;1&quot;" />
+          <Publish Event="AddLocal" Value="ShellIntegration" Order="3"
+                   Condition="SPEKTRASHELLMENU = &quot;1&quot;" />
+          <Publish Event="Remove" Value="ShellIntegration" Order="4"
+                   Condition="SPEKTRASHELLMENU &lt;&gt; &quot;1&quot;" />
+          <!-- Last, and highest: NewDialog is what moves the wizard on. -->
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" Order="10" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes"
+                 Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- Every checkbox starts from what is already selected, so an upgrade, a
+           Change, or a reinstall shows the choice in force rather than the
+           first-install default. Getting this wrong is silently destructive in
+           one direction: a box that defaults to unticked would publish Remove
+           and switch off integration the user had asked for, during what looks
+           like a routine update. & is the action state, which
+           MigrateFeatureStates (UI sequence 1200, and this package does migrate:
+           Upgrade Attributes = 1) has already filled in from the older product
+           by the time a dialog appears; ! is the installed state, which is what
+           a Change run starts from. {} sets a property to null, which is what an
+           unticked checkbox holds. Order 0 keeps these ahead of the navigation
+           rows, which start at 1. -->
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Property="SPEKTRAADDTOPATH"
+               Value="1" Order="0" Condition="(&amp;PathFeature = 3) OR (!PathFeature = 3)" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Property="SPEKTRAADDTOPATH"
+               Value="{}" Order="0" Condition="(&amp;PathFeature &lt;&gt; 3) AND (!PathFeature &lt;&gt; 3)" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Property="SPEKTRASHELLMENU"
+               Value="1" Order="0" Condition="(&amp;ShellIntegration = 3) OR (!ShellIntegration = 3)" />
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Property="SPEKTRASHELLMENU"
+               Value="{}" Order="0" Condition="(&amp;ShellIntegration &lt;&gt; 3) AND (!ShellIntegration &lt;&gt; 3)" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Property="SPEKTRAADDTOPATH"
+               Value="1" Order="0" Condition="(&amp;PathFeature = 3) OR (!PathFeature = 3)" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Property="SPEKTRAADDTOPATH"
+               Value="{}" Order="0" Condition="(&amp;PathFeature &lt;&gt; 3) AND (!PathFeature &lt;&gt; 3)" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Property="SPEKTRASHELLMENU"
+               Value="1" Order="0" Condition="(&amp;ShellIntegration = 3) OR (!ShellIntegration = 3)" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Property="SPEKTRASHELLMENU"
+               Value="{}" Order="0" Condition="(&amp;ShellIntegration &lt;&gt; 3) AND (!ShellIntegration &lt;&gt; 3)" />
+
+      <!-- Reroute the chain through the Options page. WixUI's own navigation
+           rows all sit at Ordering 1 (read out of the built MSI's ControlEvent
+           table, not assumed), and a higher Order is how the documented WixUI
+           customization overrides navigation. Change goes to the same page, so
+           turning Explorer integration on later is Add/Remove Programs, Change,
+           tick the box, rather than a reinstall. -->
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog"
+               Value="SpektraOptionsDlg" Order="10" Condition="LicenseAccepted = &quot;1&quot;" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="ChangeButton" Event="NewDialog"
+               Value="SpektraOptionsDlg" Order="10" Condition="1" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog"
+               Value="SpektraOptionsDlg" Order="10"
+               Condition="NOT Installed OR WixUI_InstallMode = &quot;Change&quot;" />
+      <!-- Back on the Remove path returns to the question that was asked, not
+           past it to the maintenance menu. -->
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog"
+               Value="SpektraRemoveDataDlg" Order="10"
+               Condition="WixUI_InstallMode = &quot;Remove&quot;" />
 
       <!-- Asked only on the Remove path, between MaintenanceTypeDlg and
            VerifyReadyDlg. One checkbox, unticked by default. -->

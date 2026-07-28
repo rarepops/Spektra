@@ -66,7 +66,7 @@ Check for a newer release any time from **Help → Check for Updates**. Spektra 
 
 Grab the latest build from the **[releases page](https://github.com/rarepops/Spektra/releases/latest)**:
 
-- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app. Custom Setup can add `spektra` to your PATH and add Spektra to the Explorer right-click menu.
+- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app. Its Options page has a checkbox for adding `spektra` to your PATH and one for adding Spektra to the Explorer right-click menu.
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
 - `spektra-cli-<version>-<os>.zip`: the command-line tool (Windows, Linux, macOS).
 
