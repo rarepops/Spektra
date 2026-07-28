@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-07-28
+
+### Changed
+- The installer asks with checkboxes. Adding `spektra` to your PATH and adding Spektra to the Explorer right-click menu were already optional, but they lived in Windows Installer's feature tree, where switching one on means noticing that a small drive icon is a dropdown and choosing "Will be installed on local hard drive" from it. They are now two plain checkboxes on an Options page, so the Explorer integration added in 0.17.0 is actually findable. Explorer integration is still off unless you tick it, PATH is still on by default, and a silent install is unchanged. Choosing Modify in Installed apps opens the same page, which is now the way to add or drop either one later; it opens with your current choices ticked, so an update keeps what you asked for.
+
 ## [0.18.0] - 2026-07-28
 
 ### Fixed
@@ -410,7 +415,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/rarepops/Spektra/releases/tag/v0.18.1
 [0.18.0]: https://github.com/rarepops/Spektra/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rarepops/Spektra/releases/tag/v0.17.0
 [0.16.0]: https://github.com/rarepops/Spektra/releases/tag/v0.16.0
