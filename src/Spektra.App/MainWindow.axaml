@@ -122,11 +122,12 @@
                     IsChecked="{Binding ShowCrosshair, Mode=TwoWay}" InputGesture="Ctrl+H" />
         </MenuItem>
         <MenuItem Header="_Analyze">
-          <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" />
-          <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" />
+          <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" IsEnabled="{Binding CanAnalyzeTrack}" />
+          <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" IsEnabled="{Binding CanAnalyzeTrack}" />
           <Separator />
-          <MenuItem Header="Duplicate _Detective…" Click="OnDuplicateDetectiveClicked" />
-          <MenuItem Header="Folder _Manifest…" Click="OnFolderManifestClicked" />
+          <MenuItem Header="{Binding AnalyzeFolderHeader}" IsEnabled="{Binding CanActOnFolder}" Click="OnAnalyzeFolderClicked" />
+          <MenuItem Header="{Binding DuplicatesHeader}" Click="OnDuplicateDetectiveClicked" />
+          <MenuItem Header="{Binding ManifestHeader}" Click="OnFolderManifestClicked" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_Controls" Click="OnControlsClicked" InputGesture="F1" />

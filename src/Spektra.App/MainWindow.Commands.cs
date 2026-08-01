@@ -142,6 +142,16 @@ public partial class MainWindow
         if (_vm.Selected is DocumentViewModel doc) _ = doc.ToggleLoudnessAsync();
     }
 
+    private void OnAnalyzeFolderClicked(object? sender, RoutedEventArgs e)
+    {
+        // Honors the cache and never touches checkboxes, exactly like the
+        // tree's "Analyze this folder" verb; AnalyzeAsync already refuses a
+        // concurrent run (quietly for this tab, with a status message naming
+        // the busy tab for another), so no busy-state binding is needed.
+        if (_vm.Selected is FolderViewModel folder)
+            folder.AnalyzeFiles(folder.FilesInScope(), fresh: false);
+    }
+
     private async void OnControlsClicked(object? sender, RoutedEventArgs e) =>
         await new ControlsWindow().ShowDialog(this);
 
@@ -179,7 +189,16 @@ public partial class MainWindow
     private DuplicatesWindow? _dupesWindow;
     private DuplicatesViewModel? _dupesVm;
 
-    private void OnDuplicateDetectiveClicked(object? sender, RoutedEventArgs e) => EnsureDupesWindow();
+    private void OnDuplicateDetectiveClicked(object? sender, RoutedEventArgs e)
+    {
+        // Adaptive launcher: scoped to the folder tab's drilldown scope when
+        // one is selected, today's global window otherwise. The window keeps
+        // its own root box, so an unscoped run stays reachable either way.
+        if (_vm.Selected is FolderViewModel folder)
+            EnsureDupesWindow(folder.EffectiveScope);
+        else
+            EnsureDupesWindow();
+    }
 
     /// Opens or focuses the one Duplicate Detective window. With a root given
     /// (the --dupes launch switch) that folder becomes the only scan root and
@@ -222,7 +241,13 @@ public partial class MainWindow
     private FolderManifestWindow? _manifestWindow;
     private FolderManifestViewModel? _manifestVm;
 
-    private void OnFolderManifestClicked(object? sender, RoutedEventArgs e) => EnsureManifestWindow();
+    private void OnFolderManifestClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Selected is FolderViewModel folder)
+            EnsureManifestWindow(folder.EffectiveScope);
+        else
+            EnsureManifestWindow();
+    }
 
     /// Opens or focuses the one manifest window; with a folder given (the
     /// audit tree's "Show in manifest") it lists that folder on top of
