@@ -75,6 +75,26 @@ public partial class FolderManifestWindow : Window
 
     private void OnCancelLoadClicked(object? sender, RoutedEventArgs e) => _vm.CancelLoad();
 
+    private void OnRescanClicked(object? sender, RoutedEventArgs e)
+    {
+        // An uncommitted edit in the path box must not sit over a rescan of
+        // the committed folder; revert it first, like Esc does.
+        ManifestPathBox.Text = _vm.Folder ?? "";
+        _vm.Rescan();
+    }
+
+    // F5 = Rescan, matching F5-means-reload everywhere else in the app. A
+    // press during a walk lands in LoadAsync's IsLoading guard, which posts
+    // the busy note, so the key is never silently dead.
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Handled || e.Key != Key.F5) return;
+        ManifestPathBox.Text = _vm.Folder ?? "";
+        _vm.Rescan();
+        e.Handled = true;
+    }
+
     private async void OnPickFolderClicked(object? sender, RoutedEventArgs e)
     {
         var picked = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions

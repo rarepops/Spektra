@@ -53,6 +53,9 @@
         <Button Content="Cancel" Click="OnCancelLoadClicked" HorizontalAlignment="Stretch"
                 IsVisible="{Binding IsLoading}"
                 ToolTip.Tip="Stop listing this folder" />
+        <Button Content="Rescan" Click="OnRescanClicked" HorizontalAlignment="Stretch"
+                IsEnabled="{Binding CanRescan}"
+                ToolTip.Tip="List this folder again, picking up disk changes · F5" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         IsEnabled="{Binding CanExport}" PointerEntered="OnExportHover"
                         ToolTip.Tip="Hover to pick HTML, CSV, or JSON">

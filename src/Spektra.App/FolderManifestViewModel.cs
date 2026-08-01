@@ -80,14 +80,28 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     public void RequestAudit(IFileItem item) => AuditFolderRequested?.Invoke(item.FullPath);
 
     private string? _folder = settings.FolderManifestFolder;
-    public string? Folder { get => _folder; private set => Set(ref _folder, value); }
+    public string? Folder
+    {
+        get => _folder;
+        private set { if (Set(ref _folder, value)) RaisePropertyChanged(nameof(CanRescan)); }
+    }
 
     private bool _isLoading;
     public bool IsLoading
     {
         get => _isLoading;
-        private set { if (Set(ref _isLoading, value)) RaisePropertyChanged(nameof(CanExport)); }
+        private set
+        {
+            if (!Set(ref _isLoading, value)) return;
+            RaisePropertyChanged(nameof(CanExport));
+            RaisePropertyChanged(nameof(CanRescan));
+        }
     }
+
+    /// Rescan dims while a walk runs and when no folder is known (fresh
+    /// install, or after Clear); a remembered folder keeps it enabled even
+    /// if its listing failed, which doubles as a retry.
+    public bool CanRescan => !IsLoading && Folder is not null;
 
     /// Export dims until a listing is actually on screen: never loaded yet,
     /// cleared, or a load still in flight all mean there is nothing to write.
@@ -188,6 +202,13 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
     /// drive) should not lock the window into its busy state.
     private CancellationTokenSource? _listCts;
     public void CancelLoad() => _listCts?.Cancel();
+
+    /// Lists the current folder again, picking up files added or removed on
+    /// disk. All narration, busy, cancel, and error behavior is LoadAsync's.
+    public void Rescan()
+    {
+        if (Folder is { } folder) _ = LoadAsync(folder);
+    }
 
     public async Task LoadAsync(string folder)
     {
