@@ -66,6 +66,16 @@ public partial class MainWindow
                 case Key.A: _ = cmp.AlignAsync(); e.Handled = true; return;
             }
         }
+        if (e.Key == Key.F5 && e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            && _vm.Selected is FolderViewModel wfold)
+        {
+            // Must run before the plain-F5 switch: its folder branch inspects
+            // only Shift, so an unintercepted Ctrl+F5 would start an analyze.
+            // Other tab types fall through and keep their old F5 reload.
+            wfold.Refresh();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.F5)
         {
             switch (_vm.Selected)

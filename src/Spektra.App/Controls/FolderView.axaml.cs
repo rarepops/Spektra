@@ -231,6 +231,8 @@ public partial class FolderView : UserControl
             _vm?.AnalyzeFiles(FolderViewModel.FilesUnder(folder), fresh: false);
     }
 
+    private void OnRefreshClicked(object? sender, RoutedEventArgs e) => _vm?.Refresh();
+
     private void OnGridKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Grid.SelectedItem is FolderRow row)

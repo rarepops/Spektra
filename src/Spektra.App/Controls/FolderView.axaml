@@ -119,6 +119,9 @@
                       ToolTip.Tip="Check every file" />
               <Button Content="None" FontSize="12" Click="OnSelectNoneClicked"
                       ToolTip.Tip="Uncheck every file" />
+              <Button Content="Refresh" FontSize="12" Click="OnRefreshClicked"
+                      IsEnabled="{Binding CanRefresh}"
+                      ToolTip.Tip="Re-read the folder from disk, keeping your checkboxes · Ctrl+F5" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
               <Button Content="Drilldown" FontSize="12" Click="OnDrilldownClicked"

@@ -127,6 +127,10 @@
               <TextBlock Grid.Column="0" Classes="key" Text="F5  ·  Shift+F5" />
               <TextBlock Grid.Column="1" Classes="desc" Text="Reload the file  ·  rescan a folder from scratch" />
             </Grid>
+            <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+F5" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Re-read a folder tab from disk, keeping your checkboxes" />
+            </Grid>
           </StackPanel>
 
           <TextBlock Classes="group" Text="Compare" />
