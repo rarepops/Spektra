@@ -135,9 +135,10 @@ public sealed class FolderViewModel : TabViewModelBase
             return;
         RaisePropertyChanged(nameof(CanAnalyze));
         RaisePropertyChanged(nameof(CanExport));
+        RaisePropertyChanged(nameof(CanRefresh));
     }
 
-    public bool CanAnalyze => !IsAnalyzing;
+    public bool CanAnalyze => !IsAnalyzing && !IsWalking;
 
     /// Export is available only when a row is actually visible (after the filter
     /// and scope) and no run is live, so the button dims instead of writing an
@@ -260,6 +261,58 @@ public sealed class FolderViewModel : TabViewModelBase
     public IReadOnlyList<AuditRow> ExportRows() =>
         Rows.Where(IsRowVisible).Select(r => r.Row with { File = r.File }).ToList();
 
+    /// True while the folder walk (drop-open or Refresh) is rebuilding the
+    /// tree. One walk at a time: two concurrent walks would race the
+    /// collection rebuild below.
+    private bool _isWalking;
+    public bool IsWalking
+    {
+        get => _isWalking;
+        private set
+        {
+            if (!Set(ref _isWalking, value)) return;
+            RaisePropertyChanged(nameof(CanRefresh));
+            RaisePropertyChanged(nameof(CanAnalyze));
+        }
+    }
+
+    public bool CanRefresh => !IsAnalyzing && !IsWalking;
+
+    /// Re-reads the folder from disk without analyzing anything: new files
+    /// appear unchecked, deleted ones vanish, cached verdicts repaint, and
+    /// the checkbox worklist survives for files that still exist.
+    public void Refresh()
+    {
+        if (IsAnalyzing)
+        {
+            // The walk would clear the maps the live run is using; say so
+            // instead of silently doing nothing (the button is dimmed, but
+            // Ctrl+F5 still lands here).
+            StatusText = "Analyzing · Refresh waits until the run finishes";
+            return;
+        }
+        if (IsWalking) return; // one walk at a time; the button is dimmed
+        _ = RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        var kept = new HashSet<string>(
+            _filesInOrder.Where(f => f.IsChecked).Select(f => f.FullPath),
+            StringComparer.OrdinalIgnoreCase);
+        await OpenTreeAsync();
+        if (kept.Count == 0) return;
+        // Restore exactly the snapshot's paths; new files stay unchecked and
+        // deleted ones are simply absent. Silent sets avoid per-file ancestor
+        // bubbling; one tri-state recompute per folder settles the tree
+        // (rollup labels are severity-based and unaffected by checks).
+        foreach (var file in _filesInOrder)
+            if (kept.Contains(file.FullPath))
+                file.SetCheckedSilently(true);
+        foreach (var folder in _folders)
+            folder.RecomputeCheckFromFiles();
+    }
+
     /// Drop entry point: walk the folder, build the tree, and paint any cached
     /// verdicts. No ffmpeg runs here; analysis waits for Analyze.
     public void OpenTree() => _ = OpenTreeAsync();
@@ -267,19 +320,17 @@ public sealed class FolderViewModel : TabViewModelBase
     private async Task OpenTreeAsync()
     {
         if (IsAnalyzing) return; // rebuilding would clear the maps a live run is using
+        if (IsWalking) return;   // one walk at a time (drop, drag, and Refresh all land here)
+        IsWalking = true;
+        // Narrated from the first moment: on a huge tree the walk is the
+        // longest silent stretch this tab has, and a mute screen reads as a
+        // hang (owner rule: non-instant work shows life at t=0).
+        StatusText = $"Reading {FolderPath}…";
         _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
         try
         {
             var targets = await Task.Run(() =>
                 FolderAudit.CollectTargets(FolderPath, recursive: true));
-            if (targets.Length == 0)
-            {
-                StatusText = "No audio files found in this folder.";
-                return;
-            }
-
-            var paths = targets.Select(t => t.Path).ToList();
-            var forest = await Task.Run(() => FolderTree.Build(FolderPath, paths));
 
             Roots.Clear();
             _fileByPath.Clear();
@@ -288,6 +339,19 @@ public sealed class FolderViewModel : TabViewModelBase
             _targetByPath.Clear();
             _rowIndex.Clear();
             Rows.Clear();
+            _problems = 0;
+
+            if (targets.Length == 0)
+            {
+                // A Refresh after every file was deleted must empty the view;
+                // before the clears moved up here, the stale tree survived
+                // under this status line.
+                StatusText = "No audio files found in this folder.";
+                return;
+            }
+
+            var paths = targets.Select(t => t.Path).ToList();
+            var forest = await Task.Run(() => FolderTree.Build(FolderPath, paths));
 
             foreach (var node in BuildNodes(forest))
                 Roots.Add(node);
@@ -324,9 +388,13 @@ public sealed class FolderViewModel : TabViewModelBase
 
             SetSummaryStatus();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             SetErrorStatus($"Could not read the folder: {ex.Message}");
+        }
+        finally
+        {
+            IsWalking = false;
         }
     }
 
@@ -380,6 +448,11 @@ public sealed class FolderViewModel : TabViewModelBase
         if (_analyzingTab is not null)
         {
             StatusText = $"Already analyzing \"{_analyzingTab.TabTitle}\" · one analysis runs at a time";
+            return;
+        }
+        if (IsWalking)
+        {
+            StatusText = "Reading the folder · Analyze waits until it finishes";
             return;
         }
         _cacheUnavailable = false; // a fresh attempt: do not carry a stale cache-open failure
