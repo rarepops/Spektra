@@ -196,6 +196,11 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
         RootItems.Clear();
         LastRoot = null;
         _fullRoot = null;
+        // Named from the first moment of the walk: the tree is already
+        // cleared, so leaving the previous folder in the bar makes a big
+        // listing read as a hang.
+        Folder = folder;
+        FooterText = $"Listing {folder}…";
         _listCts?.Dispose();
         _listCts = new CancellationTokenSource();
         var ct = _listCts.Token;
@@ -212,7 +217,6 @@ public sealed class FolderManifestViewModel(AppSettings settings) : ObservableOb
 
             _fullRoot = root;
             _cacheNote = cacheNote;
-            Folder = folder;
             settings.FolderManifestFolder = folder;
             ApplyFilter();
         }

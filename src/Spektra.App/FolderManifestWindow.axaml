@@ -13,7 +13,8 @@
            there is no separate unframed label row. OneWay on purpose: Folder
            has a private setter, so a default (TwoWay) TextBox binding would
            try to write back and fail; OneWay lets typing stay local until
-           Enter, then a completed load rewrites the box with the real path. -->
+           Enter, then the load rewrites the box with the real path as the
+           walk starts. -->
       <!-- VerticalAlignment on both boxes: the button stack beside them is
            taller than the two rows, so the grid grows the rows to fit it.
            Without this the boxes stretch by different amounts (row 1 carries
