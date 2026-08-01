@@ -211,6 +211,19 @@ public sealed class FolderViewModel : TabViewModelBase
             ShowAll();
     }
 
+    /// The folder the menu bar's folder commands act on: the drilldown
+    /// scope when one is set, the tab root otherwise.
+    public string EffectiveScope => _scopeFolder ?? FolderPath;
+
+    /// Every audio leaf inside the effective scope, in tree order. Mirrors
+    /// IsRowVisible's scope clause so the menu and the grid can never
+    /// disagree about what is in scope. The severity filter is a display
+    /// filter over verdicts, so it deliberately does not apply: files that
+    /// were never analyzed have no verdict to filter on, and a folder
+    /// Analyze exists precisely to produce those verdicts.
+    public IEnumerable<FileNodeViewModel> FilesInScope() =>
+        _filesInOrder.Where(f => _scopeFolder is null || PathScope.IsUnder(f.FullPath, _scopeFolder));
+
     public void SelectAll() => SetAllChecks(true);
     public void SelectNone() => SetAllChecks(false);
 

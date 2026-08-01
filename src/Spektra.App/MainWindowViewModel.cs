@@ -285,6 +285,7 @@ public sealed class MainWindowViewModel : StatusViewModel
             StatusIsError = value?.StatusIsError ?? false;
             RaisePropertyChanged(nameof(Selected));
             RaisePropertyChanged(nameof(CanExportFile));
+            RaiseFolderMenuState();
             SelectedChanged?.Invoke(value);
         }
     }
@@ -293,6 +294,39 @@ public sealed class MainWindowViewModel : StatusViewModel
     /// items disable otherwise (a folder tab or the empty hint has no one file).
     /// The "Folder as …" items open their own picker, so they stay enabled.
     public bool CanExportFile => _selected is DocumentViewModel;
+
+    /// The Analyze menu's track items (Check Integrity, Measure Loudness).
+    /// Their Click handlers and the Ctrl+I / Ctrl+L keys already guard on
+    /// the tab type; this lets the menu say so instead of looking clickable
+    /// and silently doing nothing in a folder tab.
+    public bool CanAnalyzeTrack => _selected is DocumentViewModel;
+
+    /// The Analyze menu's folder command acts on the selected folder tab.
+    public bool CanActOnFolder => _selected is FolderViewModel;
+
+    /// The three folder-facing Analyze items carry their mnemonics inside
+    /// these bound strings (stable letters: A, D, M in both forms), which
+    /// is why ScopeLabel escapes underscores in folder names.
+    public string AnalyzeFolderHeader => _selected is FolderViewModel f
+        ? $"_Analyze '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}'"
+        : "_Analyze Folder";
+
+    public string DuplicatesHeader => _selected is FolderViewModel f
+        ? $"Find _Duplicates in '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}'"
+        : "Duplicate _Detective…";
+
+    public string ManifestHeader => _selected is FolderViewModel f
+        ? $"_Manifest of '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}'"
+        : "Folder _Manifest…";
+
+    private void RaiseFolderMenuState()
+    {
+        RaisePropertyChanged(nameof(CanAnalyzeTrack));
+        RaisePropertyChanged(nameof(CanActOnFolder));
+        RaisePropertyChanged(nameof(AnalyzeFolderHeader));
+        RaisePropertyChanged(nameof(DuplicatesHeader));
+        RaisePropertyChanged(nameof(ManifestHeader));
+    }
 
     public MainWindowViewModel()
     {
@@ -317,6 +351,11 @@ public sealed class MainWindowViewModel : StatusViewModel
             StatusText = _selected!.StatusText;
             StatusIsError = _selected.StatusIsError;
         }
+        // Drilling down renames the folder menu commands live: ScopeFolder
+        // raises on the selected folder tab, and the Selected setter keeps
+        // this subscription attached to exactly the selected tab.
+        if (e.PropertyName == nameof(FolderViewModel.ScopeFolder))
+            RaiseFolderMenuState();
     }
 
     public void OpenFiles(IEnumerable<string> paths)
