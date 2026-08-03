@@ -10,8 +10,10 @@ namespace Spektra.App.Controls;
 /// the wheel zooms (Shift = frequency, otherwise time), a left drag pans,
 /// double-click resets, and the pointer position is tracked for the crosshair.
 /// The owner supplies which viewport to drive (returning null suppresses the
-/// gesture, e.g. before a document has loaded) and where the plot sits.
-internal sealed class PlotInteraction(Control owner, Func<Viewport?> viewport, Func<Rect> plotRect)
+/// gesture, e.g. before a document has loaded), where the plot sits, and
+/// whether anything on screen actually follows the pointer.
+internal sealed class PlotInteraction(
+    Control owner, Func<Viewport?> viewport, Func<Rect> plotRect, Func<bool> cursorVisible)
 {
     private bool _panning;
     private Point _lastPointer;
@@ -62,7 +64,11 @@ internal sealed class PlotInteraction(Control owner, Func<Viewport?> viewport, F
             vp.PanFrequency((p.Y - _lastPointer.Y) / plot.Height * vp.FreqSpanN);
             _lastPointer = p;
         }
-        else owner.InvalidateVisual();
+        // Only the crosshair readout tracks the pointer, so with it switched off
+        // this repainted the whole surface (image, rulers, legend, overlay) to
+        // draw nothing new, on every pointer move. Cursor still updates, so
+        // turning the crosshair back on picks up the current position.
+        else if (cursorVisible()) owner.InvalidateVisual();
     }
 
     public void Exited()

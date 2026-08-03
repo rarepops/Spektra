@@ -55,7 +55,8 @@ public sealed class CompareSurface : Control
         _spinTimer.Tick += (_, _) => { _spinPhase++; InvalidateVisual(); };
         // Crisp, cell-accurate spectrograms/diff, no bilinear halo ("bloom").
         RenderOptions.SetBitmapInterpolationMode(this, BitmapInterpolationMode.None);
-        _interaction = new PlotInteraction(this, () => _vm?.Viewport, () => SpectrogramDraw.PlotRect(Bounds));
+        _interaction = new PlotInteraction(this, () => _vm?.Viewport,
+            () => SpectrogramDraw.PlotRect(Bounds), () => _display.ShowCrosshair);
     }
 
     private int Cols() => Math.Clamp((int)SpectrogramDraw.PlotRect(Bounds).Width, 64, 4096);

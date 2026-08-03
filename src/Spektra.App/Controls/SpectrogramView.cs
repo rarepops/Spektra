@@ -39,7 +39,8 @@ public sealed class SpectrogramView : Control
         };
         _interaction = new PlotInteraction(this,
             () => _vm?.Document is null ? null : _vm.Viewport,
-            () => SpectrogramDraw.PlotRect(Bounds));
+            () => SpectrogramDraw.PlotRect(Bounds),
+            () => _display.ShowCrosshair);
     }
 
     public void Attach(DocumentViewModel? vm)
@@ -189,25 +190,49 @@ public sealed class SpectrogramView : Control
         var kTo = Math.Min(bins - 1, (int)Math.Ceiling(vp.F1 * (bins - 1)));
         if (kTo <= kFrom) return;
 
-        var peakFill = new StreamGeometry();
-        using (var g = peakFill.Open())
+        // Both curves are a function of the frequency window, the plot rect, the
+        // dB range and the profiles - none of which the pointer moves. Rebuilding
+        // them per frame meant ~4000 LineTo calls every time the crosshair
+        // followed the mouse; cached, a cursor-only repaint costs two draws.
+        if (_peakFill is null || _avgLine is null
+            || _geomF0 != vp.F0 || _geomF1 != vp.F1 || _geomPlot != plot
+            || _geomFloor != floor || _geomCeil != ceil || _geomLog != _display.LogFrequency
+            || !ReferenceEquals(_geomPeakSrc, peak))
         {
-            g.BeginFigure(new Point(plot.Right, Pt(peak, kFrom).Y), true);
-            for (var k = kFrom; k <= kTo; k++) g.LineTo(Pt(peak, k));
-            g.LineTo(new Point(plot.Right, Pt(peak, kTo).Y));
-            g.EndFigure(true);
-        }
-        ctx.DrawGeometry(PeakBrush, PeakPen, peakFill);
+            _peakFill = new StreamGeometry();
+            using (var g = _peakFill.Open())
+            {
+                g.BeginFigure(new Point(plot.Right, Pt(peak, kFrom).Y), true);
+                for (var k = kFrom; k <= kTo; k++) g.LineTo(Pt(peak, k));
+                g.LineTo(new Point(plot.Right, Pt(peak, kTo).Y));
+                g.EndFigure(true);
+            }
 
-        var avgLine = new StreamGeometry();
-        using (var g = avgLine.Open())
-        {
-            g.BeginFigure(Pt(avg, kFrom), false);
-            for (var k = kFrom + 1; k <= kTo; k++) g.LineTo(Pt(avg, k));
-            g.EndFigure(false);
+            _avgLine = new StreamGeometry();
+            using (var g = _avgLine.Open())
+            {
+                g.BeginFigure(Pt(avg, kFrom), false);
+                for (var k = kFrom + 1; k <= kTo; k++) g.LineTo(Pt(avg, k));
+                g.EndFigure(false);
+            }
+
+            (_geomF0, _geomF1, _geomPlot) = (vp.F0, vp.F1, plot);
+            (_geomFloor, _geomCeil, _geomLog) = (floor, ceil, _display.LogFrequency);
+            _geomPeakSrc = peak;
         }
-        ctx.DrawGeometry(null, AvgPen, avgLine);
+
+        ctx.DrawGeometry(PeakBrush, PeakPen, _peakFill);
+        ctx.DrawGeometry(null, AvgPen, _avgLine);
     }
+
+    // Cache keys for the two overlay curves above; _geomPeakSrc is held by
+    // identity so a recomputed profile rebuilds even at an unchanged viewport.
+    private StreamGeometry? _peakFill, _avgLine;
+    private double _geomF0 = double.NaN, _geomF1 = double.NaN;
+    private Rect _geomPlot;
+    private float _geomFloor, _geomCeil;
+    private bool _geomLog;
+    private float[]? _geomPeakSrc;
 
     // A new document can share the old one's column count (same length, same
     // analysis settings), so the cache is keyed on identity too and dropped
@@ -218,6 +243,9 @@ public sealed class SpectrogramView : Control
         _peakProfile = null;
         _profileDoc = null;
         _profileCount = -1;
+        _peakFill = null;   // drop the curves built from the old profiles
+        _avgLine = null;
+        _geomPeakSrc = null;
     }
 
     private static List<float[]> Snapshot(SpectrogramDocument doc)
