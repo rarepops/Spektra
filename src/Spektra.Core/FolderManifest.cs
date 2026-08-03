@@ -120,24 +120,31 @@ public static class FolderManifest
         string path, string name, AuditCache? cache, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        string[] dirs, files;
+        DirectoryInfo[] dirs;
+        FileInfo[] files;
         try
         {
-            dirs = Directory.GetDirectories(path);
-            files = Directory.GetFiles(path);
+            // DirectoryInfo, not the string overloads: these entries arrive with
+            // size and mtime already filled in by the enumeration, so BuildFile
+            // never has to stat a file it was just handed. A listing is one
+            // syscall per entry instead of two, which is the difference between
+            // brisk and glacial on a share.
+            var here = new DirectoryInfo(path);
+            dirs = here.GetDirectories();
+            files = here.GetFiles();
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return (new ManifestFolder(name, path, [], [], 0, "unreadable", Unreadable: true), []);
         }
-        Array.Sort(dirs, StringComparer.OrdinalIgnoreCase);
-        Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+        Array.Sort(dirs, (a, b) => string.Compare(a.FullName, b.FullName, StringComparison.OrdinalIgnoreCase));
+        Array.Sort(files, (a, b) => string.Compare(a.FullName, b.FullName, StringComparison.OrdinalIgnoreCase));
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         var folders = new ManifestFolder[dirs.Length];
         for (var i = 0; i < dirs.Length; i++)
         {
-            var (child, childCounts) = BuildNode(dirs[i], NameOf(dirs[i]), cache, ct);
+            var (child, childCounts) = BuildNode(dirs[i].FullName, dirs[i].Name, cache, ct);
             folders[i] = child;
             foreach (var (kind, n) in childCounts)
                 counts[kind] = counts.GetValueOrDefault(kind) + n;
@@ -154,26 +161,28 @@ public static class FolderManifest
         return (new ManifestFolder(name, path, folders, manifestFiles, totalBytes, Rollup(counts), Unreadable: false), counts);
     }
 
-    private static ManifestFile BuildFile(string path, AuditCache? cache)
+    private static ManifestFile BuildFile(FileInfo info, AuditCache? cache)
     {
-        var name = Path.GetFileName(path);
-        var ext = Path.GetExtension(path);
+        var path = info.FullName;
+        var name = info.Name;
+        var ext = Path.GetExtension(name);
         var kind = ext.Length > 1 ? ext[1..].ToLowerInvariant() : "none";
         var isAudio = BandwidthReport.AudioExtensions.Contains(ext.ToLowerInvariant());
         long size = 0;
         try
         {
-            var info = new FileInfo(path);
+            // Already populated by the directory walk: no syscall here.
             size = info.Length;
             if (cache is not null && isAudio
-                && cache.TryGet(new AuditTarget(path, info.Length, info.LastWriteTimeUtc.Ticks)) is { } hit)
+                && cache.TryGet(new AuditTarget(path, size, info.LastWriteTimeUtc.Ticks)) is { } hit)
                 return new ManifestFile(
                     name, path, hit.Row.Codec?.ToLowerInvariant() ?? kind,
                     FolderAudit.RowSeverityOf(hit.Row), size, isAudio);
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            // stat or cache hiccup mid-walk: keep the extension chip and a zero size
+            // A file that vanished between the walk and this read, or a cache
+            // hiccup: keep the extension chip and whatever size we got.
         }
         return new ManifestFile(name, path, kind, Severity: null, size, isAudio);
     }

@@ -91,17 +91,14 @@ public static class FolderAudit
         && !TranscodeCheck.IsHonestHighCutoff(row.Codec, row.CutoffHz);
 
     /// Enumerates a folder's audio files with the size/mtime identity the
-    /// cache keys on (one stat per file). The folder is canonicalized first:
+    /// cache keys on, taken straight off the walk (no extra stat per file).
+    /// The folder is canonicalized first:
     /// enumeration echoes the argument's spelling into every path, and the
     /// cache keys on that path verbatim, so a forward-slash or relative
     /// spelling would write keys the canonical spelling never hits again.
     public static AuditTarget[] CollectTargets(string folder, bool recursive = true) =>
-        BandwidthReport.FindAudioFiles(Path.GetFullPath(folder), recursive)
-            .Select(p =>
-            {
-                var info = new FileInfo(p);
-                return new AuditTarget(p, info.Length, info.LastWriteTimeUtc.Ticks);
-            })
+        BandwidthReport.FindAudioFileInfos(Path.GetFullPath(folder), recursive)
+            .Select(info => new AuditTarget(info.FullName, info.Length, info.LastWriteTimeUtc.Ticks))
             .ToArray();
 
     /// Bandwidth + integrity for one file, sharing a single decode: the mono
