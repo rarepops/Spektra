@@ -195,4 +195,15 @@ public sealed class AuditCacheTests : IDisposable
         await Assert.That(cache.TryGetFingerprint(live)).IsNotNull();
         await Assert.That(cache.TryGetFingerprint(outside)).IsNotNull();
     }
+
+    [Test]
+    public async Task Open_SetsSynchronousNormal()
+    {
+        // Pinned because dropping the pragma breaks nothing visible: every other
+        // test here still passes, writes just go back to ~1.5 ms each (a flush
+        // per row). 1 = NORMAL, which under WAL risks only the last transactions
+        // on a power cut - acceptable for a cache that is disposable by design.
+        using var cache = AuditCache.Open(DbPath);
+        await Assert.That(cache.SynchronousMode()).IsEqualTo(1);
+    }
 }

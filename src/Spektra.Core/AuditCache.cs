@@ -26,7 +26,12 @@ public sealed class AuditCache : IDisposable
     /// 8: ProvenanceScan replaces the whole-file cutoff read, so a compilation
     ///    hiding a transcoded segment now yields Mixed where it previously
     ///    cached as clean.
-    public const int AnalysisVersion = 8;
+    /// 9: real-input FFT plus 10*log10(power) in place of 20*log10(sqrt).
+    ///    Broadband dB values shift by ~1e-4, near-null bins of a tone by a few
+    ///    tenths (different summation order through a cancellation); every
+    ///    fixture's verdict was checked identical across the two paths, so this
+    ///    is the same insurance bump as 5.
+    public const int AnalysisVersion = 9;
 
     /// Bump whenever FingerprintExtractor's bits change shape or meaning, so
     /// stale fingerprints re-extract. Independent of AnalysisVersion: verdict
@@ -92,6 +97,15 @@ public sealed class AuditCache : IDisposable
     {
         // Pooling=False: pooled handles keep the file locked after Dispose,
         // which breaks corrupt-db recreation and temp cleanup.
+        //
+        // synchronous=NORMAL is worth ~30x on every write: at the default FULL,
+        // each Put commits with a disk flush (measured ~1.5 ms per row, so a
+        // 10k-file audit spends ~15 s in fsync alone). Under WAL, NORMAL risks
+        // only the last transactions on a power cut, never corruption, and this
+        // cache is disposable by design (see the class comment), so the worst
+        // case is re-analyzing a handful of files. Unlike journal_mode,
+        // synchronous is per-connection and NOT persisted in the file, so it
+        // has to be set here on every open, not once at creation.
         var db = new SqliteConnection($"Data Source={dbPath};Pooling=False");
         try
         {
@@ -99,6 +113,7 @@ public sealed class AuditCache : IDisposable
             using var cmd = db.CreateCommand();
             cmd.CommandText = """
                 PRAGMA journal_mode=WAL;
+                PRAGMA synchronous=NORMAL;
                 CREATE TABLE IF NOT EXISTS files(
                     path TEXT PRIMARY KEY,
                     size INTEGER NOT NULL,
@@ -123,6 +138,20 @@ public sealed class AuditCache : IDisposable
         {
             db.Dispose();
             throw;
+        }
+    }
+
+    /// This connection's `synchronous` setting: 0 OFF, 1 NORMAL, 2 FULL.
+    /// Public because the value is a deliberate durability trade (see OpenOnce)
+    /// rather than an implementation detail, and because losing it is invisible:
+    /// every test still passes, writes just get ~30x slower.
+    public int SynchronousMode()
+    {
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "PRAGMA synchronous";
+            return Convert.ToInt32(cmd.ExecuteScalar());
         }
     }
 
@@ -235,16 +264,25 @@ public sealed class AuditCache : IDisposable
         var live = new HashSet<string>(livePaths, StringComparer.OrdinalIgnoreCase);
         lock (_gate)
         {
-            PruneTable("files", folder, live);
-            PruneTable("fingerprints", folder, live);
+            // One transaction for both tables. A per-row DELETE commits (and
+            // flushes) on its own, measured at ~1.5 ms per row, so 2500 stale
+            // rows took 3.7 s, paid inside the folder walk on every tab open
+            // and every Refresh. Batching is safe here in a way batching Put is
+            // not: this is one bulk pass, not N independent workers whose
+            // finished results must survive a cancel.
+            using var txn = _db.BeginTransaction();
+            PruneTable("files", folder, live, txn);
+            PruneTable("fingerprints", folder, live, txn);
+            txn.Commit();
         }
     }
 
-    private void PruneTable(string table, string folder, HashSet<string> live)
+    private void PruneTable(string table, string folder, HashSet<string> live, SqliteTransaction txn)
     {
         var stale = new List<string>();
         using (var select = _db.CreateCommand())
         {
+            select.Transaction = txn;
             select.CommandText = $"SELECT path FROM {table}";
             using var r = select.ExecuteReader();
             while (r.Read())
@@ -254,11 +292,15 @@ public sealed class AuditCache : IDisposable
                     stale.Add(p);
             }
         }
+        if (stale.Count == 0) return;
+
+        using var delete = _db.CreateCommand();
+        delete.Transaction = txn;
+        delete.CommandText = $"DELETE FROM {table} WHERE path = $path";
+        var param = delete.Parameters.Add("$path", SqliteType.Text);
         foreach (var p in stale)
         {
-            using var delete = _db.CreateCommand();
-            delete.CommandText = $"DELETE FROM {table} WHERE path = $path";
-            delete.Parameters.AddWithValue("$path", p);
+            param.Value = p;
             delete.ExecuteNonQuery();
         }
     }
