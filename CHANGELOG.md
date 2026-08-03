@@ -4,6 +4,21 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-08-03
+
+### Added
+- The Analyze menu knows which folder you are looking at. In a folder tab its three folder commands name the folder and act on it: Analyze 'Album', Find Duplicates in 'Album', Manifest of 'Album'. Drill down into a subfolder and the names follow, so the commands act on the drilldown scope rather than always on the whole tab. Duplicate Detective and Folder Manifest open already pointed at that folder instead of opening empty and asking you to pick it again. The two track-only items, Check Integrity and Measure Loudness, now dim in a folder tab: they were always inert there, but nothing said so, and clicking them looked like the app ignoring you.
+- Rescan in the Folder Manifest window, as a button or F5. It lists the current folder again and picks up files added or removed on disk, which previously meant clearing the path box and choosing the folder a second time.
+- Refresh in a folder tab, as a button beside All/None or Ctrl+F5. It re-reads the folder from disk and keeps the checkboxes you ticked: files that still exist stay checked, files added since appear unchecked, and deleted ones disappear. Cached verdicts repaint without re-analyzing anything. Closing the tab and dropping the folder again was the only way to do this before.
+
+### Changed
+- Analysis is about 1.6 times faster per file. A five-minute track goes from roughly 396 ms to 250 ms of analysis, because the spectrogram now transforms real input at half size instead of running a full complex transform and discarding the mirrored half, and reads levels from power directly rather than taking a square root per frequency bin only to hand it to a logarithm. Levels are arithmetically the same but not bit-identical: on broadband material they agree to about 0.0003 dB, while individual near-silent bins of a pure tone can differ by a few tenths of a dB, because both paths reach those bins by cancelling large numbers against each other and they now do it in a different order. Every test fixture's verdict and cutoff is unchanged, but cached rows re-analyze once as insurance the first time you open a folder.
+- Folder tabs and folder listings open far faster, especially over a network share. Both walks were asking Windows about every file twice, once to list the folder and once more for the size and timestamp the listing had already returned. Over a 3200-file tree that alone was the difference between 62 ms and 8 ms locally, and every one of those discarded questions was a round trip on a share, which is what made a large listing look like it had hung.
+- Analyzing a folder writes its results roughly 28 times faster, and re-opening a folder whose files have moved no longer stalls. The analysis cache was flushing to disk once per file, and clearing out entries for files that had gone was flushing once per entry: 2500 of them took 3.7 seconds, paid every time the folder was opened or refreshed, and now takes about 12 ms.
+- The Folder Manifest names the folder it is listing from the moment the walk starts, rather than leaving the previous folder in the path box until it finishes.
+- Moving the pointer over a spectrogram no longer redraws the whole plot when the crosshair is switched off, and the average-spectrum overlay is no longer rebuilt from scratch on every frame while it is on.
+- Duplicate Detective reports match progress in batches rather than once per compared pair, so the progress bar no longer costs more than the matching it is reporting on.
+
 ## [0.18.1] - 2026-07-28
 
 ### Changed

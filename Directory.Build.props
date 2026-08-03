@@ -8,7 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- Single source for the shipped version: the release bump is one line
          here, not one per shipping project. -->
-    <Version>0.18.1</Version>
+    <Version>0.19.0</Version>
   </PropertyGroup>
 
 </Project>
