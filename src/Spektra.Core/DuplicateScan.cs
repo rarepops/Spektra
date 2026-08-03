@@ -123,8 +123,14 @@ public static class DuplicateScan
                 && m.Similarity >= FingerprintMatcher.MidThreshold)
                 pairs.Add((a, b, m));
             checked_++;
-            progress?.Report(new DupesProgress(
-                "Matching", (double)checked_ / Math.Max(1, candidates.Count), checked_, candidates.Count));
+            // Throttled, unlike the per-file loop above: a pair is cheap, so
+            // reporting each one posts a dispatcher message (and two bound
+            // property updates) per pair through the UI's Progress<T>, which
+            // costs more than the matching. The last pair always reports so the
+            // bar lands on full.
+            if ((checked_ & 0xFF) == 0 || checked_ == candidates.Count)
+                progress?.Report(new DupesProgress(
+                    "Matching", (double)checked_ / Math.Max(1, candidates.Count), checked_, candidates.Count));
         }
 
         var identities = usable
