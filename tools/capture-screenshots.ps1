@@ -60,18 +60,19 @@ $hadSettings  = Test-Path $settingsPath
 # wide, so an earlier 340-unit tree came back 510 pixels and every column
 # overflowed. Budget is therefore ~950, not ~1424.
 #
-# At 1600x1000 physical on a 150% display that is 1067x667 logical, so the
-# budget is ~1057. 210 + 838 = 1048 fits every column, Integrity included,
-# without squeezing headers down to "Bandwidt". File is 300 because the longest
-# relative path in the demo library is 41 characters; that is also why the album
-# folders are named short. Integrity is generous so the one Corrupt row, which
-# is the whole reason that column is in shot, is not clipped to "Corrup".
+# At 1920x1000 physical on a 150% display that is 1280x667 logical, so the
+# budget is ~1265. 250 + 998 = 1248. The extra width over the old 1600 is what
+# lets the tree show whole album names and Integrity spell "Corrupt" rather than
+# "Corrup", on the one row that column exists to show. Each narrow column is
+# sized by its HEADER, not its values: "Dropouts" needs far more room than the 0
+# underneath it, and a header abbreviated to "D" is worse than a wider column.
+# File is 310 against a longest relative path of 41 characters.
 $captureLayout = @{
-  folderTreeWidth = 210
+  folderTreeWidth = 250
   folderColumnWidths = @{
-    "File" = 300; "Bandwidth" = 90; "Cutoff kHz" = 78; "Codec" = 62
-    "kbps" = 48; "Hz" = 44; "Length" = 58; "Errors" = 40
-    "Dropouts" = 42; "Integrity" = 76
+    "File" = 310; "Bandwidth" = 96; "Cutoff kHz" = 98; "Codec" = 76
+    "kbps" = 62; "Hz" = 56; "Length" = 72; "Errors" = 64
+    "Dropouts" = 76; "Integrity" = 88
   }
 }
 
@@ -167,7 +168,10 @@ public class SpektraCap {
 # the capture comes out cropped.
 [SpektraCap]::SetProcessDPIAware() | Out-Null
 
-$WIDTH = 1600; $HEIGHT = 1000
+# Wide, the shape a desktop app is actually used at. Widened rather than
+# shortened: at 900 tall two of the thirteen audit rows fall out of frame,
+# while 1080 leaves a band of empty grid under the last one.
+$WIDTH = 1920; $HEIGHT = 1000
 
 function Stop-Spektra {
   Get-Process spektra -ErrorAction SilentlyContinue | ForEach-Object {
