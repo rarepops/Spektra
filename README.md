@@ -15,6 +15,11 @@
 
 A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop in a folder to browse a library and audit the files you pick in a live grid, compare encodes side by side, and get an automated "is this really lossless?" verdict.
 
+<p align="center">
+  <img src="assets/shot-spectrogram.png" width="900"
+       alt="A FLAC file open in Spektra. The banner reads 'Sharp cutoff at 16.6 kHz, consistent with lossy encoding', and the spectrogram below it stops dead at exactly that frequency with nothing above: lossy audio re-wrapped as lossless." />
+</p>
+
 ## Features
 
 - Progressive spectrogram with time/frequency rulers and dB legend
@@ -38,6 +43,29 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Null test (time-domain A−B residual) and drift detection for misaligned encodes
 - Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files; runs automatically on every file opened in the app (on by default, Preferences toggle; Ctrl+I hides/shows the results) and on demand in the CLI; silent gaps and the missing tail are marked on a lane along the time axis
 - Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor, and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
+
+## Screenshots
+
+Audit a whole library at once. The tree shows what is where, the grid streams a verdict per file as it lands, and the coloured dots separate a bandwidth problem from an integrity one.
+
+<p align="center">
+  <img src="assets/shot-folder-audit.png" width="900"
+       alt="A folder tab auditing a library: album tree on the left with per-album problem counts, and a grid of thirteen files on the right carrying bandwidth verdict, cutoff, codec, bitrate, length and integrity. One row reads Upsampled, one Lossy, one Corrupt." />
+</p>
+
+Duplicate Detective matches by acoustic fingerprint, so the same song is found again across formats and filenames, with the best copy starred.
+
+<p align="center">
+  <img src="assets/shot-duplicates.png" width="900"
+       alt="The Duplicate Detective window listing groups of duplicate tracks found across FLAC and MP3 copies of the same album, each group starring the better copy and explaining in words which one won and why." />
+</p>
+
+Compare two encodes on a shared time axis, aligned automatically, with a signed A minus B difference view showing exactly what the smaller file threw away.
+
+<p align="center">
+  <img src="assets/shot-compare.png" width="900"
+       alt="The same track compared as FLAC and as MP3, in difference view: a solid band above 20 kHz marks everything the MP3 discarded, with alignment controls and a numeric difference score below the plot." />
+</p>
 
 ## Keyboard shortcuts
 
