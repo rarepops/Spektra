@@ -102,7 +102,14 @@ function New-Source {
   $exprL = $L -join "+"
   $exprR = $R -join "+"
 
-  $breathe = "(0.45+0.55*(0.5+0.5*sin(2*PI*0.021*t)))"
+  # Two slow LFOs multiplied, so the top end is quiet most of the time and peaks
+  # only when both align. That dynamic range is what makes a cutoff legible: a
+  # constant air layer fills everything below the wall evenly and the wall reads
+  # as the top of a solid block, whereas real music rises and falls, so the
+  # encoder's low-pass shows up as stretches clipped dead flat against stretches
+  # that fall away naturally. Peak-hold still sees the peaks, so the verdicts do
+  # not move.
+  $breathe = "(0.04+0.96*(0.5+0.5*sin(2*PI*0.023*t))*(0.5+0.5*sin(2*PI*0.014*t)))"
   $hit     = "exp(-9*(t - $PercSecs*floor(t/$PercSecs)))"
 
   # The air layer exists so the analyzer sees real content all the way to
