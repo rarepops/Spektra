@@ -15,7 +15,20 @@ public sealed record UnpairedFile(string Path, string Root, AuditRow Row, long S
 public sealed record DupesGroupReport(
     DuplicateGroup Group, QualityRanking Quality,
     IReadOnlyDictionary<string, AuditRow> Rows, IReadOnlyDictionary<string, long> Sizes,
-    long ReclaimableBytes);
+    long ReclaimableBytes)
+{
+    /// Confidently the same recording, so a folder diff can ignore it: every
+    /// member matched above the high threshold across the full length.
+    ///
+    /// Similarity, NOT quality. A FLAC and the MP3 made from it are the same
+    /// track however far apart they rank, and which to keep is the ordinary
+    /// view's question. Keying this off QualityRanking instead would hide
+    /// nothing at all in the commonest case, since one side always wins there.
+    ///
+    /// A Medium group stays visible on purpose: a weak match is exactly what a
+    /// person should look at rather than have hidden.
+    public bool IsSameTrack => Group.SamenessTier == "High";
+}
 
 public sealed record DupesResult(
     IReadOnlyList<DupesGroupReport> Groups, IReadOnlyList<NotAnalyzedFile> NotAnalyzed,

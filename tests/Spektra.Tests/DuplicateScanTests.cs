@@ -73,6 +73,29 @@ public sealed class DuplicateScanTests
     }
 
     [Test]
+    public async Task IsSameTrack_FollowsSamenessTier_NotQuality()
+    {
+        // The two ideas are crossed on purpose. The confident group has a
+        // clear quality winner and is still the same track; the weak group is
+        // a perfect quality tie and is still not. A predicate written against
+        // QualityRanking passes neither case, which is the point: whether a
+        // FLAC beats an MP3 is the ordinary view's question, not a diff's.
+        var confident = Report(tier: "High", members: ["a.flac", "a.mp3"], winners: ["a.flac"]);
+        var weak = Report(tier: "Medium", members: ["a.flac", "b.flac"], winners: ["a.flac", "b.flac"]);
+
+        await Assert.That(confident.IsSameTrack).IsTrue();
+        await Assert.That(weak.IsSameTrack).IsFalse();
+    }
+
+    private static DupesGroupReport Report(string tier, string[] members, string[] winners) =>
+        new(new DuplicateGroup(1, "label", tier,
+                [.. members.Select(m => new DuplicateMember(m, 0.99, tier, false))]),
+            new QualityRanking(winners, "High", "reason", members),
+            new Dictionary<string, AuditRow>(),
+            new Dictionary<string, long>(),
+            ReclaimableBytes: 0);
+
+    [Test]
     public async Task Run_ShortFiles_LandInNotAnalyzed_NotInGroups()
     {
         var root = Directory.CreateTempSubdirectory("dupes-short").FullName;
