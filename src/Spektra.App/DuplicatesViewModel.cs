@@ -84,6 +84,24 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     public ObservableCollection<DupeGroupItem> Groups { get; } = [];
     public ObservableCollection<NotAnalyzedFile> NotAnalyzed { get; } = [];
 
+    /// Files that matched nothing. Only populated while OnlyDifferences is on,
+    /// because they are meaningless to a duplicate hunt and are the substance
+    /// of a folder diff.
+    public ObservableCollection<UnpairedFile> Unpaired { get; } = [];
+    private readonly List<UnpairedFile> _allUnpaired = [];
+
+    private bool _onlyDifferences;
+    /// Hides the groups that are confidently the same recording, and reveals
+    /// the files that matched nothing. What is left is what differs between the
+    /// scanned folders: tracks only one side has, plus matches too weak to take
+    /// on trust. Ignores format and quality entirely; that is what the ordinary
+    /// view is for.
+    public bool OnlyDifferences
+    {
+        get => _onlyDifferences;
+        set { if (Set(ref _onlyDifferences, value)) ApplyGroupFilter(); }
+    }
+
     /// Every group of the last completed scan; Groups is the filtered view.
     private readonly List<DupeGroupItem> _allGroups = [];
     /// The unfiltered footer line of the last scan, re-suffixed as the
@@ -107,12 +125,33 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         var tokens = DuplicateScan.ParseFilterTokens(FilterText);
         Groups.Clear();
         foreach (var g in _allGroups)
-            if (tokens.Count == 0 || DuplicateScan.GroupMatches(g.Report, tokens))
+            if ((tokens.Count == 0 || DuplicateScan.GroupMatches(g.Report, tokens))
+                && !(OnlyDifferences && g.Report.IsSameTrack))
                 Groups.Add(g);
-        if (_baseFooter is { } baseText)
-            FooterText = tokens.Count == 0
-                ? baseText
-                : $"{baseText} · filter: {Groups.Count} of {_allGroups.Count} groups";
+
+        Unpaired.Clear();
+        if (OnlyDifferences)
+            foreach (var u in _allUnpaired)
+                Unpaired.Add(u);
+
+        if (_baseFooter is not { } baseText) return;
+        var suffix = "";
+        if (OnlyDifferences)
+        {
+            // Say what was hidden, not only what is left. An empty list here is
+            // a real answer ("these folders hold the same music") and without a
+            // count it is indistinguishable from a scan that found nothing.
+            var hidden = _allGroups.Count(g => g.Report.IsSameTrack);
+            suffix += $" · differences: {hidden} same hidden · "
+                + $"{Unpaired.Count} in one folder only · {Groups.Count} weak match";
+            // Never let an unanalysable file pass as agreement: a file absent
+            // from a diff reads as "these folders match", which would be a lie.
+            if (NotAnalyzed.Count > 0)
+                suffix += $" · {NotAnalyzed.Count} not comparable";
+        }
+        if (tokens.Count > 0)
+            suffix += $" · filter: {Groups.Count} of {_allGroups.Count} groups";
+        FooterText = baseText + suffix;
     }
 
     private CancellationTokenSource? _cts;
@@ -239,6 +278,8 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         _baseFooter = null;
         RaisePropertyChanged(nameof(HasResults));
         NotAnalyzed.Clear();
+        Unpaired.Clear();
+        _allUnpaired.Clear();
         LastResult = null;
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
@@ -267,6 +308,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             RaisePropertyChanged(nameof(HasResults));
             foreach (var n in result.NotAnalyzed)
                 NotAnalyzed.Add(n);
+            _allUnpaired.AddRange(result.Unpaired);
             _baseFooter = $"{result.Groups.Count} groups · "
                 + $"{result.Groups.Sum(g => g.Group.Members.Count)} duplicate files · "
                 + $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";

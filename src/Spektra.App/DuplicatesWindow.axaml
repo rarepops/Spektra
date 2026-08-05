@@ -126,14 +126,20 @@
       <ProgressBar Minimum="0" Maximum="1" Value="{Binding ProgressFraction}" Height="8" />
     </DockPanel>
 
-    <!-- Results filter, only once there are groups to narrow: live, footer
-         shows "filter: n of m groups" while active. -->
-    <TextBox DockPanel.Dock="Top" Margin="0,0,0,8" MinHeight="26" Padding="6,3"
-             VerticalContentAlignment="Center"
-             IsVisible="{Binding HasResults}"
-             Text="{Binding FilterText}"
-             PlaceholderText="Filter groups by label or path, space separated"
-             ToolTip.Tip="Every word must match the group's label or one copy's path; clear to show all groups" />
+    <!-- Results filter and the diff toggle, both only once there are groups to
+         narrow. The filter is live and the footer shows "filter: n of m groups"
+         while active; the toggle turns the same results into a folder diff. -->
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding HasResults}">
+      <CheckBox DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
+                Content="Only differences"
+                IsChecked="{Binding OnlyDifferences, Mode=TwoWay}"
+                ToolTip.Tip="Hide tracks both folders have, and show the ones only one folder has" />
+      <TextBox MinHeight="26" Padding="6,3"
+               VerticalContentAlignment="Center"
+               Text="{Binding FilterText}"
+               PlaceholderText="Filter groups by label or path, space separated"
+               ToolTip.Tip="Every word must match the group's label or one copy's path; clear to show all groups" />
+    </DockPanel>
 
     <StackPanel DockPanel.Dock="Bottom" Margin="0,4,0,0" Spacing="4">
       <Expander IsVisible="{Binding !!NotAnalyzed.Count}" HorizontalAlignment="Stretch">
@@ -158,6 +164,29 @@
     <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
     <ScrollViewer>
+      <StackPanel>
+
+      <!-- Files that matched nothing: the substance of a folder diff, and
+           meaningless to a duplicate hunt, so they appear only in diff mode.
+           Above the groups because "one side does not have this at all" is a
+           bigger difference than "this match is weak". -->
+      <StackPanel IsVisible="{Binding OnlyDifferences}" Margin="0,0,0,6">
+        <TextBlock IsVisible="{Binding !!Unpaired.Count}" Margin="2,0,0,4"
+                   Foreground="#E0A030"
+                   Text="{Binding Unpaired.Count, StringFormat='{}{0} file(s) in one folder only'}" />
+        <ItemsControl ItemsSource="{Binding Unpaired}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="10,1" TextWrapping="NoWrap">
+                <Run Text="{Binding Path}" />
+                <Run Text=" · only in " Foreground="#999999" />
+                <Run Text="{Binding Root}" Foreground="#999999" />
+              </TextBlock>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
       <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="app:DupeGroupItem">
@@ -232,6 +261,8 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+
+      </StackPanel>
     </ScrollViewer>
   </DockPanel>
 </Window>
