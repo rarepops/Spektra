@@ -41,6 +41,38 @@ public sealed class DuplicateScanTests
     }
 
     [Test]
+    public async Task Run_ReportsUsableFilesThatMatchedNothing()
+    {
+        var rootA = Directory.CreateTempSubdirectory("diff-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("diff-b").FullName;
+        try
+        {
+            // One track both folders hold, and one only A holds. "Only in this
+            // folder" is the commonest kind of difference a folder diff shows,
+            // and it is precisely what a duplicate scan discards today.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "shared.wav"));
+            File.Copy(P("chirp-mp3-64.mp3"), Path.Combine(rootB, "shared.mp3"));
+            File.Copy(P("noise.wav"), Path.Combine(rootA, "only-in-a.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Groups).HasSingleItem();
+            await Assert.That(result.Unpaired).HasSingleItem();
+
+            var lone = result.Unpaired[0];
+            await Assert.That(Path.GetFileName(lone.Path)).IsEqualTo("only-in-a.wav");
+            await Assert.That(lone.Root).IsEqualTo(rootA);
+            await Assert.That(lone.SizeBytes).IsGreaterThan(0);
+            await Assert.That(lone.Row.Bandwidth).IsNotNull();
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task Run_ShortFiles_LandInNotAnalyzed_NotInGroups()
     {
         var root = Directory.CreateTempSubdirectory("dupes-short").FullName;

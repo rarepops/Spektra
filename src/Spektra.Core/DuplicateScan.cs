@@ -6,6 +6,12 @@ public sealed record DupesProgress(string Phase, double Fraction, int Done, int 
 
 public sealed record NotAnalyzedFile(string Path, string Reason);
 
+/// A file that fingerprinted fine and matched nothing. Duplicate Detective has
+/// no use for these; a folder diff is mostly made of them, because "only in
+/// this folder" is the commonest kind of difference. Root is whichever scan
+/// root the file sits under, so a diff can say which side is missing it.
+public sealed record UnpairedFile(string Path, string Root, AuditRow Row, long SizeBytes);
+
 public sealed record DupesGroupReport(
     DuplicateGroup Group, QualityRanking Quality,
     IReadOnlyDictionary<string, AuditRow> Rows, IReadOnlyDictionary<string, long> Sizes,
@@ -13,7 +19,12 @@ public sealed record DupesGroupReport(
 
 public sealed record DupesResult(
     IReadOnlyList<DupesGroupReport> Groups, IReadOnlyList<NotAnalyzedFile> NotAnalyzed,
-    int FilesScanned, long ReclaimableBytes);
+    int FilesScanned, long ReclaimableBytes)
+{
+    /// Usable files that joined no group. Init-only with an empty default so
+    /// every existing construction site and test compiles untouched.
+    public IReadOnlyList<UnpairedFile> Unpaired { get; init; } = [];
+}
 
 /// Flat, stable export row: one per group member, winners first. Lives in Core
 /// (not the CLI) so the desktop app's future Duplicates window can reuse the
@@ -162,9 +173,36 @@ public static class DuplicateScan
             reports.Add(new DupesGroupReport(g, ranking, rows, sizes, reclaimable));
         }
 
+        // Unpaired is a subtraction over what the scan already knows:
+        // everything that fingerprinted, minus everything that matched.
+        // DuplicateGrouper is deliberately not involved. Its
+        // `Where(c => c.Count >= 2)` looks like where these files are lost and
+        // is not: `components` is built from `best.Keys`, which only ever gains
+        // an index that appeared in an admitted pair, so a file matching
+        // nothing never enters the grouper's bookkeeping at all.
+        var grouped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in groups)
+            foreach (var m in g.Members)
+                grouped.Add(m.Path);
+
+        // Longest root first: with nested roots the deepest is the honest answer.
+        var rootsByDepth = roots.OrderByDescending(r => r.Length).ToArray();
+        var unpaired = new List<UnpairedFile>();
+        foreach (var i in usable)
+        {
+            var path = files[i].Path;
+            if (grouped.Contains(path)) continue;
+            var root = Array.Find(rootsByDepth, r =>
+                path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
+            unpaired.Add(new UnpairedFile(path, root, entryByPath[path].Row, files[i].SizeBytes));
+        }
+
         return new DupesResult(
             [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
-            notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes));
+            notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes))
+        {
+            Unpaired = [.. unpaired.OrderBy(u => u.Path, StringComparer.OrdinalIgnoreCase)],
+        };
     }
 
     /// Flat export rows, one per member, winners first inside each group.
