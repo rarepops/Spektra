@@ -163,29 +163,77 @@
     <!-- Splits the results from the footer, mirroring the top-bar divider. -->
     <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
-    <ScrollViewer>
-      <StackPanel>
+    <!-- The folder diff REPLACES the groups list rather than sitting above it:
+         showing both at once was the confusing part, because the same scan then
+         appears twice under two different questions. One column per scan root
+         so "what does this side have that the other does not" is read across,
+         with weak matches pinned underneath as the one thing a diff cannot
+         answer for you. -->
+    <Grid IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
+      <ItemsControl Grid.Row="0" ItemsSource="{Binding DiffColumns}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Rows="1" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="app:DiffColumnItem">
+            <Border BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
+                    Margin="0,0,6,0" Padding="8,6">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Label}" Foreground="#DDDDDD"
+                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding Root}" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding Summary}" Foreground="#999999"
+                           FontSize="12" Margin="0,1,0,6" />
+                <ScrollViewer>
+                  <ItemsControl ItemsSource="{Binding Files}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="app:DiffFileItem">
+                        <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto"
+                              DoubleTapped="OnDiffFileDoubleTapped">
+                          <Grid.ContextMenu>
+                            <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
+                              <MenuItem Header="_Open spectrogram" Click="OnOpenDiffFileClicked" />
+                              <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+                              <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+                            </ContextMenu>
+                          </Grid.ContextMenu>
+                          <TextBlock Grid.Row="0" Text="{Binding Relative}" Foreground="#CCCCCC"
+                                     TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                          <TextBlock Grid.Row="1" Text="{Binding Facts}" Foreground="#888888" FontSize="12" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </DockPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
-      <!-- Files that matched nothing: the substance of a folder diff, and
-           meaningless to a duplicate hunt, so they appear only in diff mode.
-           Above the groups because "one side does not have this at all" is a
-           bigger difference than "this match is weak". -->
-      <StackPanel IsVisible="{Binding OnlyDifferences}" Margin="0,0,0,6">
-        <TextBlock IsVisible="{Binding !!Unpaired.Count}" Margin="2,0,0,4"
-                   Foreground="#E0A030"
-                   Text="{Binding Unpaired.Count, StringFormat='{}{0} file(s) in one folder only'}" />
-        <ItemsControl ItemsSource="{Binding Unpaired}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <TextBlock FontSize="12" Foreground="#CCCCCC" Margin="10,1" TextWrapping="NoWrap">
-                <Run Text="{Binding Path}" />
-                <Run Text=" · only in " Foreground="#999999" />
-                <Run Text="{Binding Root}" Foreground="#999999" />
-              </TextBlock>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
+      <!-- Weak matches: probably the same recording, but the evidence is thin,
+           so they are shown rather than hidden. This is the only place a diff
+           has to hand the judgement back. -->
+      <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
+              BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
+        <StackPanel>
+          <TextBlock Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
+                     Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
+          <ItemsControl ItemsSource="{Binding Groups}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="app:DupeGroupItem">
+                <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <ScrollViewer IsVisible="{Binding !OnlyDifferences}">
+      <StackPanel>
 
       <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemTemplate>

@@ -75,6 +75,44 @@ public sealed class DupeMemberItem : IFileItem
     string IFileItem.FullPath => Path;
 }
 
+/// One file that exists under only one scan root, shown in that root's column
+/// of the folder diff. The name is relative to the root because the column
+/// header already carries the root.
+public sealed class DiffFileItem : IFileItem
+{
+    public DiffFileItem(UnpairedFile file)
+    {
+        Path = file.Path;
+        Relative = file.Root.Length > 0 && file.Path.StartsWith(file.Root, StringComparison.OrdinalIgnoreCase)
+            ? file.Path[file.Root.Length..].TrimStart('\\', '/')
+            : file.Path;
+        var cutoff = file.Row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
+        Facts = $"{file.Row.Codec ?? "?"} · {file.Row.Bandwidth}{cutoff} · {Reporting.FormatBytes(file.SizeBytes)}";
+    }
+
+    public string Path { get; }
+    public string Relative { get; }
+    public string Facts { get; }
+
+    string IFileItem.FullPath => Path;
+}
+
+/// One side of the folder diff: a scan root and the files only it has. Roots
+/// with nothing unique still get a column, because "this folder has no extras"
+/// and "this folder is not in the comparison" must not look the same.
+public sealed class DiffColumnItem(string root, IReadOnlyList<DiffFileItem> files, long bytes)
+{
+    public string Root { get; } = root;
+    public string Label { get; } = System.IO.Path.GetFileName(root.TrimEnd('\\', '/')) is { Length: > 0 } name
+        ? name
+        : root;
+    public IReadOnlyList<DiffFileItem> Files { get; } = files;
+    public string Summary { get; } = files.Count == 0
+        ? "nothing only here"
+        : $"{files.Count} file(s) only here · {Reporting.FormatBytes(bytes)}";
+    public bool HasFiles { get; } = files.Count > 0;
+}
+
 /// The Duplicate Detective window's state: scan roots, one run at a time, groups
 /// sorted by reclaimable bytes. View and export only; nothing here can touch
 /// the files themselves.
@@ -84,11 +122,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     public ObservableCollection<DupeGroupItem> Groups { get; } = [];
     public ObservableCollection<NotAnalyzedFile> NotAnalyzed { get; } = [];
 
-    /// Files that matched nothing. Only populated while OnlyDifferences is on,
-    /// because they are meaningless to a duplicate hunt and are the substance
-    /// of a folder diff.
-    public ObservableCollection<UnpairedFile> Unpaired { get; } = [];
+    /// The folder diff, one column per scan root. Only populated while
+    /// OnlyDifferences is on, because unpaired files are meaningless to a
+    /// duplicate hunt and are the substance of a diff.
+    public ObservableCollection<DiffColumnItem> DiffColumns { get; } = [];
     private readonly List<UnpairedFile> _allUnpaired = [];
+
+    /// Total across the columns, for the footer.
+    private int UnpairedShown => DiffColumns.Sum(c => c.Files.Count);
 
     private bool _onlyDifferences;
     /// Hides the groups that are confidently the same recording, and reveals
@@ -108,8 +149,12 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// filter changes; null until a scan completes.
     private string? _baseFooter;
 
-    /// Shows the results filter box only once there are groups to narrow.
-    public bool HasResults => _allGroups.Count > 0;
+    /// Shows the results filter row once a scan has produced anything to look
+    /// at. Unpaired files count, and that is not a detail: keyed on groups
+    /// alone, a scan that finds no duplicates hides the whole row including the
+    /// diff toggle, which is exactly the case a folder diff exists for (two
+    /// folders that share nothing still differ, and loudly).
+    public bool HasResults => _allGroups.Count > 0 || _allUnpaired.Count > 0;
 
     /// The results filter: every word must match the group label or some
     /// member's path. Applied live against the finished scan, never the disk.
@@ -129,21 +174,36 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 && !(OnlyDifferences && g.Report.IsSameTrack))
                 Groups.Add(g);
 
-        Unpaired.Clear();
+        DiffColumns.Clear();
         if (OnlyDifferences)
-            foreach (var u in _allUnpaired)
-                Unpaired.Add(u);
+        {
+            // One column per scan root, in the order they were added, including
+            // roots with nothing unique: an empty column says "this folder has
+            // no extras", which is an answer, not an absence.
+            var byRoot = _allUnpaired
+                .Where(u => tokens.Count == 0 || Matches(u, tokens))
+                .GroupBy(u => u.Root, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+            foreach (var root in Roots)
+            {
+                var files = byRoot.GetValueOrDefault(root) ?? [];
+                DiffColumns.Add(new DiffColumnItem(
+                    root,
+                    [.. files.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f => new DiffFileItem(f))],
+                    files.Sum(f => f.SizeBytes)));
+            }
+        }
 
         if (_baseFooter is not { } baseText) return;
         var suffix = "";
         if (OnlyDifferences)
         {
-            // Say what was hidden, not only what is left. An empty list here is
-            // a real answer ("these folders hold the same music") and without a
+            // Say what was hidden, not only what is left. An empty diff is a
+            // real answer ("these folders hold the same music") and without a
             // count it is indistinguishable from a scan that found nothing.
             var hidden = _allGroups.Count(g => g.Report.IsSameTrack);
             suffix += $" · differences: {hidden} same hidden · "
-                + $"{Unpaired.Count} in one folder only · {Groups.Count} weak match";
+                + $"{UnpairedShown} in one folder only · {Groups.Count} weak match";
             // Never let an unanalysable file pass as agreement: a file absent
             // from a diff reads as "these folders match", which would be a lie.
             if (NotAnalyzed.Count > 0)
@@ -153,6 +213,11 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             suffix += $" · filter: {Groups.Count} of {_allGroups.Count} groups";
         FooterText = baseText + suffix;
     }
+
+    /// The results filter applied to an unpaired file: every word must appear
+    /// in its path, matching how GroupMatches treats a group's members.
+    private static bool Matches(UnpairedFile file, IReadOnlyCollection<string> tokens) =>
+        tokens.All(t => file.Path.Contains(t, StringComparison.OrdinalIgnoreCase));
 
     private CancellationTokenSource? _cts;
 
@@ -186,6 +251,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
 
     public event Action<string>? OpenFileRequested;
     public void RequestOpen(DupeMemberItem member) => OpenFileRequested?.Invoke(member.Path);
+    /// The diff's one-sided rows open the same way; they are files like any
+    /// other, they simply have no counterpart to sit beside.
+    public void RequestOpen(DiffFileItem file) => OpenFileRequested?.Invoke(file.Path);
 
     /// Raised to open a comparison tab in the main window: the winner is
     /// side A, the challenger side B, matching how the tab title reads.
@@ -278,7 +346,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         _baseFooter = null;
         RaisePropertyChanged(nameof(HasResults));
         NotAnalyzed.Clear();
-        Unpaired.Clear();
+        DiffColumns.Clear();
         _allUnpaired.Clear();
         LastResult = null;
         _cts?.Dispose();
@@ -305,10 +373,11 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
 
             LastResult = result;
             _allGroups.AddRange(result.Groups.Select(g => new DupeGroupItem(g)));
-            RaisePropertyChanged(nameof(HasResults));
             foreach (var n in result.NotAnalyzed)
                 NotAnalyzed.Add(n);
             _allUnpaired.AddRange(result.Unpaired);
+            // After both lists, since HasResults now reads them both.
+            RaisePropertyChanged(nameof(HasResults));
             _baseFooter = $"{result.Groups.Count} groups · "
                 + $"{result.Groups.Sum(g => g.Group.Members.Count)} duplicate files · "
                 + $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";

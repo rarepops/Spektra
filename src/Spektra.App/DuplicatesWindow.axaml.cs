@@ -154,6 +154,23 @@ public partial class DuplicatesWindow : Window
             _vm.RequestOpen(member);
     }
 
+    // The diff's one-sided rows share Copy path and Reveal with the member
+    // rows (both go through FileActions.ItemFrom, which only needs IFileItem);
+    // opening needs its own handler because the member one narrows to
+    // DupeMemberItem to reach the compare verb, which a lone file has no
+    // counterpart for.
+    private void OnOpenDiffFileClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DiffFileItem file)
+            _vm.RequestOpen(file);
+    }
+
+    private void OnDiffFileDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is DiffFileItem file)
+            _vm.RequestOpen(file);
+    }
+
     private void OnCompareMemberClicked(object? sender, RoutedEventArgs e)
     {
         if ((sender as MenuItem)?.DataContext is DupeMemberItem member)
