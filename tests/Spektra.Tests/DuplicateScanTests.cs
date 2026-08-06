@@ -15,9 +15,14 @@ public sealed class DuplicateScanTests
         var rootB = Directory.CreateTempSubdirectory("dupes-b").FullName;
         try
         {
-            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Chirp Song.wav"));
-            File.Copy(P("chirp-mp3-64.mp3"), Path.Combine(rootA, "Track01.mp3"));
-            File.Copy(P("chirp-aac.m4a"), Path.Combine(rootB, "completely unrelated name.m4a"));
+            // The true pair is the in-band tonal fixture plus its 128k encode
+            // under an unrelated name (renames cannot hide a copy). chirp and
+            // noise are strangers on both sides and must stay ungrouped: the
+            // chirp/64k pair that used to play the duplicate here rode the
+            // sparse-word floor that chance-corrected similarity removed.
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Tones Song.wav"));
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "chirp.wav"));
+            File.Copy(P("tones-a-128.mp3"), Path.Combine(rootB, "completely unrelated name.mp3"));
             File.Copy(P("noise.wav"), Path.Combine(rootB, "noise.wav"));
 
             var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
@@ -27,9 +32,9 @@ public sealed class DuplicateScanTests
             await Assert.That(result.Groups).HasSingleItem();
 
             var g = result.Groups[0];
-            await Assert.That(g.Group.Members.Count).IsEqualTo(3);
-            await Assert.That(g.Quality.Winners.Single()).IsEqualTo(Path.Combine(rootA, "Chirp Song.wav"));
-            await Assert.That(g.Group.Members.Single(m => m.Path.EndsWith("name.m4a")).FoundByAudio).IsTrue();
+            await Assert.That(g.Group.Members.Count).IsEqualTo(2);
+            await Assert.That(g.Quality.Winners.Single()).IsEqualTo(Path.Combine(rootA, "Tones Song.wav"));
+            await Assert.That(g.Group.Members.Single(m => m.Path.EndsWith("name.mp3")).FoundByAudio).IsTrue();
             await Assert.That(g.ReclaimableBytes).IsGreaterThan(0);
             await Assert.That(result.ReclaimableBytes).IsEqualTo(g.ReclaimableBytes);
         }
@@ -50,8 +55,8 @@ public sealed class DuplicateScanTests
             // One track both folders hold, and one only A holds. "Only in this
             // folder" is the commonest kind of difference a folder diff shows,
             // and it is precisely what a duplicate scan discards today.
-            File.Copy(P("chirp.wav"), Path.Combine(rootA, "shared.wav"));
-            File.Copy(P("chirp-mp3-64.mp3"), Path.Combine(rootB, "shared.mp3"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "shared.wav"));
+            File.Copy(P("tones-a-128.mp3"), Path.Combine(rootB, "shared.mp3"));
             File.Copy(P("noise.wav"), Path.Combine(rootA, "only-in-a.wav"));
 
             var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);

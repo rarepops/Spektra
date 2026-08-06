@@ -6,7 +6,19 @@ namespace Spektra.Core;
 /// Pairwise fingerprint comparison: exact-word matches vote on the alignment
 /// offset (the modal position difference IS the alignment, so extra lead-in
 /// costs nothing), then the similarity is the bit-error rate over the aligned
-/// overlap mapped so unrelated audio lands near 0 and identical near 1.
+/// overlap, measured as the EXCESS over that pair's own wrong-alignment
+/// baseline, so unrelated audio lands near 0 and identical near 1.
+///
+/// The baseline is not optional. 12 of every word's 32 bits compare adjacent
+/// pitch classes within one frame, so they encode the track's static key and
+/// chord colour rather than its content, and two different songs in the same
+/// key agree on most of them all track long. Raw bit similarity for such
+/// strangers rides at 0.3-0.45 over a full-length overlap (measured on the
+/// owner's library, 2026-08-05: two unrelated electronic tracks at 0.41), which
+/// crosses MidThreshold and chained five files from two songs into one group.
+/// Scoring the same pair at offsets far from the mode measures exactly that
+/// floor, and subtracting it restores the contract the thresholds were
+/// calibrated against.
 public static class FingerprintMatcher
 {
     /// Calibration starting points, pinned by the fixture suite (see the spec):
@@ -57,7 +69,49 @@ public static class FingerprintMatcher
             var v = votes.GetValueOrDefault(offset - 1) + votes[offset] + votes.GetValueOrDefault(offset + 1);
             if (v > bestVotes) (bestVotes, bestOffset) = (v, offset);
         }
-        return bestVotes < MinVotes ? null : ScoreAt(a, b, bestOffset);
+        if (bestVotes < MinVotes) return null;
+        if (ScoreAt(a, b, bestOffset) is not { } raw) return null;
+
+        var baseline = DecoyBaseline(a, b);
+        var similarity = baseline >= 0.999
+            ? 0
+            : Math.Clamp((raw.Similarity - baseline) / (1 - baseline), 0, 1);
+        return raw with { Similarity = similarity };
+    }
+
+    /// This pair's chance agreement: the median score of a against b REVERSED.
+    ///
+    /// Reversal, not shifted offsets, and the distinction was learned from the
+    /// fixtures: a lag decoy cannot tell self-similar content from
+    /// profile-similar strangers. A chirp at any lag looks like itself, so lag
+    /// decoys read a high baseline for a TRUE pair of sweeps and ate the pinned
+    /// chirp-across-codecs fixtures. Reversing one side destroys the temporal
+    /// alignment and every lag structure at once, while preserving exactly what
+    /// the baseline must measure: the static profile each word carries. A
+    /// reversed sweep meets the original as a down-sweep against an up-sweep
+    /// (agreement collapses, the true pair keeps its score); a same-key
+    /// stranger's static profile survives reversal untouched (the baseline
+    /// stays at the profile floor, and the stranger's excess is ~0).
+    ///
+    /// Too-short decoy overlaps measure nothing and are skipped; with no valid
+    /// decoy the baseline conservatively stays 0 and the raw score stands.
+    private static double DecoyBaseline(Fingerprint a, Fingerprint b)
+    {
+        var reversed = new uint[b.Words.Length];
+        for (var i = 0; i < reversed.Length; i++)
+            reversed[i] = b.Words[b.Words.Length - 1 - i];
+        var rb = new Fingerprint(b.FramesPerSecond, reversed);
+
+        var shorter = Math.Min(a.Words.Length, b.Words.Length);
+        var step = Math.Max(1, shorter / 3);
+        Span<double> scores = stackalloc double[3];
+        var n = 0;
+        foreach (var delta in (ReadOnlySpan<int>)[0, -step, step])
+            if (ScoreAt(a, rb, delta) is { OverlapFraction: >= 0.25 } decoy)
+                scores[n++] = decoy.Similarity;
+        if (n == 0) return 0;
+        scores[..n].Sort();
+        return scores[n / 2];
     }
 
     private static MatchResult? ScoreAt(Fingerprint a, Fingerprint b, int offset)
