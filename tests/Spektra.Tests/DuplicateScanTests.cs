@@ -78,6 +78,44 @@ public sealed class DuplicateScanTests
     }
 
     [Test]
+    public async Task Run_AttributesUnpairedFilesToTheDeepestRootHoldingThem()
+    {
+        // "Compare my library against the new rips folder inside it" is a
+        // natural way to reach the folder diff, and nested roots get there:
+        // AddRoot turns away only an exact repeat, and the CLI takes any paths
+        // at all. Attribution is by longest matching root, NOT by whose walk
+        // reached the file first, and the outer root is listed first here so
+        // the two orders disagree. The split view builds one column per root
+        // from this field, so filing the inner folder's file under the outer
+        // one puts it in the wrong column, in plain sight.
+        var outer = Directory.CreateTempSubdirectory("diff-outer").FullName;
+        var inner = Directory.CreateDirectory(Path.Combine(outer, "New Rips")).FullName;
+        try
+        {
+            File.Copy(P("chirp.wav"), Path.Combine(outer, "outer-only.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(inner, "inner-only.wav"));
+
+            var result = DuplicateScan.Run(Ff, [outer, inner], jobs: 2, minDurationSeconds: 0);
+
+            // The inner file sits under both roots and must still be one file:
+            // analyzed twice it would pair with itself and read as a duplicate.
+            await Assert.That(result.FilesScanned).IsEqualTo(2);
+            await Assert.That(result.NotAnalyzed).IsEmpty();
+            await Assert.That(result.Groups).IsEmpty();
+            await Assert.That(result.Unpaired.Count).IsEqualTo(2);
+
+            await Assert.That(result.Unpaired.Single(u => u.Path.EndsWith("inner-only.wav")).Root)
+                .IsEqualTo(inner);
+            await Assert.That(result.Unpaired.Single(u => u.Path.EndsWith("outer-only.wav")).Root)
+                .IsEqualTo(outer);
+        }
+        finally
+        {
+            Directory.Delete(outer, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task IsSameTrack_FollowsSamenessTier_NotQuality()
     {
         // The two ideas are crossed on purpose. The confident group has a
