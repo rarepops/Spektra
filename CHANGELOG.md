@@ -4,6 +4,15 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Only differences, a folder diff inside the Duplicate Detective window. Point it at two folders holding nearly the same music and tick the box beside the filter: every track the scan is confident both folders have disappears, and the results become a split view with one column per folder, listing the tracks only that side holds. A folder with nothing unique still gets a column saying so, because "this folder has no extras" and "this folder is not in the comparison" must not look alike. Matches too weak to take on trust sit underneath rather than being hidden, since that is the one call a diff cannot make for you. It ignores format and quality entirely, because a FLAC and the MP3 made from it are the same track; choosing which copy to keep is what the ordinary group view is for, one untick away. The footer counts what was hidden as well as what is shown, so an empty diff reads as "these folders hold the same music" instead of as a scan that found nothing.
+
+### Fixed
+- Duplicate Detective no longer groups different songs that happen to share a key. Twelve of every fingerprint word's 32 bits compare pitches inside a single moment, so they describe a track's key and chord colour rather than its tune, and two unrelated songs in the same key agreed on most of them from start to finish: one reported group held five files that were really two different songs, every member scored 0.41. Each pair is now scored against how much it would agree by chance, measured by scoring the same pair a second time with one side played backwards and keeping only the excess. Backwards rather than time-shifted, because a sweep or a loop still resembles itself at any offset. On the same measurements a true copy held at 0.93 while same-key strangers fell from 0.29 to 0.10, widening the distance between a real copy and a coincidence from about three times to nine. Fingerprints themselves are unchanged, so nothing re-analyzes; rescanning an existing library simply reports the corrected numbers.
+- The Duplicate Detective filter row no longer vanishes when a scan finds no duplicates. It appeared only once there was a group to narrow, which hid the Only differences box in exactly the case a folder diff is for: two folders that share nothing still differ, and loudly.
+
 ## [0.19.0] - 2026-08-03
 
 ### Added
