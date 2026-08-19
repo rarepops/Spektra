@@ -6,7 +6,7 @@ The `spektra` command-line tool reuses the desktop app's analysis engine. It wri
 
 - A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. Requires ffmpeg + ffprobe on `PATH`.
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).
 
 ## report: bandwidth verdict per file
 
@@ -101,6 +101,35 @@ The GUI's Folder Manifest as a command: one folder, every file (audio or not) wi
 Add `--html manifest.html` for the self-contained collapsible tree page, or `--csv` / `--json` for flat rows (path, name, kind, severity, size), depth-first in display order.
 
 **Exit codes:** `0` listed, `2` usage error or unreadable folder.
+
+## inventory: hand a whole library to another tool
+
+    $ spektra inventory Music/Album
+      Album/01 Intro.flac  [flac] Aurora - Intro · art 600x600
+      Album/02 Drift.flac  [flac] Aurora - Drift · no art
+      Album/cover.jpg  [jpg]
+      [unreadable] Album/03 Cut.flac - ffprobe could not read this file.
+    4 files: 2 audio, 1 other, 1 unreadable.
+    Audio: 2 tagged, 1 with embedded art.
+
+Everything one folder holds, in a form another program can work from: one row per file with its tags, its stream facts, and whether it carries embedded cover art. It exists so a script or an agent can rename by tag, find albums missing artwork, or audit a collection's metadata without running its own probe over thousands of files.
+
+Tags are normalized rather than passed through, because taggers disagree. `5/12` becomes a track and a total, `TOTALTRACKS` (the separate Vorbis convention, which ffprobe does not fold in) fills the total when the slash form is absent, and any date shape (`2019`, `2019-04-12`, `2019-04-12T00:00:00Z`) becomes a plain year. A tag that is present but blank reads as absent, so "no artist" and "an artist named nothing" stay the same fact. An all-zero date means unknown, not the year 0.
+
+Files that are not audio get rows too, listed with their extension and size. That is how a folder's `cover.jpg` shows up, so one export answers both "does this track have a thumbnail" and "does this album have artwork on disk".
+
+Nothing is decoded, so it runs in seconds on any size of library. That is also why there are no bandwidth or integrity columns: those need a full decode and belong to `audit`, which exports the **same folder-relative path**. Run both and join them on that one column:
+
+    $ spektra inventory Music --csv > library.csv
+    $ spektra audit Music --csv > verdicts.csv
+
+Give exactly one folder. The path in each row is relative to it, so two folders in one run would let two different files share a path string and collide in that join.
+
+A file that cannot be read is a row carrying the reason rather than a missing row, since a damaged file reading as absent is the one failure worth never having. That covers two different breakages: a truncated file, which ffprobe refuses outright, and a zero-byte one, which it does **not** (it exits cleanly and reports a stream of 0 Hz and 0 channels, which would otherwise pass as a real track). An unreadable folder is a row too, so a permissions problem cannot read as an empty directory.
+
+Add `--csv` or `--json` for the machine-readable form; the columns are `Path, Name, Ext, SizeBytes, IsAudio, Codec, SampleRateHz, Channels, BitsPerSample, BitrateBps, DurationSeconds, Artist, AlbumArtist, Album, Title, Track, TrackTotal, Disc, DiscTotal, Year, Genre, HasEmbeddedArt, ArtFormat, ArtWidth, ArtHeight, Error`, depth-first in display order.
+
+**Exit codes:** `0` listed, `2` usage error (no folder, more than one, or not an existing directory). Unlike `audit`, findings never change the exit code: an inventory makes no judgement, so broken files are reported in their rows rather than in the exit status.
 
 ## loudness: LUFS, true peak, dynamics
 
