@@ -124,4 +124,162 @@ public class FfprobeMetadataReaderTests
         await Assert.That(meta.Artist).IsNull();
         await Assert.That(meta.Title).IsNull();
     }
+
+    // Cover art is a video stream, so the probe can no longer filter to audio.
+    // That makes stream ORDER a hazard: reading streams[0] was safe only while
+    // the filter guaranteed what sat there. A container whose picture sorts
+    // first would otherwise report codec "png", sample rate 0 and channels 0,
+    // silently wrong in every field rather than throwing.
+    [Test]
+    public async Task Parse_FindsTheAudioStreamWhenThePictureSortsFirst()
+    {
+        const string json = """
+            {"streams":[
+                {"codec_name":"png","codec_type":"video","width":600,"height":600,
+                 "disposition":{"attached_pic":1}},
+                {"codec_name":"flac","codec_type":"audio","sample_rate":"44100",
+                 "channels":2,"bits_per_raw_sample":"16"}],
+             "format":{"duration":"180.5","bit_rate":"1000000"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.Codec).IsEqualTo("flac");
+        await Assert.That(meta.SampleRate).IsEqualTo(44100);
+        await Assert.That(meta.Channels).IsEqualTo(2);
+        await Assert.That(meta.BitsPerSample).IsEqualTo(16);
+    }
+
+    [Test]
+    public async Task Parse_ReadsEmbeddedArt()
+    {
+        const string json = """
+            {"streams":[
+                {"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2},
+                {"codec_name":"mjpeg","codec_type":"video","width":1400,"height":1400,
+                 "disposition":{"attached_pic":1}}],
+             "format":{"duration":"10.0"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.HasEmbeddedArt).IsTrue();
+        await Assert.That(meta.ArtFormat).IsEqualTo("mjpeg");
+        await Assert.That(meta.ArtWidth).IsEqualTo(1400);
+        await Assert.That(meta.ArtHeight).IsEqualTo(1400);
+    }
+
+    [Test]
+    public async Task Parse_NoPicture_ReportsNoArt()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.HasEmbeddedArt).IsFalse();
+        await Assert.That(meta.ArtFormat).IsNull();
+        await Assert.That(meta.ArtWidth).IsNull();
+    }
+
+    // A video stream that is NOT an attached picture is real video (a music
+    // video, a stray track in an MKV), not artwork. Calling it a thumbnail
+    // would tell a librarian the file has a cover when it does not.
+    [Test]
+    public async Task Parse_VideoStreamThatIsNotAPicture_IsNotArt()
+    {
+        const string json = """
+            {"streams":[
+                {"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2},
+                {"codec_name":"h264","codec_type":"video","width":1920,"height":1080,
+                 "disposition":{"attached_pic":0}}],
+             "format":{"duration":"10.0"}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.HasEmbeddedArt).IsFalse();
+        await Assert.That(meta.ArtFormat).IsNull();
+    }
+
+    [Test]
+    public async Task Parse_ReadsTheTagsAnInventoryNeeds()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0","tags":{
+                "artist":"Aurora","album_artist":"Aurora","album":"First Light",
+                "title":"Intro","track":"5/12","disc":"1/2",
+                "date":"2019-04-12","genre":"Ambient"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.AlbumArtist).IsEqualTo("Aurora");
+        await Assert.That(meta.Genre).IsEqualTo("Ambient");
+        await Assert.That(meta.Track).IsEqualTo(5);
+        await Assert.That(meta.TrackTotal).IsEqualTo(12);
+        await Assert.That(meta.Disc).IsEqualTo(1);
+        await Assert.That(meta.DiscTotal).IsEqualTo(2);
+        await Assert.That(meta.Year).IsEqualTo(2019);
+    }
+
+    // FLAC written with Vorbis comments keeps the total in a tag of its own.
+    // Verified against a real ffmpeg-written file: TRACKNUMBER normalizes to
+    // "track" and ALBUMARTIST to "album_artist", but TOTALTRACKS is left
+    // alone and GENRE keeps its uppercase name. Without this the commonest
+    // lossless library in the world reports "track 5 of unknown".
+    [Test]
+    public async Task Parse_VorbisTotalsLiveInTheirOwnTags()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0","tags":{
+                "track":"5","TOTALTRACKS":"12",
+                "disc":"1","TOTALDISCS":"2",
+                "GENRE":"Ambient"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.Track).IsEqualTo(5);
+        await Assert.That(meta.TrackTotal).IsEqualTo(12);
+        await Assert.That(meta.Disc).IsEqualTo(1);
+        await Assert.That(meta.DiscTotal).IsEqualTo(2);
+        await Assert.That(meta.Genre).IsEqualTo("Ambient");
+    }
+
+    // "5/12" wins over a separate total tag when both are present: it is the
+    // more specific statement, and a file carrying both that disagree is
+    // better read one way consistently than half from each.
+    // Every art test above feeds Parse synthetic JSON, which cannot prove the
+    // real probe ARGUMENTS let a picture stream through: -select_streams a
+    // discards it before any JSON is parsed. Only a real file can pin that.
+    [Test]
+    public async Task Read_RealFileWithEmbeddedArt_SeesThePicture()
+    {
+        var m = Reader().Read(Path.Combine(Fixtures, "tagged-with-art.flac"));
+        await Assert.That(m.Codec).IsEqualTo("flac");
+        await Assert.That(m.HasEmbeddedArt).IsTrue();
+        await Assert.That(m.ArtFormat).IsEqualTo("png");
+        await Assert.That(m.ArtWidth).IsEqualTo(600);
+        await Assert.That(m.ArtHeight).IsEqualTo(600);
+    }
+
+    [Test]
+    public async Task Read_RealFileWithTags_NormalizesThem()
+    {
+        var m = Reader().Read(Path.Combine(Fixtures, "tagged-with-art.flac"));
+        await Assert.That(m.Artist).IsEqualTo("Aurora");
+        await Assert.That(m.AlbumArtist).IsEqualTo("Aurora");
+        await Assert.That(m.Album).IsEqualTo("First Light");
+        await Assert.That(m.Title).IsEqualTo("Intro");
+        await Assert.That(m.Genre).IsEqualTo("Ambient");
+        await Assert.That(m.Track).IsEqualTo(5);
+        await Assert.That(m.TrackTotal).IsEqualTo(12);
+        await Assert.That(m.Disc).IsEqualTo(1);
+        await Assert.That(m.DiscTotal).IsEqualTo(2);
+        await Assert.That(m.Year).IsEqualTo(2019);
+    }
+
+    [Test]
+    public async Task Parse_SlashTotalWinsOverASeparateTotalTag()
+    {
+        const string json = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0","tags":{"track":"5/12","TOTALTRACKS":"99"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(json, "");
+        await Assert.That(meta.TrackTotal).IsEqualTo(12);
+    }
 }

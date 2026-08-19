@@ -73,4 +73,26 @@ $air  = "[1:a]highpass=f=11000,highpass=f=11000,volume=0.011[air];" +
   -filter_complex $air -map "[out]" -ac 1 -c:a pcm_s16le "$fx\tones-b.wav"
 & $ff -y -v error -i "$fx\tones-a.wav" -b:a 128k "$fx\tones-a-128.mp3"
 
+
+# A tagged FLAC carrying embedded cover art, for the metadata reader. The art
+# is what makes it worth committing: an attached picture is a VIDEO stream, so
+# a probe filtered to audio cannot see one, and no synthetic JSON can prove the
+# real probe arguments let it through.
+#
+# The tags are deliberately in their awkward real-world shapes. "5/12" carries
+# its own total while TOTALTRACKS is the separate Vorbis convention ffprobe
+# does not fold in, and a full ISO date stands in for the year, so the file
+# exercises the normalizing rather than the happy path.
+$art = Join-Path $env:TEMP "spektra-fixture-cover.png"
+& $ff -y -v error -f lavfi -i "color=c=teal:s=600x600:d=1" -frames:v 1 $art
+& $ff -y -v error `
+  -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=3" -i $art `
+  -map 0:a -map 1:v -c:a flac -c:v copy -disposition:v attached_pic `
+  -metadata artist="Aurora" -metadata album_artist="Aurora" `
+  -metadata album="First Light" -metadata title="Intro" `
+  -metadata track="5/12" -metadata TOTALTRACKS="12" -metadata disc="1/2" `
+  -metadata date="2019-04-12" -metadata genre="Ambient" `
+  "$fx\tagged-with-art.flac"
+Remove-Item $art -ErrorAction SilentlyContinue
+
 Get-ChildItem $fx

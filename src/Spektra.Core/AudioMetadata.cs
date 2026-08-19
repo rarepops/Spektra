@@ -9,7 +9,19 @@ namespace Spektra.Core;
 public sealed record AudioMetadata(
     string Codec, int SampleRate, int Channels, int? BitsPerSample,
     long? BitRateBps, TimeSpan Duration, bool DurationIsEstimated = false,
-    string? Artist = null, string? Title = null, string? Album = null)
+    string? Artist = null, string? Title = null, string? Album = null,
+    // Additive, exactly as Artist/Title/Album were added for the deduplicator.
+    // Nothing persists this record (the cache stores the derived AuditRow and,
+    // beside a fingerprint, only artist and title), so growing it invalidates
+    // no cache and forces no re-analysis.
+    string? AlbumArtist = null, string? Genre = null,
+    int? Track = null, int? TrackTotal = null,
+    int? Disc = null, int? DiscTotal = null, int? Year = null,
+    // Embedded cover art. Byte size is deliberately absent: ffprobe reports no
+    // size for an attached picture, and dimensions are the part worth acting
+    // on anyway (a 100x100 stamp and a 1400x1400 cover both "have art").
+    bool HasEmbeddedArt = false, string? ArtFormat = null,
+    int? ArtWidth = null, int? ArtHeight = null)
 {
     public string ToDisplayLine(string fileName)
     {
