@@ -51,8 +51,15 @@ jobs:
         shell: pwsh
         run: |
           foreach ($rid in 'win-x64','linux-x64','osx-x64','osx-arm64') {
+            # IncludeNativeLibrariesForSelfExtract matters: without it the
+            # SQLite native library lands BESIDE the exe, and the archive step
+            # below copies only spektra*, so it was left out of every release.
+            # The CLI then degraded to "cache unavailable" and re-analyzed
+            # whole libraries from scratch on every run, announced by one line
+            # on stderr. The GUI publish has always had this flag.
             dotnet publish src/Spektra.Cli -c Release -r $rid --self-contained true `
-              -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:EnableCompressionInSingleFile=true -p:DebugType=none `
               -p:Version=${{ steps.v.outputs.version }} -o "dist/cli-$rid"
             if ($LASTEXITCODE -ne 0) { throw "publish failed for $rid" }
           }

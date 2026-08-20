@@ -42,6 +42,16 @@
       <Component Id="MainExe" Directory="INSTALLFOLDER">
         <File Id="spektraExe" Source="dist\gui-win-x64\spektra.exe" KeyPath="yes" />
       </Component>
+      <!-- The console tool, beside the app so the PATH option below covers
+           both. It ships under its own name and not as a second "spektra"
+           because the two binaries share an argument vocabulary: the app
+           takes the dupes and manifest switches as launch arguments, so the
+           same command line means different things depending on which one
+           PATH resolves to. Before this, PATH held only the app, and every
+           CLI example in the docs opened a window instead of printing. -->
+      <Component Id="CliExe" Directory="INSTALLFOLDER">
+        <File Id="spektraCliExe" Source="dist\cli-win-x64\spektra-cli.exe" KeyPath="yes" />
+      </Component>
       <Component Id="StartMenuShortcut" Directory="SpektraMenuFolder">
         <Shortcut Id="AppShortcut" Name="Spektra"
                   Target="[INSTALLFOLDER]spektra.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
@@ -91,11 +101,13 @@
       </Component>
     </Feature>
 
-    <!-- Optional: add the install folder to the system PATH so "spektra" can be
-         launched from a terminal. Shown as a toggle on the Custom Setup page and
-         removed again on uninstall. -->
+    <!-- Optional: add the install folder to the system PATH, which puts BOTH
+         binaries on it: "spektra" the app and "spektra-cli" the console tool.
+         The description names both, because the old wording promised only
+         "spektra" and a reader following the CLI docs then got a window.
+         Shown as a toggle on the Custom Setup page, removed on uninstall. -->
     <Feature Id="PathFeature" Title="Add to PATH" Level="1"
-             Description="Add Spektra to the system PATH so you can launch it by typing &quot;spektra&quot; in a terminal.">
+             Description="Add Spektra to the system PATH, so &quot;spektra&quot; opens the app and &quot;spektra-cli&quot; runs the command-line tool from any terminal.">
       <Component Id="PathEntry" Directory="INSTALLFOLDER">
         <Environment Id="SpektraPath" Name="PATH" Value="[INSTALLFOLDER]"
                      Permanent="no" Part="last" Action="set" System="yes" />
@@ -278,7 +290,7 @@
                  Property="SPEKTRAADDTOPATH" CheckBoxValue="1"
                  Text="Add Spektra to my PATH" />
         <Control Id="PathText" Type="Text" X="33" Y="78" Width="317" Height="16" NoPrefix="yes"
-                 Text="Lets you start Spektra by typing &quot;spektra&quot; in a terminal." />
+                 Text="&quot;spektra&quot; opens the app; &quot;spektra-cli&quot; runs the command-line tool." />
 
         <Control Id="ShellCheckBox" Type="CheckBox" X="20" Y="106" Width="330" Height="17"
                  Property="SPEKTRASHELLMENU" CheckBoxValue="1"

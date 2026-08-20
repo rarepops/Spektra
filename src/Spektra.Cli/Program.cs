@@ -23,7 +23,7 @@ internal static class Program
 
         if (args[0] is "--version" or "-v")
         {
-            Console.WriteLine($"spektra {Version()}");
+            Console.WriteLine($"spektra-cli {Version()}");
             return 0;
         }
 
@@ -39,7 +39,7 @@ internal static class Program
             }
             catch (OptionException ex)
             {
-                Console.Error.WriteLine($"spektra: {ex.Message}");
+                Console.Error.WriteLine($"spektra-cli: {ex.Message}");
                 return 2;
             }
         }
@@ -48,7 +48,7 @@ internal static class Program
         if (ffmpeg is null)
         {
             Console.Error.WriteLine(
-                "spektra: ffmpeg/ffprobe not found. Install ffmpeg and ensure it is on PATH.");
+                "spektra-cli: ffmpeg/ffprobe not found. Install ffmpeg and ensure it is on PATH.");
             return 2;
         }
 
@@ -71,7 +71,7 @@ internal static class Program
         }
         catch (OptionException ex)
         {
-            Console.Error.WriteLine($"spektra: {ex.Message}");
+            Console.Error.WriteLine($"spektra-cli: {ex.Message}");
             return 2;
         }
     }
@@ -126,7 +126,7 @@ internal static class Program
         var files = ResolveInputs(paths);
         if (files.Count == 0)
         {
-            Console.Error.WriteLine("spektra report: give one or more audio files or a folder.");
+            Console.Error.WriteLine("spektra-cli report: give one or more audio files or a folder.");
             return 2;
         }
         var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
@@ -149,7 +149,7 @@ internal static class Program
         CliOptions.RejectUnknownFlags(args);
         if (args.Length == 0 || !Directory.Exists(args[0]))
         {
-            Console.Error.WriteLine("spektra scan: give an existing folder to scan.");
+            Console.Error.WriteLine("spektra-cli scan: give an existing folder to scan.");
             return 2;
         }
         var root = args[0];
@@ -191,7 +191,7 @@ internal static class Program
         var files = ResolveInputs(paths);
         if (files.Count == 0)
         {
-            Console.Error.WriteLine("spektra check: give one or more audio files or a folder.");
+            Console.Error.WriteLine("spektra-cli check: give one or more audio files or a folder.");
             return 2;
         }
         var computed = MapParallel(files, jobs, path =>
@@ -252,13 +252,13 @@ internal static class Program
             }).ToArray();
         if (targets.Length == 0)
         {
-            Console.Error.WriteLine("spektra audit: give one or more audio files or a folder.");
+            Console.Error.WriteLine("spektra-cli audit: give one or more audio files or a folder.");
             return 2;
         }
 
         var cache = AuditCache.TryOpen(out var cacheError);
         if (cacheError is not null)
-            Console.Error.WriteLine($"spektra audit: cache unavailable ({cacheError}); analyzing everything.");
+            Console.Error.WriteLine($"spektra-cli audit: cache unavailable ({cacheError}); analyzing everything.");
 
         AuditEntry[] results;
         try
@@ -281,7 +281,7 @@ internal static class Program
             try { File.WriteAllText(html, HtmlReport.AuditDocument(rows, "Spektra audit")); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Console.Error.WriteLine($"spektra audit: {ex.Message}");
+                Console.Error.WriteLine($"spektra-cli audit: {ex.Message}");
                 return 2;
             }
         }
@@ -311,13 +311,13 @@ internal static class Program
         CliOptions.RejectUnknownFlags(roots);
         if (roots.Length == 0 || !roots.All(Directory.Exists))
         {
-            Console.Error.WriteLine("spektra dupes: give one or more existing folders.");
+            Console.Error.WriteLine("spektra-cli dupes: give one or more existing folders.");
             return 2;
         }
 
         var cache = AuditCache.TryOpen(out var cacheError);
         if (cacheError is not null)
-            Console.Error.WriteLine($"spektra dupes: cache unavailable ({cacheError}); analyzing everything.");
+            Console.Error.WriteLine($"spektra-cli dupes: cache unavailable ({cacheError}); analyzing everything.");
 
         DupesResult result;
         try
@@ -337,7 +337,7 @@ internal static class Program
             try { File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Console.Error.WriteLine($"spektra dupes: {ex.Message}");
+                Console.Error.WriteLine($"spektra-cli dupes: {ex.Message}");
                 return 2;
             }
         }
@@ -391,7 +391,7 @@ internal static class Program
         // different files share a path string and collide in a join.
         if (paths.Length != 1 || !Directory.Exists(paths[0]))
         {
-            Console.Error.WriteLine("spektra inventory: give one existing folder.");
+            Console.Error.WriteLine("spektra-cli inventory: give one existing folder.");
             return 2;
         }
 
@@ -443,13 +443,13 @@ internal static class Program
         CliOptions.RejectUnknownFlags(paths);
         if (paths.Length != 1 || !Directory.Exists(paths[0]))
         {
-            Console.Error.WriteLine("spektra manifest: give one existing folder.");
+            Console.Error.WriteLine("spektra-cli manifest: give one existing folder.");
             return 2;
         }
 
         var cache = AuditCache.TryOpen(out var cacheError);
         if (cacheError is not null)
-            Console.Error.WriteLine($"spektra manifest: cache unavailable ({cacheError}); extension chips only.");
+            Console.Error.WriteLine($"spektra-cli manifest: cache unavailable ({cacheError}); extension chips only.");
 
         ManifestFolder root;
         try { root = FolderManifest.Build(paths[0], cache); }
@@ -457,7 +457,7 @@ internal static class Program
 
         if (root.Unreadable)
         {
-            Console.Error.WriteLine($"spektra manifest: could not read {paths[0]}.");
+            Console.Error.WriteLine($"spektra-cli manifest: could not read {paths[0]}.");
             return 2;
         }
 
@@ -466,7 +466,7 @@ internal static class Program
             try { File.WriteAllText(html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Console.Error.WriteLine($"spektra manifest: {ex.Message}");
+                Console.Error.WriteLine($"spektra-cli manifest: {ex.Message}");
                 return 2;
             }
         }
@@ -492,7 +492,7 @@ internal static class Program
         var files = ResolveInputs(paths);
         if (files.Count == 0)
         {
-            Console.Error.WriteLine("spektra loudness: give one or more audio files or a folder.");
+            Console.Error.WriteLine("spektra-cli loudness: give one or more audio files or a folder.");
             return 2;
         }
         var computed = MapParallel(files, jobs, path =>
@@ -534,7 +534,7 @@ internal static class Program
         }
         if (files.Count != 2)
         {
-            Console.Error.WriteLine("spektra diff: give exactly two audio files.");
+            Console.Error.WriteLine("spektra-cli diff: give exactly two audio files.");
             return 2;
         }
 
@@ -543,7 +543,7 @@ internal static class Program
         try { report = new AudioCompare(ffmpeg).Run(files[0], files[1], options); }
         catch (Exception ex) when (ex is AudioDecodeException or IOException)
         {
-            Console.Error.WriteLine($"spektra diff: {ex.Message}");
+            Console.Error.WriteLine($"spektra-cli diff: {ex.Message}");
             return 2;
         }
 
@@ -586,7 +586,7 @@ internal static class Program
     {
         if (fmt != OutFormat.Text)
         {
-            Console.Error.WriteLine("spektra image: --json/--csv do not apply to image.");
+            Console.Error.WriteLine("spektra-cli image: --json/--csv do not apply to image.");
             return 2;
         }
 
@@ -614,7 +614,7 @@ internal static class Program
         }
         if (files.Count != 1 || Directory.Exists(files[0]))
         {
-            Console.Error.WriteLine("spektra image: give one audio file (folders are not supported).");
+            Console.Error.WriteLine("spektra-cli image: give one audio file (folders are not supported).");
             return 2;
         }
 
@@ -625,7 +625,7 @@ internal static class Program
         var palettes = PaletteRegistry.LoadWithCustom();
         if (paletteName is not null && !palettes.Has(paletteName))
             Console.Error.WriteLine(
-                $"spektra image: unknown palette '{paletteName}'; using turbo. " +
+                $"spektra-cli image: unknown palette '{paletteName}'; using turbo. " +
                 $"Available: {string.Join(", ", palettes.Names)}.");
         options = options with
         {
@@ -646,7 +646,7 @@ internal static class Program
         catch (Exception ex) when (
             ex is AudioDecodeException or IOException or UnauthorizedAccessException)
         {
-            Console.Error.WriteLine($"spektra image: {ex.Message}");
+            Console.Error.WriteLine($"spektra-cli image: {ex.Message}");
             return 2;
         }
     }
@@ -673,24 +673,24 @@ internal static class Program
             Spektra - audio bandwidth / integrity analyzer
 
             Usage:
-              spektra report <file|folder> ...   Bandwidth verdict per file.
-              spektra scan <folder>              Compact bandwidth scan of a library.
-              spektra check <file|folder> ...    Integrity check (corruption / missing data).
-              spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
-              spektra dupes <folder> ...         Find duplicate songs; mark the best copy (cached).
-              spektra manifest <folder>          List EVERYTHING in a folder with type chips (no decoding).
-              spektra inventory <folder>         Tags + embedded art per file, machine-readable (no decoding).
-              spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
-              spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
-              spektra image <file>               Render the spectrogram to a PNG (no window).
-              spektra --version                  Print the version.
-              spektra --help                     Show this help.
+              spektra-cli report <file|folder> ...   Bandwidth verdict per file.
+              spektra-cli scan <folder>              Compact bandwidth scan of a library.
+              spektra-cli check <file|folder> ...    Integrity check (corruption / missing data).
+              spektra-cli audit <file|folder> ...    Bandwidth + integrity together (cached).
+              spektra-cli dupes <folder> ...         Find duplicate songs; mark the best copy (cached).
+              spektra-cli manifest <folder>          List EVERYTHING in a folder with type chips (no decoding).
+              spektra-cli inventory <folder>         Tags + embedded art per file, machine-readable (no decoding).
+              spektra-cli loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
+              spektra-cli diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
+              spektra-cli image <file>               Render the spectrogram to a PNG (no window).
+              spektra-cli --version                  Print the version.
+              spektra-cli --help                     Show this help.
 
             Add --json or --csv to any command for a machine-readable report,
-            e.g. spektra scan Music --csv > report.csv
+            e.g. spektra-cli scan Music --csv > report.csv
 
             Folders are analyzed in parallel. By default Spektra uses about 80% of
-            the CPU cores; cap it with --jobs N (or -j N), e.g. spektra scan Music -j 4
+            the CPU cores; cap it with --jobs N (or -j N), e.g. spektra-cli scan Music -j 4
 
             audit caches results per file (keyed by size + mtime) in the app data
             folder, so repeat runs only analyze new or changed files; --fresh re-analyzes.

@@ -31,7 +31,7 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Folder browse-and-audit: drop a folder (or pass it on the command line) for an instant browse tree with any cached verdicts already shown, check the files or folders you want and press Analyze to audit just those into a sortable grid with byte-weighted progress, a remaining-time estimate, and a tiered severity filter (all / suspect + worse / problems only), Drilldown to focus the grid on one subtree, Refresh (Ctrl+F5) to re-read the folder from disk without analyzing anything (new files appear unchecked, deleted ones vanish, the boxes you ticked stay ticked), all backed by a persistent cache shared with the CLI; right-click any row, file, or folder for verbs (open, re-analyze fresh, analyze a folder, copy path, reveal), with multi-row selection honored
 - Folder-aware Analyze menu: in a folder tab the menu's folder commands name the folder they would act on (the drilldown scope once you have drilled in), Analyze queues that whole scope through the cache with your checkboxes untouched, and the Duplicate Detective and Folder Manifest launchers open already pointed at it; in any other tab they stay the plain global launchers, and the two track-only checks grey out where there is no track
 - Duplicate Detective: find duplicate songs across folders by acoustic fingerprint (renames and format changes cannot hide a copy), grouped with confidence levels and the best copy starred; filter big result sets by label or path, jump straight to a side-by-side comparison against the group's winner, and copy the loser paths for use elsewhere; tick Only differences to turn the same scan into a folder diff, one column per folder holding just the tracks that side alone has; view-only, with HTML/CSV/JSON export
-- Folder Manifest: instantly list everything inside a folder as a tree with honest type chips (cached audio verdicts included) and per-folder composition rollups with recursive byte totals; an address bar swaps folders in place, Rescan (or F5) lists the current folder again to pick up files added or removed on disk, columns resize and persist, huge listings cancel, and any folder hops into the audit with one click; view-only, filterable by extension, with HTML/CSV/JSON export of exactly what is shown (also scriptable as `spektra manifest`)
+- Folder Manifest: instantly list everything inside a folder as a tree with honest type chips (cached audio verdicts included) and per-folder composition rollups with recursive byte totals; an address bar swaps folders in place, Rescan (or F5) lists the current folder again to pick up files added or removed on disk, columns resize and persist, huge listings cancel, and any folder hops into the audit with one click; view-only, filterable by extension, with HTML/CSV/JSON export of exactly what is shown (also scriptable as `spektra-cli manifest`)
 - Zoom & pan: wheel = time zoom, Shift+wheel = frequency zoom, drag = pan, double-click = reset (zoomed spans re-render sharply via ffmpeg segment decode)
 - Cursor readout (time, frequency, dB) and a toggleable average-spectrum overlay (peak-hold + time-average)
 - Preferences: FFT size, window function (Hann/Hamming/Blackman/Blackman-Harris), color palette (Turbo by default, plus Magma/Inferno/Plasma/Viridis/Cividis/Grayscale, mono phosphor ramps, and custom palettes as JSON files with even anchors or stops pinned to a dB level), a tightness curve for how fast quiet detail fades to black, dynamic-range floor, and a linear or logarithmic frequency axis
@@ -96,9 +96,9 @@ Check for a newer release any time from **Help → Check for Updates**. Spektra 
 
 Grab the latest build from the **[releases page](https://github.com/rarepops/Spektra/releases/latest)**:
 
-- `Spektra-<version>-Setup.msi`: the Windows installer for the desktop app. Its Options page has a checkbox for adding `spektra` to your PATH and one for adding Spektra to the Explorer right-click menu.
+- `Spektra-<version>-Setup.msi`: the Windows installer. It installs the desktop app and the command-line tool together, and its Options page has a checkbox for putting both on your PATH (`spektra` opens the app, `spektra-cli` runs the command-line tool) and one for adding Spektra to the Explorer right-click menu.
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
-- `spektra-cli-<version>-<os>.zip`: the command-line tool (Windows, Linux, macOS).
+- `spektra-cli-<version>-<os>.zip`: the command-line tool on its own (Windows, Linux, macOS), for machines that do not want the app.
 
 Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protected your PC"** or an **Unknown Publisher** prompt. That's expected for an unsigned open-source build, not a sign of a problem: choose **More info → Run anyway** to continue. To verify a download first, check it against the `SHA256SUMS.txt` published with each release:
 
@@ -125,24 +125,24 @@ Compare two files directly (also available in-app via File → Compare…):
 
 ## Command line
 
-Spektra ships a small cross-platform companion CLI (`spektra`) that reuses the analysis engine. It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
+Spektra ships a small cross-platform companion CLI (`spektra-cli`) that reuses the analysis engine. It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
 
-    spektra report <file|folder> ...   Bandwidth verdict per file.
-    spektra scan <folder>              Compact bandwidth scan of a library.
-    spektra check <file|folder> ...    Integrity check (corruption / missing data).
-    spektra audit <file|folder> ...    Bandwidth + integrity together (cached).
-    spektra dupes <folder> ...         Find duplicate songs across folders and formats; mark the best copy.
-    spektra manifest <folder>          List everything in a folder with type chips (no decoding, works without ffmpeg).
-    spektra inventory <folder>         Tags and embedded cover art per file, machine-readable (no decoding).
-    spektra loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
-    spektra diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
-    spektra image <file>               Render the spectrogram to a PNG (no window).
+    spektra-cli report <file|folder> ...   Bandwidth verdict per file.
+    spektra-cli scan <folder>              Compact bandwidth scan of a library.
+    spektra-cli check <file|folder> ...    Integrity check (corruption / missing data).
+    spektra-cli audit <file|folder> ...    Bandwidth + integrity together (cached).
+    spektra-cli dupes <folder> ...         Find duplicate songs across folders and formats; mark the best copy.
+    spektra-cli manifest <folder>          List everything in a folder with type chips (no decoding, works without ffmpeg).
+    spektra-cli inventory <folder>         Tags and embedded cover art per file, machine-readable (no decoding).
+    spektra-cli loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
+    spektra-cli diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
+    spektra-cli image <file>               Render the spectrogram to a PNG (no window).
 
 Add `--json` or `--csv` to any command for a machine-readable report:
 
-    spektra scan Music --csv > library.csv
+    spektra-cli scan Music --csv > library.csv
 
-`spektra diff` exits 0 when two files are effectively identical (verify a rip or transcode is transparent) and 1 when they differ; `spektra --version` prints the version.
+`spektra-cli diff` exits 0 when two files are effectively identical (verify a rip or transcode is transparent) and 1 when they differ; `spektra-cli --version` prints the version.
 
 Full command reference with sample output and scripting recipes: **[docs/cli.md](docs/cli.md)**.
 

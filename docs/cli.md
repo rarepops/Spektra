@@ -1,8 +1,8 @@
 # Spektra CLI guide
 
-The `spektra` command-line tool reuses the desktop app's analysis engine. It writes plain text to stdout (pipe/redirect friendly) and uses the exit code to signal problems, so it drops straight into scripts and CI. `spektra --version` prints the version.
+The `spektra-cli` command-line tool reuses the desktop app's analysis engine. It writes plain text to stdout (pipe/redirect friendly) and uses the exit code to signal problems, so it drops straight into scripts and CI. `spektra-cli --version` prints the version.
 
-    spektra <command> <file|folder> ... [--json|--csv] [--jobs N]
+    spektra-cli <command> <file|folder> ... [--json|--csv] [--jobs N]
 
 - A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
@@ -10,14 +10,14 @@ The `spektra` command-line tool reuses the desktop app's analysis engine. It wri
 
 ## report: bandwidth verdict per file
 
-    $ spektra report rip.flac
+    $ spektra-cli report rip.flac
     rip.flac
       rip.flac - FLAC · 44.1 kHz · 16-bit · 2 ch · 3:41 · 1040 kbps
       Sharp cutoff at 16.0 kHz. Consistent with lossy encoding (MP3 128 / AAC ~128).
 
 A hi-res file whose content stops at a lower standard rate is called out as upsampled instead of lossy:
 
-    $ spektra report "vinyl-96k.flac"
+    $ spektra-cli report "vinyl-96k.flac"
     vinyl-96k.flac
       vinyl-96k.flac - FLAC · 96 kHz · 24-bit · 2 ch · 4:02 · 2116 kbps
       Bandwidth ends near 22.0 kHz; matches a 44.1 kHz source upsampled to 96 kHz.
@@ -26,7 +26,7 @@ Possible verdicts: **Lossless** (full-band), **Suspicious** (a rolloff that coul
 
 ## scan: compact library sweep
 
-    $ spektra scan Music
+    $ spektra-cli scan Music
     Scanning 1247 audio file(s) under Music ...
       [LOSSLESS]        Album/01 Intro.flac
       [LOSSY   ] 16.0k  Album/02 Transcode.flac
@@ -37,7 +37,7 @@ Possible verdicts: **Lossless** (full-band), **Suspicious** (a rolloff that coul
 
 ## check: integrity (corruption / missing data)
 
-    $ spektra check download.flac
+    $ spektra-cli check download.flac
       [CORRUPT] download.flac - Likely corrupt or incomplete · 3 decode errors, truncated (1:02 of 3:45).
 
     1 files: 0 ok, 0 suspect, 1 corrupt.
@@ -46,7 +46,7 @@ Suspect means worth a listen: one or two stray decode errors (an isolated damage
 
 ## audit: bandwidth + integrity together
 
-    $ spektra audit Music
+    $ spektra-cli audit Music
       bandwidth=Lossless           integrity=Ok       01 Intro.flac
       bandwidth=Lossy 16.0k        integrity=Ok       02 Transcode.flac
       bandwidth=Upsampled 22.0k    integrity=Ok       03 Fake96k.flac
@@ -63,7 +63,7 @@ Add --html report.html to also write the audit as a self-contained dark HTML pag
 
 ## dupes: find duplicate songs, keep the best
 
-    $ spektra dupes Music
+    $ spektra-cli dupes Music
     Group 1 · Song Title · 2 files · sameness High · reclaim 3.2 MB
       * Music/Album/01 Song Title.flac  [FLAC · Lossless · Ok] sameness 1.00
         Music/Downloads/song title (v2).mp3  [MP3 · Lossy 16.0k · Ok] sameness 0.97  found by audio
@@ -71,7 +71,7 @@ Add --html report.html to also write the audit as a self-contained dark HTML pag
 
     1 group(s) · 2 files · reclaimable 3.2 MB · 214 scanned
 
-Matches audio fingerprints across every folder given on the command line, so duplicates are found by what they sound like rather than by filename, tags, or folder layout; a renamed, retagged, or relocated copy still matches (`found by audio` marks a member whose name doesn't share any word with the group's label). Give two or more folders to also catch duplicates that live in separate libraries, e.g. `spektra dupes Music Downloads`.
+Matches audio fingerprints across every folder given on the command line, so duplicates are found by what they sound like rather than by filename, tags, or folder layout; a renamed, retagged, or relocated copy still matches (`found by audio` marks a member whose name doesn't share any word with the group's label). Give two or more folders to also catch duplicates that live in separate libraries, e.g. `spektra-cli dupes Music Downloads`.
 
 Inside a group the winner (marked with `*`; a tie can mark more than one) is the copy worth keeping, ranked by the same bandwidth and integrity facts `audit` reports: full-band lossless beats a lossless file with a suspicious wall at or above 20 kHz, which beats honest lossy ranked by cutoff, which beats a proven transcode or upsampled container; corrupt members drop to the bottom outright and suspect integrity costs one class. The `quality` line names the winner and runner-up and says how sure the ranking is (`High`, `Medium`, or `Low`); treat `Low` as "look before you delete."
 
@@ -89,7 +89,7 @@ Add --html report.html to also write the groups as a self-contained dark HTML pa
 
 ## manifest: list everything, decode nothing
 
-    $ spektra manifest Music/Album
+    $ spektra-cli manifest Music/Album
     flac      28.4 MB  Music/Album/01 Song.flac · Clean
     flac      31.1 MB  Music/Album/02 Other Song.flac
     jpg      812.0 KB  Music/Album/cover.jpg
@@ -104,7 +104,7 @@ Add `--html manifest.html` for the self-contained collapsible tree page, or `--c
 
 ## inventory: hand a whole library to another tool
 
-    $ spektra inventory Music/Album
+    $ spektra-cli inventory Music/Album
       Album/01 Intro.flac  [flac] Aurora - Intro · art 600x600
       Album/02 Drift.flac  [flac] Aurora - Drift · no art
       Album/cover.jpg  [jpg]
@@ -120,8 +120,8 @@ Files that are not audio get rows too, listed with their extension and size. Tha
 
 Nothing is decoded, so it runs in seconds on any size of library. That is also why there are no bandwidth or integrity columns: those need a full decode and belong to `audit`, which exports the **same folder-relative path**. Run both and join them on that one column:
 
-    $ spektra inventory Music --csv > library.csv
-    $ spektra audit Music --csv > verdicts.csv
+    $ spektra-cli inventory Music --csv > library.csv
+    $ spektra-cli audit Music --csv > verdicts.csv
 
 Give exactly one folder. The path in each row is relative to it, so two folders in one run would let two different files share a path string and collide in that join.
 
@@ -133,7 +133,7 @@ Add `--csv` or `--json` for the machine-readable form; the columns are `Path, Na
 
 ## loudness: LUFS, true peak, dynamics
 
-    $ spektra loudness master.flac
+    $ spektra-cli loudness master.flac
     master.flac
       -9.8 LUFS integrated, LRA 4.2 LU, true peak -0.1 dBTP, crest 9.6 dB.
 
@@ -141,7 +141,7 @@ Add `--csv` or `--json` for the machine-readable form; the columns are `Path, Na
 
 Aligns the files automatically (cross-correlation, like the desktop app's Auto button), runs a spectral diff and a time-domain null test over their overlapping span, and turns the result into a SAME / DIFFERS verdict:
 
-    $ spektra diff track.wav track-copy.wav
+    $ spektra-cli diff track.wav track-copy.wav
     A: track.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
     B: track-copy.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
     Aligned +0 ms (confidence 1.00) · overlap 0:03
@@ -149,7 +149,7 @@ Aligns the files automatically (cross-correlation, like the desktop app's Auto b
     Null:     Perfect null: identical samples over this span.
     SAME      perfect null (identical samples)
 
-    $ spektra diff track.wav track-128k.mp3
+    $ spektra-cli diff track.wav track-128k.mp3
     A: track.wav - PCM_S16LE · 44.1 kHz · 16-bit · 2 ch · 0:03 · 1411 kbps
     B: track-128k.mp3 - MP3 · 44.1 kHz · 2 ch · 0:03 · 128 kbps
     Aligned +0 ms (confidence 1.00) · overlap 0:03
@@ -163,12 +163,12 @@ Aligns the files automatically (cross-correlation, like the desktop app's Auto b
 
 ```
 # gate a release: the remaster must be transparent against the approved master
-spektra diff approved.flac remaster.flac --threshold-db 60 || exit 1
+spektra-cli diff approved.flac remaster.flac --threshold-db 60 || exit 1
 ```
 
 ## image: spectrogram PNG without a window
 
-    $ spektra image rip.flac
+    $ spektra-cli image rip.flac
     Wrote rip.png (2048x1025)
 
 Renders the whole file's spectrogram headlessly: one pixel per analysis cell, low frequencies at the bottom, colormapped exactly like the desktop app. The image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
@@ -197,24 +197,24 @@ or stops that pin a color to a position (`at`, 0..1 of the display range) or to 
 
 Add `--json` or `--csv` to any command:
 
-    spektra scan Music --csv > library.csv
-    spektra audit Music --json | jq '.[] | select(.bandwidth != "Lossless")'
+    spektra-cli scan Music --csv > library.csv
+    spektra-cli audit Music --json | jq '.[] | select(.bandwidth != "Lossless")'
 
 The columns are stable, ordered rows (`file, codec, sampleRateHz, …`); the same schema the desktop app writes from **File → Export Report…**.
 
 ## Scripting examples
 
     # fail a CI step if a release folder contains transcodes or upsamples
-    spektra scan release-audio || exit 1
+    spektra-cli scan release-audio || exit 1
 
     # find every problem file in a library, 4 workers
-    spektra audit Music -j 4 --csv > audit.csv
+    spektra-cli audit Music -j 4 --csv > audit.csv
 
     # verify a purchase really is lossless before archiving it
-    spektra report "purchase.flac" && cp "purchase.flac" archive/
+    spektra-cli report "purchase.flac" && cp "purchase.flac" archive/
 
     # is the "remaster" the same recording as my old rip? (exit 0 = effectively identical)
-    spektra diff my-rip.flac remaster.flac
+    spektra-cli diff my-rip.flac remaster.flac
 
     # spectrogram PNG next to every file in an album folder
-    for f in Album/*.flac; do spektra image "$f"; done
+    for f in Album/*.flac; do spektra-cli image "$f"; done

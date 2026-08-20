@@ -181,6 +181,45 @@ public class InstallerOptionsPageTests
                 "install adds nothing to the shell.");
     }
 
+    // The PATH option adds the install FOLDER, so what is in that folder decides
+    // what the option actually delivers. Before the CLI was installed there, it
+    // put only the app on PATH under the name "spektra", and every command-line
+    // example in the docs opened a window and printed nothing. Nothing else
+    // would notice the component going missing until a user typed spektra-cli
+    // and got "command not found".
+    [Test]
+    public async Task CommandLineTool_IsInstalledBesideTheApp_AndNotAsASecondSpektra()
+    {
+        var doc = ReadWxs();
+        var files = doc.Descendants(Wxs + "File")
+            .Select(f => (string?)f.Attribute("Source") ?? "")
+            .ToList();
+
+        await Assert.That(files.Any(s => s.EndsWith("spektra-cli.exe", StringComparison.OrdinalIgnoreCase)))
+            .IsTrue()
+            .Because("the installer must carry the console tool, or the Add to PATH option " +
+                     "delivers only the app and the documented CLI commands open a window.");
+
+        // Both binaries live in INSTALLFOLDER, the directory the PATH entry adds,
+        // so one checkbox covers both.
+        var installed = doc.Descendants(Wxs + "Component")
+            .Where(c => c.Elements(Wxs + "File").Any())
+            .Select(c => (string?)c.Attribute("Directory") ?? "")
+            .Distinct()
+            .ToList();
+        await Assert.That(installed).IsEquivalentTo(new[] { "INSTALLFOLDER" });
+
+        // They must not both be named "spektra": the app takes the dupes and
+        // manifest switches as launch arguments, so one command line would mean
+        // two different things depending on which one PATH resolved to.
+        var names = doc.Descendants(Wxs + "File")
+            .Select(f => (string?)f.Attribute("Name")
+                         ?? Path.GetFileName((string?)f.Attribute("Source") ?? ""))
+            .ToList();
+        await Assert.That(names.Distinct().Count()).IsEqualTo(names.Count)
+            .Because($"two installed files would share a name: [{string.Join(", ", names)}].");
+    }
+
     private static IReadOnlyList<string> CheckBoxProperties(XDocument doc) =>
         OptionsPage(doc).Descendants(Wxs + "Control")
             .Where(c => (string?)c.Attribute("Type") == "CheckBox")

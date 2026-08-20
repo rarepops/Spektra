@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>spektra</AssemblyName>
+    <AssemblyName>spektra-cli</AssemblyName>
     <RootNamespace>Spektra.Cli</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
