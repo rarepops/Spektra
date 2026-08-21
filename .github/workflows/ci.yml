@@ -22,8 +22,41 @@ jobs:
       - name: Verify formatting
         run: dotnet format Spektra.slnx --verify-no-changes
 
+      # ffmpeg comes from the repo's own pinned fetcher rather than a package
+      # feed. On 2026-08-21 community.chocolatey.org answered package queries
+      # with 503, `choco install` exited 0 having installed 0/0 packages, and
+      # this step passed anyway; the suite then failed 70 tests at once with
+      # NullReferenceException deep inside FolderAudit, because the fixtures
+      # write `FfmpegLocator.Locate([])!` and the `!` only silences the
+      # compiler. Pinning also means CI decodes with the exact build the in-app
+      # downloader ships, instead of whatever version a feed carries today.
+      - name: Cache ffmpeg
+        id: ffmpeg
+        uses: actions/cache@v6
+        with:
+          path: ~/AppData/Local/Spektra/ffmpeg
+          # Re-pinning edits that script, which retires the cache entry.
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('tools/get-ffmpeg.ps1') }}
+
       - name: Install ffmpeg
-        run: choco install ffmpeg -y --no-progress
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./tools/get-ffmpeg.ps1
+
+      - name: Put ffmpeg on PATH
+        shell: pwsh
+        run: |
+          # Fail here, with the reason, rather than let a missing binary reach
+          # the suite and be reported as dozens of null references.
+          $dir = "$env:LOCALAPPDATA\Spektra\ffmpeg"
+          foreach ($exe in 'ffmpeg.exe', 'ffprobe.exe') {
+            if (-not (Test-Path "$dir\$exe")) {
+              throw "$exe is missing from $dir, so the tests would decode nothing."
+            }
+          }
+          "$dir" >> $env:GITHUB_PATH
+          $banner = & "$dir\ffprobe.exe" -version
+          Write-Host $banner[0]
 
       - name: Build
         run: dotnet build Spektra.slnx -c Release --nologo
