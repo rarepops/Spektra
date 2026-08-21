@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.20.0] - 2026-08-21
 
 ### Added
 - `spektra inventory <folder>`, a machine-readable picture of a whole library: one row per file with its tags, its stream facts, and whether it carries embedded cover art. It exists so another program can do the librarian work Spektra deliberately does not, such as renaming from tags or finding albums with no artwork, without running its own probe across thousands of files. Nothing is decoded, so it runs in seconds whatever the size of the library. Files that are not audio get rows too, which is how a folder's `cover.jpg` turns up beside the tracks and one export answers both "does this track have a thumbnail" and "does this album have artwork on disk". Tags are normalized rather than passed through, because taggers disagree: `5/12` becomes a track and a total, the separate Vorbis `TOTALTRACKS` fills the total when the slash form is absent, any date shape becomes a plain year, and a tag that is present but blank reads as absent. Bandwidth and integrity verdicts are deliberately absent, since those need a full decode; `spektra audit` still has them and exports the same folder-relative path, so the two files join on one column.
@@ -444,7 +444,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/rarepops/Spektra/releases/tag/v0.20.0
+[0.19.0]: https://github.com/rarepops/Spektra/releases/tag/v0.19.0
 [0.18.1]: https://github.com/rarepops/Spektra/releases/tag/v0.18.1
 [0.18.0]: https://github.com/rarepops/Spektra/releases/tag/v0.18.0
 [0.17.0]: https://github.com/rarepops/Spektra/releases/tag/v0.17.0
