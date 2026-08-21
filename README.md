@@ -57,7 +57,7 @@ Duplicate Detective matches by acoustic fingerprint, so the same song is found a
 
 <p align="center">
   <img src="assets/shot-duplicates.png" width="900"
-       alt="The Duplicate Detective window listing groups of duplicate tracks found across FLAC and MP3 copies of the same album, each group starring the better copy and explaining in words which one won and why." />
+       alt="The Duplicate Detective window listing groups of duplicate tracks found across FLAC and MP3 copies of the same album, each group starring the better copy and explaining in words which one won and why, with an unticked Only differences checkbox beside the filter box." />
 </p>
 
 Compare two encodes on a shared time axis, aligned automatically, with a signed A minus B difference view showing exactly what the smaller file threw away.
