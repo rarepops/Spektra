@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using Spektra.Core;
 
 namespace Spektra.App;
 
@@ -53,27 +54,37 @@ public partial class MainWindow
         }
     }
 
-    private async Task ShowOpenDialogAsync()
+    /// The patterns every picker here offers. Shared so Open and Compare
+    /// cannot drift apart on which extensions they admit.
+    private static IReadOnlyList<FilePickerFileType> AudioFileTypes =>
+    [
+        new FilePickerFileType("Audio")
+        {
+            Patterns =
+            [
+                "*.flac", "*.mp3", "*.wav", "*.ogg", "*.opus", "*.m4a",
+                "*.aac", "*.wma", "*.ape", "*.wv", "*.aiff", "*.alac",
+            ],
+        },
+        new FilePickerFileType("All files") { Patterns = ["*"] },
+    ];
+
+    /// Picked entries that are real files on this machine: a picker can hand
+    /// back cloud items with no local path, and those cannot be decoded.
+    private async Task<List<string>> PickAudioAsync(string title, bool multiple)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Open audio files",
-            AllowMultiple = true,
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Audio")
-                {
-                    Patterns =
-                    [
-                        "*.flac", "*.mp3", "*.wav", "*.ogg", "*.opus", "*.m4a",
-                        "*.aac", "*.wma", "*.ape", "*.wv", "*.aiff", "*.alac",
-                    ],
-                },
-                new FilePickerFileType("All files") { Patterns = ["*"] },
-            ],
+            Title = title,
+            AllowMultiple = multiple,
+            FileTypeFilter = [.. AudioFileTypes],
         });
-        var paths = files.Select(f => f.TryGetLocalPath())
-            .Where(p => p is not null).Cast<string>().ToList();
+        return [.. files.Select(f => f.TryGetLocalPath()).Where(p => p is not null).Cast<string>()];
+    }
+
+    private async Task ShowOpenDialogAsync()
+    {
+        var paths = await PickAudioAsync("Open audio files", multiple: true);
         if (paths.Count > 0) _vm.OpenFiles(paths);
     }
 
@@ -93,18 +104,75 @@ public partial class MainWindow
 
     private async void OnCompareClicked(object? sender, RoutedEventArgs e) => await CompareViaDialogAsync();
 
+    private const string PickTwoDifferent = "Choose two different files to compare.";
+
+    /// With two or more documents open, choosing between them beats finding
+    /// them on disk again. With fewer, this used to refuse the click and write
+    /// "Open at least two files to compare" to an 11px status line, while the
+    /// menu item stayed enabled and kept an ellipsis that promises a dialog. It
+    /// picks the pair from disk instead. Comparing files that are not open as
+    /// tabs is what --compare has always done from the command line; only this
+    /// entry point insisted otherwise.
     private async Task CompareViaDialogAsync()
     {
-        var docs = _vm.OpenDocuments;
-        if (docs.Count < 2)
+        if (_dialogOpen) return;
+        _dialogOpen = true;
+        try
         {
-            _vm.SetErrorStatus("Open at least two files to compare.");
-            return;
+            var docs = _vm.OpenDocuments;
+            if (docs.Count >= 2) await CompareOpenDocumentsAsync(docs);
+            else await CompareFromDiskAsync();
         }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
+
+    private async Task CompareOpenDocumentsAsync(IReadOnlyList<DocumentViewModel> docs)
+    {
         var chooser = new CompareChooser(docs);
         await chooser.ShowDialog(this);
-        if (chooser.Result is { } c && !ReferenceEquals(c.A, c.B))
-            _vm.OpenComparison(c.A.FilePath, c.B.FilePath);
+        if (chooser.Result is not { } c) return;
+        // One file on both sides was a silent no-op, which is the same
+        // complaint as above: a dialog dismissed with nothing to show for it.
+        if (ReferenceEquals(c.A, c.B)) { _vm.SetErrorStatus(PickTwoDifferent); return; }
+        Compare(c.A.FilePath, c.B.FilePath);
+    }
+
+    private async Task CompareFromDiskAsync()
+    {
+        var picked = await PickAudioAsync("Choose two files to compare", multiple: true);
+        switch (ComparePick.Decide(picked))
+        {
+            case ComparePick.Outcome.Cancelled: return;
+            case ComparePick.Outcome.Compare: Compare(picked[0], picked[1]); return;
+            case ComparePick.Outcome.SameFileTwice: _vm.SetErrorStatus(PickTwoDifferent); return;
+            case ComparePick.Outcome.TooMany:
+                _vm.SetErrorStatus($"Compare takes two files; {picked.Count} were chosen.");
+                return;
+        }
+
+        // One file: ask for its partner. Clicking a single file and pressing
+        // Open is a fair reading of "choose two files", so answer the half that
+        // is missing rather than rejecting the half that arrived.
+        var partner = await PickAudioAsync(
+            $"Compare {System.IO.Path.GetFileName(picked[0])} with…", multiple: false);
+        if (partner.Count == 0) return;
+        if (ComparePick.Decide([picked[0], partner[0]]) is ComparePick.Outcome.SameFileTwice)
+        {
+            _vm.SetErrorStatus(PickTwoDifferent);
+            return;
+        }
+        Compare(picked[0], partner[0]);
+    }
+
+    /// OpenComparison returns null when ffmpeg has not been found, which would
+    /// otherwise be one more silent no-op behind this menu item.
+    private void Compare(string pathA, string pathB)
+    {
+        if (_vm.OpenComparison(pathA, pathB) is null)
+            _vm.SetErrorStatus("Compare needs ffmpeg; use the Download ffmpeg button above.");
     }
 
     private async void OnAutoAlignClicked(object? sender, RoutedEventArgs e)

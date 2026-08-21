@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- File > Compare… works with nothing open. It used to insist that two files already be open as tabs, and refuse otherwise by writing one line to the status bar at the foot of the window, a long way from the menu that was just clicked. The item stayed enabled while doing so, in a menu where every other conditional command dims, and it kept the ellipsis that everywhere else means "this opens a dialog". It now opens one. Two files chosen there are compared without being opened as tabs first, which is what the `--compare` switch has always done from the command line; only this entry point insisted otherwise. Choosing a single file asks what to compare it with rather than refusing, since clicking one file and pressing Open is a fair reading of "choose two files", and choosing more than two says so instead of quietly comparing a pair you never named. With two or more files already open the existing chooser still appears, because picking from a list beats finding them on disk again.
+
 ## [0.20.0] - 2026-08-21
 
 ### Added
