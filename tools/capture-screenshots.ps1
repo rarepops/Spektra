@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Captures the four README screenshots from a running Spektra.
+Captures the README screenshots from a running Spektra.
 
 .DESCRIPTION
 Drives the app into each state and photographs its window. Every state is
@@ -23,15 +23,32 @@ The spektra.exe to photograph. Defaults to the installed one.
 
 .PARAMETER OutDir
 Where the PNGs go. Defaults to the repo's assets folder.
+
+.PARAMETER Shots
+Which shots to take, named by their file name without the "shot-" prefix and
+the extension. Defaults to all four. Regenerating one stale shot is the usual
+reason to run this, and taking all four rewrites about 3 MB of PNG that nobody
+asked to change: a re-encode differs in bytes even where it matches in pixels,
+so the repo carries the churn either way.
 #>
 [CmdletBinding()]
 param(
   [string]$Library = "D:\SpektraDemo\Spektra Demo Library",
   [string]$Exe     = "C:\Program Files\Spektra\spektra.exe",
-  [string]$OutDir  = (Join-Path $PSScriptRoot "..\assets")
+  [string]$OutDir,
+  [ValidateSet("spectrogram", "folder-audit", "duplicates", "compare")]
+  [string[]]$Shots = @("spectrogram", "folder-audit", "duplicates", "compare")
 )
 
 $ErrorActionPreference = "Stop"
+
+# The assets default cannot live in the param block. Under [CmdletBinding()]
+# the binder evaluates parameter defaults before $PSScriptRoot is populated, so
+# invoking this with `powershell -File` died on an empty path, while the same
+# script run from a PowerShell prompt worked. Both were verified, as was
+# $PSScriptRoot being fine here in the body. It only bites a non-interactive
+# caller, which is exactly the one that cannot see the error and retry by hand.
+if (-not $OutDir) { $OutDir = (Join-Path $PSScriptRoot "..\assets") }
 
 if (-not (Test-Path $Exe))     { throw "spektra.exe not found at $Exe" }
 if (-not (Test-Path $Library)) { throw "demo library not found at $Library (run make-demo-library.ps1)" }
@@ -173,6 +190,8 @@ public class SpektraCap {
 # while 1080 leaves a band of empty grid under the last one.
 $WIDTH = 1920; $HEIGHT = 1000
 
+function Test-Wanted { param([string]$Name) $Shots -contains $Name }
+
 function Stop-Spektra {
   Get-Process spektra -ErrorAction SilentlyContinue | ForEach-Object {
     $_.Kill(); $_.WaitForExit(5000) | Out-Null
@@ -237,23 +256,31 @@ $hero    = Join-Path $flac "03 - Nightfall.flac"
 $cmpA    = Join-Path $flac "01 - Ascent.flac"
 $cmpB    = Join-Path $mp3  "01 - Ascent.mp3"
 
-# Warm the audit cache before anything is photographed. The folder tab shows
+# Warm the audit cache before anything is photographed. Only the folder audit
+# reads it; every other shot renders what it works out for itself, so a subset
+# that leaves that shot out skips this minute entirely. The folder tab shows
 # verdicts it already knows and analyses nothing by itself, so with a cold cache
 # its grid comes out empty. A Duplicate Detective scan writes bandwidth and
-# integrity results into the same store, so this one throwaway pass is enough
-# and needs no separate CLI (the MSI puts the GUI on PATH as `spektra`, not a
-# command-line build).
-Write-Host "Warming the audit cache..." -ForegroundColor Cyan
-$warm = Start-Shot -SpektraArgs @("--dupes", "`"$Library`"") -SettleSeconds 50
-Stop-Spektra
+# integrity results into the same store, so this one throwaway pass is enough.
+# Since 0.20.0 the MSI installs spektra-cli beside the app, and it opens the
+# same cache (AuditCache.TryOpen with no path, in both), so a headless warm-up
+# is now possible; this stays on the GUI so a capture needs one binary, not two
+# that have to agree.
+if (Test-Wanted "folder-audit") {
+  Write-Host "Warming the audit cache..." -ForegroundColor Cyan
+  $warm = Start-Shot -SpektraArgs @("--dupes", "`"$Library`"") -SettleSeconds 50
+  Stop-Spektra
+}
 
 Write-Host "Capturing..." -ForegroundColor Cyan
 
 # 1. Hero. The transcode rather than a clean file: a "Lossless" banner
 #    demonstrates nothing, while this one names the problem and the spectrogram
 #    behind it shows the very wall the banner is describing.
-$s = Start-Shot -SpektraArgs @("`"$hero`"") -SettleSeconds 12
-Save-Shot -Handle $s.Handle -Name "shot-spectrogram.png"
+if (Test-Wanted "spectrogram") {
+  $s = Start-Shot -SpektraArgs @("`"$hero`"") -SettleSeconds 12
+  Save-Shot -Handle $s.Handle -Name "shot-spectrogram.png"
+}
 
 # 2. Folder audit. No input needed: a folder tab fills its grid from the audit
 #    cache on open, which the warm-up above populated. This replaced an attempt
@@ -262,32 +289,38 @@ Save-Shot -Handle $s.Handle -Name "shot-spectrogram.png"
 #    quietly changed the FFT size), and the shots that looked correct were
 #    reading a cache warmed earlier by hand. Renaming the library invalidated
 #    those cache entries and exposed it as an empty grid.
-$s = Start-Shot -SpektraArgs @("`"$Library`"") -SettleSeconds 14
-Save-Shot -Handle $s.Handle -Name "shot-folder-audit.png"
+if (Test-Wanted "folder-audit") {
+  $s = Start-Shot -SpektraArgs @("`"$Library`"") -SettleSeconds 14
+  Save-Shot -Handle $s.Handle -Name "shot-folder-audit.png"
+}
 
 # 3. Duplicate Detective. EnsureDupesWindow(root) scans immediately, so the only
 #    wait is the scan itself. The window we want is the dupes one, and
 #    MainWindowHandle would hand back the main window instead.
-$s = Start-Shot -SpektraArgs @("--dupes", "`"$Library`"") -SettleSeconds 45
-$dupes = [IntPtr]::Zero
-foreach ($w in [SpektraCap]::WindowsOf($s.Proc.Id)) {
-  $parts = $w.Split("|", 2)
-  Write-Host "    window: $($parts[1])"
-  if ($parts[1] -like "*Duplicate Detective*") { $dupes = [IntPtr][int64]$parts[0] }
+if (Test-Wanted "duplicates") {
+  $s = Start-Shot -SpektraArgs @("--dupes", "`"$Library`"") -SettleSeconds 45
+  $dupes = [IntPtr]::Zero
+  foreach ($w in [SpektraCap]::WindowsOf($s.Proc.Id)) {
+    $parts = $w.Split("|", 2)
+    Write-Host "    window: $($parts[1])"
+    if ($parts[1] -like "*Duplicate Detective*") { $dupes = [IntPtr][int64]$parts[0] }
+  }
+  if ($dupes -eq [IntPtr]::Zero) { throw "Duplicate Detective window not found" }
+  [SpektraCap]::SetWindowPos($dupes, [IntPtr]::Zero, 60, 40, $WIDTH, $HEIGHT, 0x0040) | Out-Null
+  [SpektraCap]::Focus($dupes) | Out-Null
+  Start-Sleep -Seconds 3
+  Save-Shot -Handle $dupes -Name "shot-duplicates.png"
 }
-if ($dupes -eq [IntPtr]::Zero) { throw "Duplicate Detective window not found" }
-[SpektraCap]::SetWindowPos($dupes, [IntPtr]::Zero, 60, 40, $WIDTH, $HEIGHT, 0x0040) | Out-Null
-[SpektraCap]::Focus($dupes) | Out-Null
-Start-Sleep -Seconds 3
-Save-Shot -Handle $dupes -Name "shot-duplicates.png"
 
 # 4. Compare. Fully described by the command line: align and mode both ride in.
-$s = Start-Shot -SpektraArgs @("--compare", "`"$cmpA`"", "`"$cmpB`"", "--auto", "--mode", "diff") -SettleSeconds 20
-Save-Shot -Handle $s.Handle -Name "shot-compare.png"
+if (Test-Wanted "compare") {
+  $s = Start-Shot -SpektraArgs @("--compare", "`"$cmpA`"", "`"$cmpB`"", "--auto", "--mode", "diff") -SettleSeconds 20
+  Save-Shot -Handle $s.Handle -Name "shot-compare.png"
+}
 
 Stop-Spektra
 Write-Host ""
-Write-Host "Wrote 4 PNGs to $OutDir" -ForegroundColor Green
+Write-Host "Wrote $($Shots.Count) PNG(s) to $OutDir" -ForegroundColor Green
 Write-Host "Now open them: check each is fully drawn and shows no username in any path." -ForegroundColor Yellow
 
 }
