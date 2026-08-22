@@ -271,14 +271,23 @@ public partial class MainWindow
     /// Opens or focuses the one Duplicate Detective window. With a root given
     /// (the --dupes launch switch) that folder becomes the only scan root and
     /// the scan starts immediately, which is what the Explorer verb promises.
-    private void EnsureDupesWindow(string? root = null)
+    private void EnsureDupesWindow(string? root = null) =>
+        ShowDupesWindow(root is null ? null : vm => vm.SetSingleRoot(root));
+
+    /// The --diff launch switch: two roots and the diff already on.
+    private void EnsureDupesWindow(DiffPair pair) =>
+        ShowDupesWindow(vm => vm.SetDiffRoots(pair.FolderA, pair.FolderB));
+
+    /// Seeds the roots and starts the scan when a launch switch named one; a
+    /// null seed just opens the window on whatever roots were remembered.
+    private void ShowDupesWindow(Action<DuplicatesViewModel>? seed)
     {
         if (_dupesWindow is not null)
         {
             _dupesWindow.Activate();
-            if (root is not null && _dupesVm is { } existingVm)
+            if (seed is not null && _dupesVm is { } existingVm)
             {
-                existingVm.SetSingleRoot(root);
+                seed(existingVm);
                 _ = existingVm.ScanAsync();
             }
             return;
@@ -299,9 +308,9 @@ public partial class MainWindow
         _dupesWindow = new DuplicatesWindow(vm, _vm.Settings);
         _dupesWindow.Closed += (_, _) => { _dupesWindow = null; _dupesVm = null; };
         _dupesWindow.Show(this);
-        if (root is not null)
+        if (seed is not null)
         {
-            vm.SetSingleRoot(root);
+            seed(vm);
             _ = vm.ScanAsync();
         }
     }

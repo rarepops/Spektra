@@ -294,6 +294,25 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         RaisePropertyChanged(nameof(CanScan));
     }
 
+    /// The --diff launch switch: exactly these two folders, with the diff
+    /// already showing. Roots are not persisted here for the same reason
+    /// SetSingleRoot does not persist them: a one-off launch must leave the
+    /// saved root list alone. Turning the filter on before the scan is safe
+    /// because ScanAsync ends in ApplyGroupFilter, so the columns are built the
+    /// moment results land.
+    public void SetDiffRoots(string folderA, string folderB)
+    {
+        if (IsScanning) { SetError(ScanBusyNote); return; }
+        Roots.Clear();
+        Roots.Add(folderA);
+        // Two spellings of one folder is one root, matching AddRoot. The result
+        // is a single column, which shows the mistake instead of hiding it.
+        if (!string.Equals(folderA, folderB, StringComparison.OrdinalIgnoreCase))
+            Roots.Add(folderB);
+        OnlyDifferences = true;
+        RaisePropertyChanged(nameof(CanScan));
+    }
+
     /// Add a pasted or typed path. The picker and drag-drop always hand back
     /// real folders, but typed text can be wrong, so check it exists first.
     /// Windows "Copy as path" wraps the path in quotes, so strip those too.

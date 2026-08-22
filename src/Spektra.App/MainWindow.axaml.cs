@@ -72,7 +72,11 @@ public partial class MainWindow : Window
         // Parse's compare path returns early, so DupesRoot/ManifestRoot are
         // structurally impossible alongside a Compare; these run only when
         // the block above did not already return.
-        if (request.DupesRoot is { } dupesRoot) EnsureDupesWindow(dupesRoot);
+        // Both target the one Duplicate Detective window, so a command line
+        // naming each would have the second silently overwrite the first.
+        // --diff wins as the more specific request.
+        if (request.Diff is { } diff) EnsureDupesWindow(diff);
+        else if (request.DupesRoot is { } dupesRoot) EnsureDupesWindow(dupesRoot);
         if (request.ManifestRoot is { } manifestRoot) EnsureManifestWindow(manifestRoot);
 
         if (request.Files.Count > 0) _vm.OpenFiles(request.Files);

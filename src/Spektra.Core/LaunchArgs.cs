@@ -3,6 +3,11 @@ namespace Spektra.Core;
 /// One `--compare a b` request, with its optional view flags.
 public sealed record ComparePair(string PathA, string PathB, bool AutoAlign, string? Mode);
 
+/// One `--diff a b` request: two folders to open as a folder diff. Two roots
+/// rather than one is the whole point, since a diff draws a column per root,
+/// which is why this cannot ride on --dupes.
+public sealed record DiffPair(string FolderA, string FolderB);
+
 /// What a command line asked the GUI to open. Bare means "nothing targeted",
 /// which is the only case that restores the previous session's tabs.
 public sealed record LaunchRequest(
@@ -10,11 +15,12 @@ public sealed record LaunchRequest(
     IReadOnlyList<string> Folders,
     ComparePair? Compare,
     string? DupesRoot,
-    string? ManifestRoot)
+    string? ManifestRoot,
+    DiffPair? Diff = null)
 {
     public bool IsBare =>
         Files.Count == 0 && Folders.Count == 0
-        && Compare is null && DupesRoot is null && ManifestRoot is null;
+        && Compare is null && DupesRoot is null && ManifestRoot is null && Diff is null;
 }
 
 /// Parses the GUI's command line. Pure: the two existence predicates are
@@ -34,6 +40,7 @@ public static class LaunchArgs
         var isDir = dirExists ?? Directory.Exists;
 
         ComparePair? compare = null;
+        DiffPair? diff = null;
         string? dupesRoot = null;
         string? manifestRoot = null;
         var files = new List<string>();
@@ -62,12 +69,24 @@ public static class LaunchArgs
                 manifestRoot = TakeFolder(args, ref i, isDir) ?? manifestRoot;
                 continue;
             }
+            if (string.Equals(arg, "--diff", StringComparison.Ordinal))
+            {
+                // Both folders or neither. Half a diff is not a diff, and
+                // quietly demoting it to a one-root scan would answer a
+                // question nobody asked. TakeFolder leaves a "--" candidate
+                // alone, so a following switch is still read as a switch
+                // rather than swallowed into the second slot.
+                var first = TakeFolder(args, ref i, isDir);
+                var second = TakeFolder(args, ref i, isDir);
+                if (first is not null && second is not null) diff = new DiffPair(first, second);
+                continue;
+            }
             if (isFile(arg)) files.Add(arg);
             else if (isDir(arg)) folders.Add(arg);
             // Anything else (unknown flags, vanished paths) is dropped.
         }
 
-        return new LaunchRequest(files, folders, compare, dupesRoot, manifestRoot);
+        return new LaunchRequest(files, folders, compare, dupesRoot, manifestRoot, diff);
     }
 
     /// Consumes the argument after a switch when it is a real folder. The index

@@ -5,7 +5,7 @@ Captures the README screenshots from a running Spektra.
 .DESCRIPTION
 Drives the app into each state and photographs its window. Every state is
 reachable straight from the command line, because LaunchArgs already understands
---dupes, --manifest and --compare; no input is synthesised at all. The folder
+--dupes, --diff, --manifest and --compare; no input is synthesised at all. The folder
 audit needs only a warm cache, since a folder tab renders the verdicts it
 already knows the moment it opens.
 

@@ -90,6 +90,7 @@ The same things work from a command line or a shortcut:
     spektra "song.flac" "other.flac"          # one tab each
     spektra "D:\Music\Albums"                 # browse and audit a folder
     spektra --dupes "D:\Music\Albums"         # Duplicate Detective on a folder
+    spektra --diff "D:\Music\A" "D:\Music\B"  # two folders as a folder diff
     spektra --manifest "D:\Music\Albums"      # Folder Manifest on a folder
     spektra --compare a.flac b.flac --auto --mode diff
 

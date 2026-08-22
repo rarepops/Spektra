@@ -123,6 +123,43 @@ public class LaunchArgsTests
         await Assert.That(Parse("--dupes").IsBare).IsTrue();
     }
 
+    // --diff exists because the folder diff was the one documented view with no
+    // way in from a command line: --compare deep-links a file comparison and
+    // --dupes a scan, but a diff needs TWO roots and --dupes takes exactly one
+    // (SetSingleRoot clears the list before adding). That made the view
+    // unreachable for tools/capture-screenshots.ps1, which is why the README
+    // has no picture of it.
+    [Test]
+    public async Task Diff_TakesTwoFolders()
+    {
+        var r = Parse("--diff", "D:\\Music\\A", "D:\\Music\\B");
+        await Assert.That(r.Diff).IsEqualTo(new DiffPair("D:\\Music\\A", "D:\\Music\\B"));
+        await Assert.That(r.Folders.Count).IsEqualTo(0); // both consumed by the switch
+        await Assert.That(r.IsBare).IsFalse();
+    }
+
+    [Test]
+    public async Task DiffWithOnlyOneUsableFolder_IsDroppedWhole()
+    {
+        // Half a diff is not a diff, and quietly demoting it to a single-root
+        // scan would answer a question nobody asked.
+        await Assert.That(Parse("--diff", "D:\\Music\\A").Diff).IsNull();
+        await Assert.That(Parse("--diff", "D:\\Music\\A", "D:\\Nope").Diff).IsNull();
+        await Assert.That(Parse("--diff", "D:\\Nope", "D:\\Music\\B").Diff).IsNull();
+        await Assert.That(Parse("--diff").Diff).IsNull();
+        await Assert.That(Parse("--diff").IsBare).IsTrue();
+    }
+
+    [Test]
+    public async Task DiffDoesNotSwallowAFollowingSwitch()
+    {
+        // TakeFolder leaves a "--" candidate alone so it is re-read as a flag.
+        // Without that, --dupes here would vanish into the diff's second slot.
+        var r = Parse("--diff", "D:\\Music\\A", "--dupes", "D:\\Music\\B");
+        await Assert.That(r.Diff).IsNull();
+        await Assert.That(r.DupesRoot).IsEqualTo("D:\\Music\\B");
+    }
+
     [Test]
     public async Task DupesAndManifestTogether_WithAFileAlongside()
     {
