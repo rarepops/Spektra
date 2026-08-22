@@ -163,154 +163,164 @@
     <!-- Splits the results from the footer, mirroring the top-bar divider. -->
     <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
-    <!-- The folder diff REPLACES the groups list rather than sitting above it:
-         showing both at once was the confusing part, because the same scan then
-         appears twice under two different questions. One column per scan root
-         so "what does this side have that the other does not" is read across,
-         with weak matches pinned underneath as the one thing a diff cannot
-         answer for you. -->
-    <Grid IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
-      <ItemsControl Grid.Row="0" ItemsSource="{Binding DiffColumns}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <UniformGrid Rows="1" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="app:DiffColumnItem">
-            <Border BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
-                    Margin="0,0,6,0" Padding="8,6">
-              <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Label}" Foreground="#DDDDDD"
-                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding Root}" />
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Summary}" Foreground="#999999"
-                           FontSize="12" Margin="0,1,0,6" />
-                <ScrollViewer>
-                  <ItemsControl ItemsSource="{Binding Files}">
+    <!-- Both result views live in one Panel because the root DockPanel fills
+         only its LAST child, and which child that is depends on document
+         order, not on which one is visible. Left as siblings, the group list
+         was last and always filled, while the diff fell through to Dock's
+         default of Left: its columns sized to their own content and pinned to
+         the left edge, leaving the rest of a wide window empty. Exactly one of
+         the two is ever visible, so overlaying them in a Panel is the honest
+         shape, and neither can strand the other by being declared first. -->
+    <Panel>
+      <!-- The folder diff REPLACES the groups list rather than sitting above it:
+           showing both at once was the confusing part, because the same scan then
+           appears twice under two different questions. One column per scan root
+           so "what does this side have that the other does not" is read across,
+           with weak matches pinned underneath as the one thing a diff cannot
+           answer for you. -->
+      <Grid IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
+        <ItemsControl Grid.Row="0" ItemsSource="{Binding DiffColumns}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:DiffColumnItem">
+              <Border BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
+                      Margin="0,0,6,0" Padding="8,6">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding Label}" Foreground="#DDDDDD"
+                             FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding Root}" />
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding Summary}" Foreground="#999999"
+                             FontSize="12" Margin="0,1,0,6" />
+                  <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Files}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="app:DiffFileItem">
+                          <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto"
+                                DoubleTapped="OnDiffFileDoubleTapped">
+                            <Grid.ContextMenu>
+                              <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
+                                <MenuItem Header="_Open spectrogram" Click="OnOpenDiffFileClicked" />
+                                <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+                                <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+                              </ContextMenu>
+                            </Grid.ContextMenu>
+                            <TextBlock Grid.Row="0" Text="{Binding Relative}" Foreground="#CCCCCC"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                            <TextBlock Grid.Row="1" Text="{Binding Facts}" Foreground="#888888" FontSize="12" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Weak matches: probably the same recording, but the evidence is thin,
+             so they are shown rather than hidden. This is the only place a diff
+             has to hand the judgement back. -->
+        <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
+                BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
+          <StackPanel>
+            <TextBlock Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
+                       Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
+            <ItemsControl ItemsSource="{Binding Groups}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="app:DupeGroupItem">
+                  <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <ScrollViewer IsVisible="{Binding !OnlyDifferences}">
+        <StackPanel>
+
+        <ItemsControl ItemsSource="{Binding Groups}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:DupeGroupItem">
+              <Expander IsExpanded="{Binding IsSmall}" Margin="0,3" HorizontalAlignment="Stretch"
+                        BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
+                <!-- Group-level verbs: right-click anywhere in the group box
+                     except the member rows, which carry their own menus
+                     (innermost menu wins). -->
+                <Expander.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Copy _loser paths" Click="OnCopyLosersClicked"
+                              IsEnabled="{Binding !!LoserPaths.Count}"
+                              ToolTip.Tip="Every copy except the winner, one path per line" />
+                    <MenuItem Header="Copy _all paths" Click="OnCopyGroupPathsClicked" />
+                  </ContextMenu>
+                </Expander.ContextMenu>
+                <Expander.Header>
+                  <TextBlock Text="{Binding Headline}" Foreground="#DDDDDD" />
+                </Expander.Header>
+                <StackPanel>
+                  <ItemsControl ItemsSource="{Binding Members}">
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="app:DiffFileItem">
-                        <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto"
-                              DoubleTapped="OnDiffFileDoubleTapped">
+                      <DataTemplate x:DataType="app:DupeMemberItem">
+                        <!-- One line per copy: the path fills the row and the
+                             verdict facts sit in fixed lanes, so they read as
+                             columns across every group. -->
+                        <Grid Classes="memberRow" ColumnDefinitions="18,12,*,60,110,64,76,104,96"
+                              Margin="4,2" DoubleTapped="OnMemberDoubleTapped"
+                              ToolTip.Tip="{Binding Path}">
                           <Grid.ContextMenu>
                             <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
-                              <MenuItem Header="_Open spectrogram" Click="OnOpenDiffFileClicked" />
+                              <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
+                              <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
+                                        IsEnabled="{Binding CanCompareWithWinner}"
+                                        ToolTip.Tip="Both copies side by side in the main window · the winner is A" />
+                              <Separator />
                               <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
                               <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
                             </ContextMenu>
                           </Grid.ContextMenu>
-                          <TextBlock Grid.Row="0" Text="{Binding Relative}" Foreground="#CCCCCC"
-                                     TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
-                          <TextBlock Grid.Row="1" Text="{Binding Facts}" Foreground="#888888" FontSize="12" />
+                          <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
+                                     VerticalAlignment="Center" IsVisible="{Binding IsWinner}"
+                                     ToolTip.Tip="The copy worth keeping" />
+                          <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
+                                   Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
+                          <TextBlock Grid.Column="2" Text="{Binding Path}" Margin="8,0,8,0"
+                                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="3" Text="{Binding Codec}" Foreground="#999999"
+                                     FontSize="12" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="4" Text="{Binding Bandwidth}" Foreground="#999999"
+                                     FontSize="12" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="5" Text="{Binding Integrity}"
+                                     Foreground="{Binding IntegrityBrush}" FontSize="12"
+                                     VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="6" Text="{Binding SizeText}" Foreground="#999999"
+                                     FontSize="12" TextAlignment="Right" Margin="0,0,16,0"
+                                     VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="7" Text="{Binding SamenessText}" Foreground="#999999"
+                                     FontSize="12" VerticalAlignment="Center" />
+                          <TextBlock Grid.Column="8" Text="found by audio" Foreground="#6FB3E8"
+                                     FontSize="12" VerticalAlignment="Center"
+                                     IsVisible="{Binding FoundByAudio}"
+                                     ToolTip.Tip="Matched by fingerprint despite an unrelated name" />
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </ScrollViewer>
-              </DockPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+                  <TextBlock Text="{Binding QualityLine}" Foreground="#999999" FontSize="12"
+                             Margin="34,2,0,4" />
+                </StackPanel>
+              </Expander>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
-      <!-- Weak matches: probably the same recording, but the evidence is thin,
-           so they are shown rather than hidden. This is the only place a diff
-           has to hand the judgement back. -->
-      <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
-              BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
-        <StackPanel>
-          <TextBlock Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
-                     Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
-          <ItemsControl ItemsSource="{Binding Groups}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="app:DupeGroupItem">
-                <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
         </StackPanel>
-      </Border>
-    </Grid>
-
-    <ScrollViewer IsVisible="{Binding !OnlyDifferences}">
-      <StackPanel>
-
-      <ItemsControl ItemsSource="{Binding Groups}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="app:DupeGroupItem">
-            <Expander IsExpanded="{Binding IsSmall}" Margin="0,3" HorizontalAlignment="Stretch"
-                      BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4">
-              <!-- Group-level verbs: right-click anywhere in the group box
-                   except the member rows, which carry their own menus
-                   (innermost menu wins). -->
-              <Expander.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="Copy _loser paths" Click="OnCopyLosersClicked"
-                            IsEnabled="{Binding !!LoserPaths.Count}"
-                            ToolTip.Tip="Every copy except the winner, one path per line" />
-                  <MenuItem Header="Copy _all paths" Click="OnCopyGroupPathsClicked" />
-                </ContextMenu>
-              </Expander.ContextMenu>
-              <Expander.Header>
-                <TextBlock Text="{Binding Headline}" Foreground="#DDDDDD" />
-              </Expander.Header>
-              <StackPanel>
-                <ItemsControl ItemsSource="{Binding Members}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="app:DupeMemberItem">
-                      <!-- One line per copy: the path fills the row and the
-                           verdict facts sit in fixed lanes, so they read as
-                           columns across every group. -->
-                      <Grid Classes="memberRow" ColumnDefinitions="18,12,*,60,110,64,76,104,96"
-                            Margin="4,2" DoubleTapped="OnMemberDoubleTapped"
-                            ToolTip.Tip="{Binding Path}">
-                        <Grid.ContextMenu>
-                          <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
-                            <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
-                            <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
-                                      IsEnabled="{Binding CanCompareWithWinner}"
-                                      ToolTip.Tip="Both copies side by side in the main window · the winner is A" />
-                            <Separator />
-                            <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
-                            <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
-                          </ContextMenu>
-                        </Grid.ContextMenu>
-                        <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
-                                   VerticalAlignment="Center" IsVisible="{Binding IsWinner}"
-                                   ToolTip.Tip="The copy worth keeping" />
-                        <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
-                                 Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
-                        <TextBlock Grid.Column="2" Text="{Binding Path}" Margin="8,0,8,0"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="3" Text="{Binding Codec}" Foreground="#999999"
-                                   FontSize="12" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="4" Text="{Binding Bandwidth}" Foreground="#999999"
-                                   FontSize="12" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="5" Text="{Binding Integrity}"
-                                   Foreground="{Binding IntegrityBrush}" FontSize="12"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="6" Text="{Binding SizeText}" Foreground="#999999"
-                                   FontSize="12" TextAlignment="Right" Margin="0,0,16,0"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="7" Text="{Binding SamenessText}" Foreground="#999999"
-                                   FontSize="12" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="8" Text="found by audio" Foreground="#6FB3E8"
-                                   FontSize="12" VerticalAlignment="Center"
-                                   IsVisible="{Binding FoundByAudio}"
-                                   ToolTip.Tip="Matched by fingerprint despite an unrelated name" />
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock Text="{Binding QualityLine}" Foreground="#999999" FontSize="12"
-                           Margin="34,2,0,4" />
-              </StackPanel>
-            </Expander>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-
-      </StackPanel>
-    </ScrollViewer>
+      </ScrollViewer>
+    </Panel>
   </DockPanel>
 </Window>
