@@ -53,11 +53,18 @@ Audit a whole library at once. The tree shows what is where, the grid streams a 
        alt="A folder tab auditing a library: album tree on the left with per-album problem counts, and a grid of thirteen files on the right carrying bandwidth verdict, cutoff, codec, bitrate, length and integrity. One row reads Upsampled, one Lossy, one Corrupt." />
 </p>
 
-Duplicate Detective matches by acoustic fingerprint, so the same song is found again across formats and filenames, with the best copy starred. Ticking Only differences turns the same scan into a folder diff: every track both folders hold disappears, and each folder gets a column listing only what is unique to it.
+Duplicate Detective matches by acoustic fingerprint, so the same song is found again across formats and filenames, with the best copy starred.
 
 <p align="center">
   <img src="assets/shot-duplicates.png" width="900"
        alt="The Duplicate Detective window listing groups of duplicate tracks found across FLAC and MP3 copies of the same album, each group starring the better copy and explaining in words which one won and why, with an unticked Only differences checkbox beside the filter box." />
+</p>
+
+Ticking Only differences turns the same scan into a folder diff. Every track the scan is confident both folders hold disappears, and each folder gets a column of what only it has, so two copies of a library answer "what is missing from which side" in one pass. A folder with nothing unique still gets a column saying so, because that is an answer too.
+
+<p align="center">
+  <img src="assets/shot-folder-diff.png" width="900"
+       alt="The Duplicate Detective window with Only differences ticked: the group list is replaced by two side-by-side columns, one per scanned folder. The FLAC folder lists the single track only it holds and the MP3 folder a different one, while the four tracks both folders share are hidden. The footer counts four the same, two in one folder only, and no weak matches." />
 </p>
 
 Compare two encodes on a shared time axis, aligned automatically, with a signed A minus B difference view showing exactly what the smaller file threw away.

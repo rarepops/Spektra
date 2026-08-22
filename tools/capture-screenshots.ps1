@@ -24,6 +24,10 @@ The spektra.exe to photograph. Defaults to the installed one.
 .PARAMETER OutDir
 Where the PNGs go. Defaults to the repo's assets folder.
 
+.PARAMETER DiffPair
+The two folders for the folder-diff shot. Defaults to the "Diff Demo" pair
+make-demo-library.ps1 writes beside the library.
+
 .PARAMETER Shots
 Which shots to take, named by their file name without the "shot-" prefix and
 the extension. Defaults to all four. Regenerating one stale shot is the usual
@@ -36,8 +40,9 @@ param(
   [string]$Library = "D:\SpektraDemo\Spektra Demo Library",
   [string]$Exe     = "C:\Program Files\Spektra\spektra.exe",
   [string]$OutDir,
-  [ValidateSet("spectrogram", "folder-audit", "duplicates", "compare")]
-  [string[]]$Shots = @("spectrogram", "folder-audit", "duplicates", "compare")
+  [string[]]$DiffPair,
+  [ValidateSet("spectrogram", "folder-audit", "duplicates", "compare", "folder-diff")]
+  [string[]]$Shots = @("spectrogram", "folder-audit", "duplicates", "compare", "folder-diff")
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +54,12 @@ $ErrorActionPreference = "Stop"
 # $PSScriptRoot being fine here in the body. It only bites a non-interactive
 # caller, which is exactly the one that cannot see the error and retry by hand.
 if (-not $OutDir) { $OutDir = (Join-Path $PSScriptRoot "..\assets") }
+# Derived from the library so a different -Library keeps its own pair, and in
+# the body for the same reason $OutDir is: see the note above.
+if (-not $DiffPair) {
+  $diffRoot = Join-Path (Split-Path $Library -Parent) "Diff Demo"
+  $DiffPair = @((Join-Path $diffRoot "Album [FLAC]"), (Join-Path $diffRoot "Album [MP3]"))
+}
 
 if (-not (Test-Path $Exe))     { throw "spektra.exe not found at $Exe" }
 if (-not (Test-Path $Library)) { throw "demo library not found at $Library (run make-demo-library.ps1)" }
@@ -218,6 +229,25 @@ function Start-Shot {
   @{ Proc = $p; Handle = $h }
 }
 
+# The Duplicate Detective window is a SECOND top-level window of the same
+# process, and Process.MainWindowHandle only ever reports the first. Sizing and
+# focusing happen here too, so both shots of this window agree on the framing.
+function Get-DupesWindow {
+  param($Proc)
+  foreach ($w in [SpektraCap]::WindowsOf($Proc.Id)) {
+    $parts = $w.Split("|", 2)
+    Write-Host "    window: $($parts[1])"
+    if ($parts[1] -like "*Duplicate Detective*") {
+      $h = [IntPtr][int64]$parts[0]
+      [SpektraCap]::SetWindowPos($h, [IntPtr]::Zero, 60, 40, $WIDTH, $HEIGHT, 0x0040) | Out-Null
+      [SpektraCap]::Focus($h) | Out-Null
+      Start-Sleep -Seconds 3
+      return $h
+    }
+  }
+  throw "Duplicate Detective window not found"
+}
+
 function Save-Shot {
   param([IntPtr]$Handle, [string]$Name)
   $r = New-Object SpektraCap+RECT
@@ -295,24 +325,23 @@ if (Test-Wanted "folder-audit") {
 }
 
 # 3. Duplicate Detective. EnsureDupesWindow(root) scans immediately, so the only
-#    wait is the scan itself. The window we want is the dupes one, and
-#    MainWindowHandle would hand back the main window instead.
+#    wait is the scan itself.
 if (Test-Wanted "duplicates") {
   $s = Start-Shot -SpektraArgs @("--dupes", "`"$Library`"") -SettleSeconds 45
-  $dupes = [IntPtr]::Zero
-  foreach ($w in [SpektraCap]::WindowsOf($s.Proc.Id)) {
-    $parts = $w.Split("|", 2)
-    Write-Host "    window: $($parts[1])"
-    if ($parts[1] -like "*Duplicate Detective*") { $dupes = [IntPtr][int64]$parts[0] }
-  }
-  if ($dupes -eq [IntPtr]::Zero) { throw "Duplicate Detective window not found" }
-  [SpektraCap]::SetWindowPos($dupes, [IntPtr]::Zero, 60, 40, $WIDTH, $HEIGHT, 0x0040) | Out-Null
-  [SpektraCap]::Focus($dupes) | Out-Null
-  Start-Sleep -Seconds 3
-  Save-Shot -Handle $dupes -Name "shot-duplicates.png"
+  Save-Shot -Handle (Get-DupesWindow $s.Proc) -Name "shot-duplicates.png"
 }
 
-# 4. Compare. Fully described by the command line: align and mode both ride in.
+# 4. Folder diff. Both scan roots AND the Only differences toggle ride in on
+#    --diff. Until that switch existed this was the one state the "nothing is
+#    synthesised" rule could not reach, because --dupes carries exactly one
+#    root and a diff draws a column per root, which is why the README had no
+#    picture of a feature it describes in full.
+if (Test-Wanted "folder-diff") {
+  $s = Start-Shot -SpektraArgs @("--diff", "`"$($DiffPair[0])`"", "`"$($DiffPair[1])`"") -SettleSeconds 40
+  Save-Shot -Handle (Get-DupesWindow $s.Proc) -Name "shot-folder-diff.png"
+}
+
+# 5. Compare. Fully described by the command line: align and mode both ride in.
 if (Test-Wanted "compare") {
   $s = Start-Shot -SpektraArgs @("--compare", "`"$cmpA`"", "`"$cmpB`"", "--auto", "--mode", "diff") -SettleSeconds 20
   Save-Shot -Handle $s.Handle -Name "shot-compare.png"
