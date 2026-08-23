@@ -130,7 +130,11 @@ jobs:
 
       - name: Create GitHub release
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v3
+        # Pinned to the commit behind v3: this third-party action runs with
+        # the workflow's contents:write token and uploads the artifacts (and
+        # SHA256SUMS.txt) users verify against, so a retagged v3 upstream must
+        # not be able to change what executes here. Dependabot bumps the pin.
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           name: Spektra ${{ steps.v.outputs.version }}
           body_path: notes.md
