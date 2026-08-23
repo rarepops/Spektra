@@ -32,12 +32,18 @@ public partial class DuplicatesWindow : Window
             // Position is physical px, Width/Height logical; the intersect test
             // is approximate across DPI scales, which is fine for "is it on-screen".
             var target = new PixelRect(p.X, p.Y, Math.Max(400, p.Width), Math.Max(300, p.Height));
-            if (Screens.All.Any(s => s.Bounds.Intersects(target)))
+            if (Screens.All.FirstOrDefault(s => s.Bounds.Intersects(target)) is { } screen)
             {
-                Position = new PixelPoint(p.X, p.Y);
-                Width = Math.Max(400, p.Width);
-                Height = Math.Max(300, p.Height);
-                if (p.Maximized) WindowState = WindowState.Maximized;
+                // Tool-window policy (see WindowSizing): the size is remembered,
+                // the maximized state deliberately is not, and the size ceiling
+                // is what clears a record already poisoned by the maximize race.
+                var work = screen.WorkingArea;
+                (Width, Height) = WindowSizing.ToolWindowRestore(
+                    p.Width, p.Height, work.Width / screen.Scaling, work.Height / screen.Scaling);
+                // A maximized placement's position is the shell's own offset
+                // (frame hanging off the work area's corner), not anywhere a
+                // person put a window; let the OS place this one.
+                if (!p.Maximized) Position = new PixelPoint(p.X, p.Y);
                 _normalPosition = Position;
                 _normalSize = new Size(Width, Height);
             }
@@ -61,7 +67,16 @@ public partial class DuplicatesWindow : Window
             _vm.Cancel();
             var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
             var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
-            if (size.Width >= 100 && size.Height >= 100)
+            // Closing maximized with the maximized client size in _normalSize
+            // is the maximize race (see WindowSizing); writing it through would
+            // poison the remembered size, so keep the one already on record.
+            if (WindowState == WindowState.Maximized
+                && WindowSizing.IsMaximizeGhost(size.Width, size.Height, ClientSize.Width, ClientSize.Height))
+            {
+                if (_settings.DuplicatesWindow is { } prev)
+                    _settings.DuplicatesWindow = prev with { Maximized = true };
+            }
+            else if (size.Width >= 100 && size.Height >= 100)
                 _settings.DuplicatesWindow = new WindowPlacement(
                     pos.X, pos.Y, (int)size.Width, (int)size.Height, WindowState == WindowState.Maximized);
             // Roots and placement are this window's to persist; Task 6's view

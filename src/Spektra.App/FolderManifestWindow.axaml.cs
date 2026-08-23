@@ -28,15 +28,16 @@ public partial class FolderManifestWindow : Window
         DataContext = vm;
         if (settings.FolderManifestWindow is { } p)
         {
-            // Same safeguarded restore as DuplicatesWindow: min-clamped rect,
-            // only applied while it still intersects a screen.
+            // Same tool-window restore as DuplicatesWindow: min-clamped rect,
+            // only applied while it still intersects a screen, size remembered
+            // but never the maximized state (see WindowSizing).
             var target = new PixelRect(p.X, p.Y, Math.Max(400, p.Width), Math.Max(300, p.Height));
-            if (Screens.All.Any(s => s.Bounds.Intersects(target)))
+            if (Screens.All.FirstOrDefault(s => s.Bounds.Intersects(target)) is { } screen)
             {
-                Position = new PixelPoint(p.X, p.Y);
-                Width = Math.Max(400, p.Width);
-                Height = Math.Max(300, p.Height);
-                if (p.Maximized) WindowState = WindowState.Maximized;
+                var work = screen.WorkingArea;
+                (Width, Height) = WindowSizing.ToolWindowRestore(
+                    p.Width, p.Height, work.Width / screen.Scaling, work.Height / screen.Scaling);
+                if (!p.Maximized) Position = new PixelPoint(p.X, p.Y);
                 _normalPosition = Position;
                 _normalSize = new Size(Width, Height);
             }
@@ -58,7 +59,14 @@ public partial class FolderManifestWindow : Window
             _vm.CancelLoad();
             var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
             var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
-            if (size.Width >= 100 && size.Height >= 100)
+            // Same maximize-race guard as DuplicatesWindow (see WindowSizing).
+            if (WindowState == WindowState.Maximized
+                && WindowSizing.IsMaximizeGhost(size.Width, size.Height, ClientSize.Width, ClientSize.Height))
+            {
+                if (_settings.FolderManifestWindow is { } prev)
+                    _settings.FolderManifestWindow = prev with { Maximized = true };
+            }
+            else if (size.Width >= 100 && size.Height >= 100)
                 _settings.FolderManifestWindow = new WindowPlacement(
                     pos.X, pos.Y, (int)size.Width, (int)size.Height, WindowState == WindowState.Maximized);
             // The last folder is written by the view model on load; the window

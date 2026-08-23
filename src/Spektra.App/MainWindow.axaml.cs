@@ -127,6 +127,19 @@ public partial class MainWindow : Window
     {
         var pos = WindowState == WindowState.Normal ? Position : _normalPosition;
         var size = WindowState == WindowState.Normal ? ClientSize : _normalSize;
+        // Maximizing can race the bookkeeping above: SizeChanged can fire while
+        // WindowState still reads Normal, so _normalSize can be holding the
+        // maximized client size. Saving that would make it the size this window
+        // un-maximizes to, for good. Keep the record already on file; the flag
+        // still updates, so a window left maximized reopens maximized.
+        if (WindowState == WindowState.Maximized
+            && WindowSizing.IsMaximizeGhost(size.Width, size.Height, ClientSize.Width, ClientSize.Height))
+        {
+            if (_vm.Settings.Window is { } prev)
+                _vm.Settings.Window = prev with { Maximized = true };
+            _vm.SaveSettings();
+            return;
+        }
         if (size.Width < 100 || size.Height < 100) return;
         _vm.Settings.Window = new WindowPlacement(
             pos.X, pos.Y, (int)size.Width, (int)size.Height,
