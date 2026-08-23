@@ -22,6 +22,12 @@ internal static class SingleInstance
     /// from a multiple selection queues in the OS instead of being refused.
     private const int MaxPipeInstances = 4;
 
+    /// Senders write the moment they connect (TrySend), so anything slower is
+    /// not a Spektra handoff: a connected client that never writes must cost
+    /// one dropped connection, not a listener wedged on ReadLine forever
+    /// (every later launch would then fall back to its own window).
+    private static readonly TimeSpan HandoffReadTimeout = TimeSpan.FromSeconds(5);
+
     private static readonly string Id = BuildId();
     private static readonly object Sync = new();
     private static readonly List<InstancePayload> Pending = [];
@@ -125,10 +131,15 @@ internal static class SingleInstance
             {
                 using var server = new NamedPipeServerStream(
                     PipeName, PipeDirection.In, MaxPipeInstances,
-                    PipeTransmissionMode.Byte, PipeOptions.CurrentUserOnly);
+                    // Asynchronous matters: without an overlapped handle the
+                    // timed read below is sync-over-async and uncancellable.
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous);
                 server.WaitForConnection();
                 using var reader = new StreamReader(server, new UTF8Encoding(false));
-                if (reader.ReadLine() is { } line && InstanceMessage.Decode(line) is { } payload)
+                using var stall = new CancellationTokenSource(HandoffReadTimeout);
+                if (ReadLineOrNull(reader, stall.Token) is { } line
+                    && InstanceMessage.Decode(line) is { } payload)
                     Deliver(payload);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -139,6 +150,20 @@ internal static class SingleInstance
             {
                 return;
             }
+        }
+    }
+
+    /// One line, or null when the stall timeout fires first; the listener
+    /// treats null as "no message" and moves to the next connection.
+    private static string? ReadLineOrNull(StreamReader reader, CancellationToken ct)
+    {
+        try
+        {
+            return reader.ReadLineAsync(ct).AsTask().GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
         }
     }
 
