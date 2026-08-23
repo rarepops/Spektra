@@ -123,8 +123,19 @@ public sealed class FolderViewModel : TabViewModelBase
         set { if (Set(ref _filterIndex, value)) RaisePropertyChanged(nameof(CanExport)); }
     }
 
-    private double _progressFraction;
-    public double ProgressFraction { get => _progressFraction; private set => Set(ref _progressFraction, value); }
+    private double _analyzedFraction;
+    /// What the folder's progress bar shows: the share of the files in scope
+    /// that have a verdict. Coverage, not run progress, so it means the same
+    /// thing whether or not a run is live and survives going idle. A folder
+    /// analyzed yesterday reads full the moment it opens, and clicking Analyze
+    /// on it leaves the bar where it is rather than appearing to do nothing.
+    public double AnalyzedFraction { get => _analyzedFraction; private set => Set(ref _analyzedFraction, value); }
+
+    /// Rows exist only for files that have been analyzed, so counting them
+    /// against the files in scope is the whole measure.
+    private void RefreshCoverage() =>
+        AnalyzedFraction = AnalysisCoverage.Fraction(
+            Rows.Count(IsRowInScope), FilesInScope().Count());
 
     private bool _isAnalyzing;
     public override bool IsAnalyzing => _isAnalyzing;
@@ -171,6 +182,7 @@ public sealed class FolderViewModel : TabViewModelBase
             RaisePropertyChanged(nameof(IsScoped));
             RaisePropertyChanged(nameof(ScopeBreadcrumb));
             RaisePropertyChanged(nameof(CanExport));
+            RefreshCoverage(); // a drilldown asks about a different set of files
         }
     }
 
@@ -252,8 +264,13 @@ public sealed class FolderViewModel : TabViewModelBase
     /// The grid's visibility rule (severity tier + drilldown scope), shared by
     /// the DataGrid's filter and Export so the two can never disagree.
     public bool IsRowVisible(FolderRow row) =>
-        row.Severity >= (RowSeverity)FilterIndex
-        && (ScopeFolder is null || PathScope.IsUnder(row.FullPath, ScopeFolder));
+        row.Severity >= (RowSeverity)FilterIndex && IsRowInScope(row);
+
+    /// The drilldown clause on its own. Coverage uses this and not
+    /// IsRowVisible, because hiding clean rows behind the severity filter does
+    /// not make those files unanalyzed.
+    private bool IsRowInScope(FolderRow row) =>
+        ScopeFolder is null || PathScope.IsUnder(row.FullPath, ScopeFolder);
 
     /// Export mirrors the grid exactly: only the rows currently shown (severity
     /// filter + drilldown scope), each carrying the path relative to the audited
@@ -545,9 +562,10 @@ public sealed class FolderViewModel : TabViewModelBase
 
     /// Batched UI update: appending per entry would flood the grid when a
     /// large cache replay lands. Apply pending entries and refresh touched
-    /// rollups first, then (only while analyzing) update progress and the ETA;
-    /// ScanProgress.Fraction returns 1 at zero bytes, so the early return keeps
-    /// the bar empty during the browse/hydrate phase.
+    /// rollups first, then coverage, which means the same thing running or not
+    /// and so is deliberately outside the IsAnalyzing guard below. Only the run
+    /// readout and its ETA sit behind that guard, because only they are about
+    /// the current run.
     private void Flush()
     {
         if (_pending.Count > 0)
@@ -564,13 +582,14 @@ public sealed class FolderViewModel : TabViewModelBase
             _problems = Rows.Count(r => r.HasProblem);
         }
 
+        RefreshCoverage();
+
         if (!IsAnalyzing)
-            return;   // progress + ETA only mean something while analyzing
+            return;   // the run readout and ETA only mean something while analyzing
 
         var progress = new ScanProgress(
             _totalBytes, _cachedBytes, _analyzedBytes, _analyzedFiles,
             _analysisClock.Elapsed.TotalSeconds);
-        ProgressFraction = progress.Fraction;
         if (_worklistCount > 0)
         {
             var eta = progress.EtaSeconds is { } s ? $" · ~{FormatEta(s)} left" : "";
