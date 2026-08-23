@@ -63,6 +63,49 @@ public class BandwidthReportTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    // A junction inside a scanned folder must not widen the scan: following it
+    // pulls in files the user never chose (a link to a whole drive), lists the
+    // same file under two names (a self-made "duplicate"), and a link CYCLE
+    // recurses until the path length blows. The guard is on descent only: a
+    // junction the user explicitly chose as the root still scans, because the
+    // walk starts inside it, and reparse-point FILES (OneDrive placeholders)
+    // are ordinary entries, never skipped.
+    [Test]
+    public async Task FindAudioFiles_ListsThroughALinkRoot_ButNeverDescendsIntoOne()
+    {
+        if (!OperatingSystem.IsWindows()) return; // links are set up through mklink
+
+        var root = Directory.CreateTempSubdirectory("spektra-junc").FullName;
+        var outside = Directory.CreateTempSubdirectory("spektra-junc-outside").FullName;
+        var link = Path.Combine(root, "portal");
+        var loop = Path.Combine(root, "loop");
+        try
+        {
+            File.WriteAllBytes(Path.Combine(root, "inside.flac"), []);
+            File.WriteAllBytes(Path.Combine(outside, "outside.flac"), []);
+            Junctions.Create(link, outside);
+            Junctions.Create(loop, root); // the cycle must terminate, not hang
+
+            var files = BandwidthReport.FindAudioFiles(root, recursive: true).ToList();
+            await Assert.That(files.Count).IsEqualTo(1);
+            await Assert.That(files[0].EndsWith("inside.flac", StringComparison.OrdinalIgnoreCase)).IsTrue();
+
+            // Scanning the link itself is the user choosing its target.
+            var viaLink = BandwidthReport.FindAudioFiles(link, recursive: true).ToList();
+            await Assert.That(viaLink.Count).IsEqualTo(1);
+            await Assert.That(viaLink[0].EndsWith("outside.flac", StringComparison.OrdinalIgnoreCase)).IsTrue();
+        }
+        finally
+        {
+            // Delete the junctions first: a recursive delete must never be
+            // pointed at a tree that still contains a link to the tree itself.
+            Directory.Delete(loop);
+            Directory.Delete(link);
+            Directory.Delete(root, recursive: true);
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
     [Test]
     public async Task FindAudioFiles_SkipsInaccessibleSubfolder_ReturnsReachableFiles()
     {

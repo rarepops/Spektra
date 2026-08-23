@@ -52,6 +52,43 @@ public sealed class FolderManifestTests
         finally { Directory.Delete(d, recursive: true); }
     }
 
+    // A junction is listed (silently omitting it would misdescribe the folder)
+    // but never entered: its contents belong to wherever it points, entering
+    // double-lists them, and a link cycle would recurse until the path length
+    // blows. It is not Unreadable either, because "this is a link" and "this
+    // could not be read" must not look alike.
+    [Test]
+    public async Task FolderLinks_AreListedButNeverEntered()
+    {
+        if (!OperatingSystem.IsWindows()) return; // links are set up through mklink
+
+        var d = NewDir();
+        var outside = NewDir();
+        var portal = Path.Combine(d, "portal");
+        try
+        {
+            File.WriteAllText(Path.Combine(d, "own.flac"), "x");
+            File.WriteAllText(Path.Combine(outside, "elsewhere.flac"), "x");
+            Junctions.Create(portal, outside);
+
+            var root = FolderManifest.Build(d, cache: null);
+
+            var link = root.Folders.Single(f => f.Name == "portal");
+            await Assert.That(link.Rollup).IsEqualTo("link");
+            await Assert.That(link.Unreadable).IsFalse();
+            await Assert.That(link.Folders.Count).IsEqualTo(0);
+            await Assert.That(link.Files.Count).IsEqualTo(0);
+            // Nothing behind the link counts toward the parent's rollup.
+            await Assert.That(root.Rollup).IsEqualTo("1 flac");
+        }
+        finally
+        {
+            Directory.Delete(portal);
+            Directory.Delete(d, recursive: true);
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
     [Test]
     public async Task IsAudio_TracksTheAuditPipelinesExtensionSet()
     {

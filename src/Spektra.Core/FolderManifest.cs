@@ -144,6 +144,18 @@ public static class FolderManifest
         var folders = new ManifestFolder[dirs.Length];
         for (var i = 0; i < dirs.Length; i++)
         {
+            // A junction or directory symlink is listed (omitting it would
+            // misdescribe the folder) but never entered: its contents belong
+            // to wherever it points, entering double-lists them, and a link
+            // cycle would recurse until the path length blows. Not Unreadable,
+            // because "this is a link" and "this could not be read" must not
+            // look alike. The attribute is already in hand from the walk.
+            if ((dirs[i].Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                folders[i] = new ManifestFolder(
+                    dirs[i].Name, dirs[i].FullName, [], [], 0, "link", Unreadable: false);
+                continue;
+            }
             var (child, childCounts) = BuildNode(dirs[i].FullName, dirs[i].Name, cache, ct);
             folders[i] = child;
             foreach (var (kind, n) in childCounts)
