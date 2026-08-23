@@ -47,6 +47,59 @@ public class ReportingTests
     }
 
     [Test]
+    public async Task Csv_NeutralizesFormulaTriggers_InStringFieldsOnly()
+    {
+        // File names and tags are attacker-chosen the moment the music was
+        // downloaded, and a cell starting with = + - or @ (or a stray tab) is
+        // a formula to Excel and LibreOffice. RFC 4180 quoting does not help:
+        // the cell is evaluated after unquoting. The guard is the spreadsheet
+        // convention, a leading apostrophe, and applies to string fields only,
+        // because a guarded "-180.5" would stop being a number.
+        var rows = new BandwidthRow[]
+        {
+            new("=HYPERLINK(\"http://evil\").flac", "flac", 44100, 900000, -180.5,
+                "Lossless", null, null, null),
+            new("-=[FLAC]=- rip.mp3", "mp3", 44100, 128000, 200.0,
+                "Lossy", 16000, "@guess", null),
+        };
+        var lines = Reporting.ToCsv(rows).Split('\n');
+        await Assert.That(lines[1]).StartsWith("\"'=HYPERLINK(\"\"http://evil\"\").flac\"");
+        await Assert.That(lines[1]).Contains(",-180.5,").Because("numeric fields keep their minus");
+        await Assert.That(lines[2]).StartsWith("'-=[FLAC]=- rip.mp3");
+        await Assert.That(lines[2]).Contains(",'@guess,");
+    }
+
+    [Test]
+    public async Task Csv_GuardsIdenticallyOnBothSidesOfAJoin()
+    {
+        // audit and inventory exports join on their path column; the guard must
+        // be a pure function of the value so a guarded path still matches itself.
+        var name = "-=[FLAC]=-/track.flac";
+        var audit = Reporting.ToCsv(new AuditRow[]
+        {
+            new(name, "flac", 44100, 2, 900000, 180.5, "Lossless", null, "Ok", 0, 0, false, null),
+        }).Split('\n')[1];
+        var bandwidth = Reporting.ToCsv(new BandwidthRow[]
+        {
+            new(name, "flac", 44100, 900000, 180.5, "Lossless", null, null, null),
+        }).Split('\n')[1];
+        await Assert.That(audit.Split(',')[0]).IsEqualTo("'" + name);
+        await Assert.That(bandwidth.Split(',')[0]).IsEqualTo("'" + name);
+    }
+
+    [Test]
+    public async Task Csv_QuotesBareCarriageReturns()
+    {
+        // File names cannot carry a CR, but tags can, and an unquoted CR mid
+        // row bends the row shape for any parser that honours it.
+        var rows = new BandwidthRow[]
+        {
+            new("a.flac", "fl\rac", 44100, 900000, 180.5, "Lossless", null, null, null),
+        };
+        await Assert.That(Reporting.ToCsv(rows).Split('\n')[1]).Contains("\"fl\rac\"");
+    }
+
+    [Test]
     public async Task Json_ContainsCamelCaseFieldsAndValues()
     {
         var json = Reporting.ToJson(Rows);

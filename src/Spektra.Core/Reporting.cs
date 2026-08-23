@@ -85,9 +85,24 @@ public static class Reporting
         var sb = new StringBuilder();
         sb.Append(string.Join(",", props.Select(p => Escape(p.Name)))).Append('\n');
         foreach (var row in rows)
-            sb.Append(string.Join(",", props.Select(p => Escape(Format(p.GetValue(row)))))).Append('\n');
+            sb.Append(string.Join(",", props.Select(p =>
+            {
+                var v = p.GetValue(row);
+                return Escape(v is string s ? GuardFormula(s) : Format(v));
+            }))).Append('\n');
         return sb.ToString();
     }
+
+    /// A cell starting with = + - or @ (or a stray tab or CR) is a formula to
+    /// Excel and LibreOffice, and file names and tags are attacker-chosen the
+    /// moment the music was downloaded; RFC 4180 quoting does not defuse them,
+    /// since the cell is evaluated after unquoting. The leading apostrophe is
+    /// the spreadsheet convention for "text, not formula". String fields only:
+    /// numbers are program-made, and a guarded "-1.5" stops being a number.
+    /// Pure over the value, so the path columns two exports join on are
+    /// guarded identically on both sides and still match.
+    private static string GuardFormula(string s) =>
+        s.Length > 0 && s[0] is '=' or '+' or '-' or '@' or '\t' or '\r' ? "'" + s : s;
 
     /// Human-readable byte size (GB/MB/KB, one decimal), invariant so the same
     /// number reads identically in every report and locale. Shared by the HTML
@@ -108,8 +123,10 @@ public static class Reporting
         _ => v.ToString() ?? "",
     };
 
+    // '\r' quotes too: file names cannot carry one, but tags can, and a bare
+    // CR mid-row bends the row shape for any parser that honours it.
     private static string Escape(string s) =>
-        s.Contains(',') || s.Contains('"') || s.Contains('\n')
+        s.Contains(',') || s.Contains('"') || s.Contains('\n') || s.Contains('\r')
             ? "\"" + s.Replace("\"", "\"\"") + "\""
             : s;
 }
