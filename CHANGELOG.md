@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.21.0] - 2026-08-23
 
 ### Added
 - `spektra --diff "A" "B"` opens two folders straight into a folder diff: both become scan roots, the scan starts, and Only differences is already on. The folder diff was the one documented view with no way in from a command line, because `--compare` deep-links a file comparison and `--dupes` a duplicate scan, but a diff draws a column per scan root and `--dupes` takes exactly one folder. A one-off diff leaves your saved root list alone, the same way the Explorer "Find duplicates" verb does. Naming two spellings of the same folder gives one column rather than a pretend comparison.
@@ -466,7 +466,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/rarepops/Spektra/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rarepops/Spektra/releases/tag/v0.20.0
 [0.19.0]: https://github.com/rarepops/Spektra/releases/tag/v0.19.0
 [0.18.1]: https://github.com/rarepops/Spektra/releases/tag/v0.18.1
