@@ -152,7 +152,19 @@
                   Background="#111111" FontSize="12"
                   DoubleTapped="OnRowDoubleTapped" KeyDown="OnGridKeyDown">
           <DataGrid.Columns>
-            <DataGridTemplateColumn Header="File" SortMemberPath="File" Width="2*">
+            <!-- The only star column, so it absorbs whatever the nine Auto columns
+                 leave. Unbounded that reaches ~1370 units on a 2560-unit window for
+                 a path needing about 300, which is what put the verdicts off the
+                 right edge of an early README capture. MaxWidth keeps the slack as
+                 blank grid instead of as one enormous filename; MinWidth keeps a
+                 narrow window from squeezing the name to nothing.
+
+                 420 rather than a rounder number because it is close to what a
+                 width dragged by hand settled on (368) for a library whose
+                 longest relative path renders around 250: enough headroom for a
+                 deeper tree without the column becoming the view. -->
+            <DataGridTemplateColumn Header="File" SortMemberPath="File"
+                                    Width="*" MinWidth="200" MaxWidth="420">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Grid ColumnDefinitions="Auto,*" Margin="12,0"
