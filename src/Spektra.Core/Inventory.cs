@@ -104,8 +104,12 @@ public static class Inventory
         {
             return (null, ex.Message);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidOperationException)
         {
+            // InvalidOperationException mirrors FolderAudit.AnalyzeFile's catch
+            // list: Process plumbing surfaces misuse as this, and one odd file
+            // must become a row, not take down the whole parallel walk.
             return (null, ex.Message);
         }
     }

@@ -50,7 +50,14 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
     {
         using var doc = ParseDocument(stdout, stderr);
         var root = doc.RootElement;
-        if (!root.TryGetProperty("streams", out var streams) || streams.GetArrayLength() == 0)
+        // Valid JSON in the wrong shape is the same story as unreadable output
+        // (a probe killed mid-write, a different program named ffprobe on
+        // PATH): a per-file decode error, never an InvalidOperationException
+        // escaping the audit pipeline's catch lists.
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("streams", out var streams)
+            || streams.ValueKind != JsonValueKind.Array
+            || streams.GetArrayLength() == 0)
             throw new AudioDecodeException("No audio stream found in this file.", Tail(stderr));
 
         // Selection is by predicate, never by position. The probe no longer
@@ -80,7 +87,9 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         return new AudioMetadata(
             Codec: Str(audio, "codec_name") ?? "unknown",
             SampleRate: Int(Str(audio, "sample_rate")) ?? 0,
-            Channels: audio.TryGetProperty("channels", out var ch) ? ch.GetInt32() : 0,
+            // Via IntProp, not GetInt32: a real probe writes a number, but a
+            // string still counts and garbage reads as 0 instead of throwing.
+            Channels: IntProp(audio, "channels") ?? 0,
             BitsPerSample: NonZero(IntProp(audio, "bits_per_raw_sample") ?? IntProp(audio, "bits_per_sample")),
             BitRateBps: NonZero(Long(Str(audio, "bit_rate")) ?? Long(Str(format, "bit_rate"))),
             Duration: TimeSpan.FromSeconds(
@@ -104,10 +113,13 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
 
     /// First stream matching a predicate, or null. JsonElement is a struct, so
     /// the nullable wrapper is what distinguishes "no match" from "default".
+    /// Non-object entries are skipped before the predicate sees them: a stream
+    /// must be an object to be either audio or a picture, and the predicates
+    /// read properties off it.
     private static JsonElement? FirstStream(JsonElement streams, Func<JsonElement, bool> match)
     {
         foreach (var s in streams.EnumerateArray())
-            if (match(s)) return s;
+            if (s.ValueKind == JsonValueKind.Object && match(s)) return s;
         return null;
     }
 

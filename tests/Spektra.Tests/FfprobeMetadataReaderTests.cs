@@ -55,6 +55,51 @@ public class FfprobeMetadataReaderTests
         await Assert.That(ex.Message).Contains("unreadable");
     }
 
+    // ParseDocument already turns non-JSON into a decode error; these pin the
+    // shapes that ARE valid JSON but not the report's (a probe killed mid
+    // write, or a different program named ffprobe answering on PATH). They
+    // must read as a per-file decode error too, not escape the audit
+    // pipeline's catch lists as an InvalidOperationException.
+    [Test]
+    [Arguments("[]")]
+    [Arguments("\"streams\"")]
+    [Arguments("""{"streams":{}}""")]
+    [Arguments("""{"streams":[]}""")]
+    [Arguments("""{"streams":[3,"x"]}""")]
+    public async Task Parse_WrongShapedJson_ReadsAsDecodeError(string json)
+    {
+        await Assert.That(() => FfprobeMetadataReader.Parse(json, ""))
+            .Throws<AudioDecodeException>();
+    }
+
+    [Test]
+    public async Task Parse_SkipsNonObjectStreamEntries()
+    {
+        const string json = """
+            {"streams":[7,{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2}],
+             "format":{"duration":"10.0"}}
+            """;
+        await Assert.That(FfprobeMetadataReader.Parse(json, "").Codec).IsEqualTo("flac");
+    }
+
+    // A real probe writes channels as a JSON number; string digits still
+    // count, and garbage reads as 0 (the "parsed nothing" marker the callers
+    // already treat as no readable stream) rather than throwing.
+    [Test]
+    public async Task Parse_ChannelsAsStringOrGarbage_NeverThrows()
+    {
+        const string asString = """
+            {"streams":[{"codec_name":"flac","sample_rate":"44100","channels":"2"}],
+             "format":{"duration":"10.0"}}
+            """;
+        await Assert.That(FfprobeMetadataReader.Parse(asString, "").Channels).IsEqualTo(2);
+        const string asObject = """
+            {"streams":[{"codec_name":"flac","sample_rate":"44100","channels":{}}],
+             "format":{"duration":"10.0"}}
+            """;
+        await Assert.That(FfprobeMetadataReader.Parse(asObject, "").Channels).IsEqualTo(0);
+    }
+
     [Test]
     public async Task Parse_ValidPayload_MapsFields()
     {
