@@ -315,6 +315,26 @@ public sealed class MainWindowViewModel : StatusViewModel
         ? $"Find _Duplicates in '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}'"
         : "Duplicate _Detective…";
 
+    /// The compare submenu's own header, naming the folder being compared FROM
+    /// so both sides read out of the menu at once: "Compare 'Field Notes' with
+    /// > Night Sessions". With no folder tab selected there is nothing to
+    /// compare from, and the submenu offers a pair of pickers instead.
+    public string CompareFoldersHeader => _selected is FolderViewModel f
+        ? $"_Compare '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}' with"
+        : "_Compare Folders";
+
+    /// The folder that submenu compares from, or null when no folder tab is
+    /// selected.
+    public string? CompareFromScope => _selected is FolderViewModel f ? f.EffectiveScope : null;
+
+    /// Every open folder tab as the scope it is showing plus the label to show
+    /// it under. Effective scope, not the tab root, so a drilled-down tab
+    /// offers the subfolder in front of you, matching what the rest of these
+    /// folder commands act on.
+    public IReadOnlyList<(string Scope, string Label)> OpenFolderScopes =>
+        [.. Tabs.OfType<FolderViewModel>()
+                .Select(f => (f.EffectiveScope, ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)))];
+
     public string ManifestHeader => _selected is FolderViewModel f
         ? $"_Manifest of '{ScopeLabel.ForMenu(f.FolderPath, f.ScopeFolder)}'"
         : "Folder _Manifest…";
@@ -325,6 +345,7 @@ public sealed class MainWindowViewModel : StatusViewModel
         RaisePropertyChanged(nameof(CanActOnFolder));
         RaisePropertyChanged(nameof(AnalyzeFolderHeader));
         RaisePropertyChanged(nameof(DuplicatesHeader));
+        RaisePropertyChanged(nameof(CompareFoldersHeader));
         RaisePropertyChanged(nameof(ManifestHeader));
     }
 

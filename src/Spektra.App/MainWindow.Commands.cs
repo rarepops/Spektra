@@ -20,19 +20,44 @@ public partial class MainWindow
     private async void OnOpenFolderClicked(object? sender, RoutedEventArgs e) =>
         await OpenFolderViaDialogAsync();
 
+    private async Task<string?> PickFolderAsync(string title)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+        });
+        return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+    }
+
     private async Task OpenFolderViaDialogAsync()
     {
         if (_dialogOpen) return;
         _dialogOpen = true;
         try
         {
-            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            {
-                Title = "Open a folder to audit",
-                AllowMultiple = false,
-            });
-            if (folders.Count > 0 && folders[0].TryGetLocalPath() is { } folder)
+            if (await PickFolderAsync("Open a folder to audit") is { } folder)
                 _vm.OpenFolder(folder);
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
+    }
+
+    /// The browse tail of the compare submenu. With a folder to compare from it
+    /// asks only for the other side; without one it asks for both, so the
+    /// command still works before any folder is open.
+    private async Task CompareFoldersViaPickerAsync(string? from)
+    {
+        if (_dialogOpen) return;
+        _dialogOpen = true;
+        try
+        {
+            var a = from ?? await PickFolderAsync("Choose the first folder to compare");
+            if (a is null) return;
+            if (await PickFolderAsync("Choose the second folder to compare") is not { } b) return;
+            EnsureDupesWindow(new DiffPair(a, b));
         }
         finally
         {

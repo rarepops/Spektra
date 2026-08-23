@@ -20,6 +20,8 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DropEvent, OnDrop);
 
         _vm.RecentFilesChanged += RebuildRecentMenu;
+        // Opening or closing a folder tab changes who can be compared with whom.
+        _vm.Tabs.CollectionChanged += (_, _) => RebuildCompareFoldersMenu();
         RestoreWindowPlacement();
         RebuildRecentMenu();
         FolderViewCtl.Settings = _vm.Settings;
@@ -181,6 +183,44 @@ public partial class MainWindow : Window
         ApplyDisplay();
 
         Title = tab is null ? "Spektra" : $"{tab.TabTitle} - Spektra";
+        RebuildCompareFoldersMenu(); // the selected tab is the folder compared FROM
+    }
+
+    /// The Analyze menu's "Compare 'X' with" submenu: the other folders already
+    /// open, then a way to reach one that is not. Naming the second side from
+    /// what is on screen is the whole point, since the alternative is finding a
+    /// folder on disk that is already in front of you.
+    ///
+    /// The browse item is always present. A menu item that owns a submenu never
+    /// raises Click of its own, so without it the feature would be unreachable
+    /// with one folder open or none.
+    private void RebuildCompareFoldersMenu()
+    {
+        var items = new List<Control>();
+        var from = _vm.CompareFromScope;
+        if (from is not null)
+        {
+            var open = _vm.OpenFolderScopes;
+            foreach (var scope in DiffCandidates.Other(from, open.Select(s => s.Scope)))
+            {
+                var target = scope; // captured per item, not per loop variable
+                var label = open.First(s =>
+                    string.Equals(s.Scope, target, StringComparison.OrdinalIgnoreCase)).Label;
+                var item = new MenuItem { Header = label };
+                item.Click += (_, _) => EnsureDupesWindow(new DiffPair(from, target));
+                items.Add(item);
+            }
+            if (items.Count > 0) items.Add(new Separator());
+        }
+
+        var browse = new MenuItem
+        {
+            Header = from is null ? "Choose _two folders…" : "Choose a _folder…",
+        };
+        browse.Click += async (_, _) => await CompareFoldersViaPickerAsync(from);
+        items.Add(browse);
+
+        CompareFoldersMenu.ItemsSource = items;
     }
 
     private void ApplyDisplay()

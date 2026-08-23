@@ -127,6 +127,7 @@
           <Separator />
           <MenuItem Header="{Binding AnalyzeFolderHeader}" IsEnabled="{Binding CanActOnFolder}" Click="OnAnalyzeFolderClicked" />
           <MenuItem Header="{Binding DuplicatesHeader}" Click="OnDuplicateDetectiveClicked" />
+          <MenuItem x:Name="CompareFoldersMenu" Header="{Binding CompareFoldersHeader}" />
           <MenuItem Header="{Binding ManifestHeader}" Click="OnFolderManifestClicked" />
         </MenuItem>
         <MenuItem Header="_Help">
