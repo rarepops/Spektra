@@ -12,7 +12,11 @@ public sealed class AudioDecoder(string ffmpegPath)
     {
         ct.ThrowIfCancellationRequested();
         var o = options ?? new DecodeOptions();
-        var args = new List<string> { "-v", "error" };
+        // -nostdin like the metering passes: stdin is not redirected, so in a
+        // terminal ffmpeg would read the keyboard for its interactive commands
+        // and a stray 'q' would abort the decode, which then reads as a
+        // corrupt file.
+        var args = new List<string> { "-nostdin", "-v", "error" };
         if (o.Start is { } start)
         {
             args.Add("-ss");
