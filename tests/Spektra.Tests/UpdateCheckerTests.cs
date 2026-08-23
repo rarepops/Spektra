@@ -49,13 +49,57 @@ public class UpdateCheckerTests
     public async Task Evaluate_NewerTag_ReturnsInfo()
     {
         var json = """
-            { "tag_name": "v0.7.0", "html_url": "https://example.com/r/0.7.0", "body": "notes here" }
+            { "tag_name": "v0.7.0", "html_url": "https://github.com/rarepops/Spektra/releases/tag/v0.7.0", "body": "notes here" }
             """;
         var info = UpdateChecker.Evaluate(json, new Version(0, 6, 0, 0));
         await Assert.That(info).IsNotNull();
         await Assert.That(info!.Latest).IsEqualTo(new Version(0, 7, 0));
-        await Assert.That(info.Url).IsEqualTo("https://example.com/r/0.7.0");
+        await Assert.That(info.Url).IsEqualTo("https://github.com/rarepops/Spektra/releases/tag/v0.7.0");
         await Assert.That(info.Notes).IsEqualTo("notes here");
+    }
+
+    // The payload is trusted only as far as TLS to the API, and the release
+    // URL is handed to the OS launcher. Fencing it to the one host a Spektra
+    // release page can live on costs nothing; an empty URL hides the button.
+    [Test]
+    [Arguments("https://github.com/rarepops/Spektra/releases/tag/v9.9.9", true)]
+    [Arguments("https://GITHUB.COM/rarepops/Spektra", true)]
+    [Arguments("http://github.com/rarepops/Spektra", false)]
+    [Arguments("https://github.com.evil.example/x", false)]
+    [Arguments("https://gist.github.com/x", false)]
+    [Arguments("file:///C:/Windows/System32/calc.exe", false)]
+    [Arguments("javascript:alert(1)", false)]
+    [Arguments("not a url", false)]
+    public async Task IsTrustedReleaseUrl_AcceptsOnlyHttpsGithub(string url, bool trusted)
+    {
+        await Assert.That(UpdateChecker.IsTrustedReleaseUrl(url)).IsEqualTo(trusted);
+    }
+
+    [Test]
+    public async Task Evaluate_UntrustedUrl_IsDropped_NotesSurvive()
+    {
+        var json = """
+            { "tag_name": "v9.9.9", "html_url": "https://example.com/r", "body": "notes" }
+            """;
+        var info = UpdateChecker.Evaluate(json, new Version(0, 6, 0));
+        await Assert.That(info).IsNotNull();
+        await Assert.That(info!.Url).IsEqualTo("");
+        await Assert.That(info.Notes).IsEqualTo("notes");
+    }
+
+    // Wrong-typed fields are dropped or read as no-update, never thrown on:
+    // Evaluate's callers catch JsonException, and an InvalidOperationException
+    // from under JsonElement would crash the update check instead of failing it.
+    [Test]
+    public async Task Evaluate_WrongTypedFields_NeverThrow()
+    {
+        await Assert.That(UpdateChecker.Evaluate("""{ "tag_name": 7 }""", new Version(0, 6, 0)))
+            .IsNull();
+        var info = UpdateChecker.Evaluate(
+            """{ "tag_name": "v9.9.9", "html_url": 5, "body": 5 }""", new Version(0, 6, 0));
+        await Assert.That(info).IsNotNull();
+        await Assert.That(info!.Url).IsEqualTo("");
+        await Assert.That(info.Notes).IsNull();
     }
 
     [Test]

@@ -55,19 +55,35 @@ public static class UpdateChecker
     /// Parses a GitHub releases/latest payload and returns update info only when
     /// its tag is strictly newer than `current`; otherwise null. Malformed JSON
     /// throws: CheckAsync reads that as CheckFailed rather than up to date.
+    /// Wrong-TYPED fields are dropped or read as no-update instead: GetString on
+    /// a number throws InvalidOperationException, which nothing catches, so a
+    /// junk payload would crash the check rather than fail it.
     public static UpdateInfo? Evaluate(string json, Version current)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
         if (root.ValueKind != JsonValueKind.Object) return null;
         if (!root.TryGetProperty("tag_name", out var tagEl)) return null;
-        if (!TryParseVersion(tagEl.GetString(), out var latest)) return null;
+        var tag = tagEl.ValueKind == JsonValueKind.String ? tagEl.GetString() : null;
+        if (!TryParseVersion(tag, out var latest)) return null;
         if (!IsNewer(latest, current)) return null;
 
-        var url = root.TryGetProperty("html_url", out var u) ? u.GetString() ?? "" : "";
-        var notes = root.TryGetProperty("body", out var b) ? b.GetString() : null;
+        var url = root.TryGetProperty("html_url", out var u)
+            && u.ValueKind == JsonValueKind.String
+            && u.GetString() is { } raw && IsTrustedReleaseUrl(raw) ? raw : "";
+        var notes = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String
+            ? b.GetString() : null;
         return new UpdateInfo(latest, url, notes);
     }
+
+    /// True only for an https URL on github.com, the one place a Spektra
+    /// release page can live. The payload is trusted only as far as TLS to the
+    /// API, and this URL is handed to the OS launcher, so a payload gone wrong
+    /// must yield a hidden View-release button, never an arbitrary launch.
+    public static bool IsTrustedReleaseUrl(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps
+        && string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase);
 
     /// Parses a release tag like "v0.6.0" or "1.2.3-rc1" into a Version, dropping
     /// the leading v and any pre-release/build suffix.
