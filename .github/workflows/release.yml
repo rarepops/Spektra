@@ -27,7 +27,7 @@ jobs:
           # annotated tag's message body for the optional summary.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
