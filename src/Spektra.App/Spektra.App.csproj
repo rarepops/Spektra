@@ -13,7 +13,7 @@
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.0" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
-    <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.2" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Spektra.Core\Spektra.Core.csproj" />
