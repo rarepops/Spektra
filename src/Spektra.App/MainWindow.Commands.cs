@@ -281,6 +281,15 @@ public partial class MainWindow
             await Launcher.LaunchUriAsync(uri);
     }
 
+    /// The banner's Download: the same dialog the manual check shows, with the
+    /// fetch already running.
+    private async void OnDownloadUpdateClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_vm.Update is not { } update) return;
+        var result = new UpdateCheckResult(UpdateOutcome.UpdateAvailable, update);
+        await new UpdateDialog(result, _vm.CurrentVersionText, startDownload: true).ShowDialog(this);
+    }
+
     private void OnDismissUpdateClicked(object? sender, RoutedEventArgs e) => _vm.DismissUpdate();
 
     private DuplicatesWindow? _dupesWindow;

@@ -5,7 +5,12 @@ namespace Spektra.Core;
 
 public enum UpdateOutcome { UpToDate, UpdateAvailable, CheckFailed }
 
-public sealed record UpdateInfo(Version Latest, string Url, string? Notes);
+public sealed record UpdateInfo(Version Latest, string Url, string? Notes)
+{
+    /// The release's files in payload order, each with a URL already fenced by
+    /// IsTrustedAssetUrl; empty when the payload listed none.
+    public IReadOnlyList<ReleaseAsset> Assets { get; init; } = [];
+}
 
 public sealed record UpdateCheckResult(UpdateOutcome Outcome, UpdateInfo? Info = null);
 
@@ -73,7 +78,7 @@ public static class UpdateChecker
             && u.GetString() is { } raw && IsTrustedReleaseUrl(raw) ? raw : "";
         var notes = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String
             ? b.GetString() : null;
-        return new UpdateInfo(latest, url, notes);
+        return new UpdateInfo(latest, url, notes) { Assets = ReadAssets(root) };
     }
 
     /// True only for an https URL on github.com, the one place a Spektra
@@ -84,6 +89,40 @@ public static class UpdateChecker
         Uri.TryCreate(url, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps
         && string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase);
+
+    /// Stricter than IsTrustedReleaseUrl: what passes here gets downloaded and,
+    /// for the installer, launched, so it must be a file attached to a release
+    /// of this repository and nothing else on github.com.
+    public static bool IsTrustedAssetUrl(string url) =>
+        IsTrustedReleaseUrl(url)
+        && Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && uri.AbsolutePath.Length > AssetPathPrefix.Length
+        && uri.AbsolutePath.StartsWith(AssetPathPrefix, StringComparison.OrdinalIgnoreCase);
+
+    private const string AssetPathPrefix = "/rarepops/Spektra/releases/download/";
+
+    /// The `assets` array as ReleaseAssets. Entries that are not objects, have
+    /// no name, or carry a URL outside this repository's downloads are skipped;
+    /// a missing or non-numeric size reads as 0. Nothing here throws on shape.
+    private static IReadOnlyList<ReleaseAsset> ReadAssets(JsonElement root)
+    {
+        if (!root.TryGetProperty("assets", out var arr) || arr.ValueKind != JsonValueKind.Array) return [];
+        var assets = new List<ReleaseAsset>();
+        foreach (var a in arr.EnumerateArray())
+        {
+            if (a.ValueKind != JsonValueKind.Object) continue;
+            var name = Str(a, "name");
+            var url = Str(a, "browser_download_url");
+            if (string.IsNullOrEmpty(name) || url is null || !IsTrustedAssetUrl(url)) continue;
+            var size = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
+                && s.TryGetInt64(out var n) && n > 0 ? n : 0;
+            assets.Add(new ReleaseAsset(name, url, size));
+        }
+        return assets;
+    }
+
+    private static string? Str(JsonElement e, string property) =>
+        e.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     /// Parses a release tag like "v0.6.0" or "1.2.3-rc1" into a Version, dropping
     /// the leading v and any pre-release/build suffix.

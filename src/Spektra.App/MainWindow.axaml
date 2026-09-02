@@ -162,6 +162,7 @@
             IsVisible="{Binding HasUpdate}">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="Download" Click="OnDownloadUpdateClicked" IsVisible="{Binding CanDownloadUpdate}" />
           <Button Content="View release" Click="OnViewReleaseClicked" />
           <Button Content="Dismiss" Click="OnDismissUpdateClicked" />
         </StackPanel>

@@ -131,7 +131,7 @@ The command names are:
 
 `F1` is deliberately not in that list. It opens the window documenting every other key, so it stays put. The `Ctrl+1`..`Ctrl+9` tab jumps are positional rather than a command each, and are also fixed.
 
-Check for a newer release any time from **Help → Check for Updates**. Spektra never updates itself; it only tells you when a newer release exists and links to it. You can also enable a quiet once-a-day check on startup in Preferences.
+Check for a newer release any time from **Help → Check for Updates**. Spektra never updates itself behind your back: it tells you when a newer release exists, links to it, and on request downloads the right file for your machine (the installer for an installed copy, the portable zip otherwise) into your Downloads folder, checking it against the release's `SHA256SUMS.txt` before offering to install it. You can also enable a quiet once-a-day check on startup in Preferences.
 
 ## Documentation
 

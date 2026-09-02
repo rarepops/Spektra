@@ -157,6 +157,73 @@ public class UpdateCheckerTests
         await Assert.That(result.Outcome).IsEqualTo(UpdateOutcome.CheckFailed);
     }
 
+    [Test]
+    public async Task Evaluate_ReadsAssets_NameUrlSize_InPayloadOrder()
+    {
+        var json = """
+            { "tag_name": "v0.7.0",
+              "assets": [
+                { "name": "Spektra-0.7.0-Setup.msi",
+                  "browser_download_url": "https://github.com/rarepops/Spektra/releases/download/v0.7.0/Spektra-0.7.0-Setup.msi",
+                  "size": 123 },
+                { "name": "SHA256SUMS.txt",
+                  "browser_download_url": "https://github.com/rarepops/Spektra/releases/download/v0.7.0/SHA256SUMS.txt",
+                  "size": 7 } ] }
+            """;
+        var info = UpdateChecker.Evaluate(json, new Version(0, 6, 0));
+        await Assert.That(info!.Assets.Count).IsEqualTo(2);
+        await Assert.That(info.Assets[0]).IsEqualTo(new ReleaseAsset(
+            "Spektra-0.7.0-Setup.msi",
+            "https://github.com/rarepops/Spektra/releases/download/v0.7.0/Spektra-0.7.0-Setup.msi",
+            123));
+        await Assert.That(info.Assets[1].Name).IsEqualTo("SHA256SUMS.txt");
+    }
+
+    // Asset URLs are handed to the downloader and the result may be launched
+    // as an installer, so an entry is kept only when its URL is a download
+    // from this repository; junk entries are dropped, never thrown on.
+    [Test]
+    public async Task Evaluate_KeepsOnlyAssetsWithATrustedUrl_AndSkipsJunkEntries()
+    {
+        var json = """
+            { "tag_name": "v0.7.0",
+              "assets": [
+                { "name": "evil.msi", "browser_download_url": "https://evil.example/Spektra-0.7.0-Setup.msi", "size": 1 },
+                { "name": "nourl.zip", "size": 1 },
+                { "name": 7, "browser_download_url": "https://github.com/rarepops/Spektra/releases/download/v0.7.0/x.zip" },
+                "not an object",
+                { "name": "nosize.zip", "browser_download_url": "https://github.com/rarepops/Spektra/releases/download/v0.7.0/nosize.zip" } ] }
+            """;
+        var info = UpdateChecker.Evaluate(json, new Version(0, 6, 0));
+        await Assert.That(info!.Assets.Count).IsEqualTo(1);
+        await Assert.That(info.Assets[0].Name).IsEqualTo("nosize.zip");
+        await Assert.That(info.Assets[0].Size).IsEqualTo(0L);
+    }
+
+    [Test]
+    public async Task Evaluate_NoAssetsField_IsAnEmptyList()
+    {
+        var info = UpdateChecker.Evaluate("""{ "tag_name": "v0.7.0" }""", new Version(0, 6, 0));
+        await Assert.That(info!.Assets.Count).IsEqualTo(0);
+        var wrongType = UpdateChecker.Evaluate("""{ "tag_name": "v0.7.0", "assets": "none" }""", new Version(0, 6, 0));
+        await Assert.That(wrongType!.Assets.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments("https://github.com/rarepops/Spektra/releases/download/v0.7.0/Spektra-0.7.0-Setup.msi", true)]
+    [Arguments("https://GITHUB.com/rarepops/spektra/releases/download/v0.7.0/x.zip", true)]
+    [Arguments("http://github.com/rarepops/Spektra/releases/download/v0.7.0/x.zip", false)]
+    [Arguments("https://github.com/rarepops/Spektra/releases/tag/v0.7.0", false)]
+    [Arguments("https://github.com/someone/Else/releases/download/v0.7.0/x.zip", false)]
+    [Arguments("https://objects.githubusercontent.com/rarepops/Spektra/releases/download/v0.7.0/x.zip", false)]
+    [Arguments("https://github.com.evil.example/rarepops/Spektra/releases/download/v1/x.zip", false)]
+    [Arguments("https://github.com/rarepops/Spektra/releases/download/", false)]
+    [Arguments("", false)]
+    public async Task IsTrustedAssetUrl_RequiresADownloadFromThisRepository(string url, bool trusted)
+    {
+        await Assert.That(UpdateChecker.IsTrustedAssetUrl(url)).IsEqualTo(trusted);
+    }
+
     private sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(

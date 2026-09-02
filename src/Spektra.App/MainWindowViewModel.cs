@@ -180,10 +180,17 @@ public sealed class MainWindowViewModel : StatusViewModel
             if (!Set(ref _update, value)) return;
             RaisePropertyChanged(nameof(HasUpdate));
             RaisePropertyChanged(nameof(UpdateText));
+            RaisePropertyChanged(nameof(CanDownloadUpdate));
         }
     }
 
     public bool HasUpdate => _update is not null;
+
+    /// The banner's Download button shows only when the release has a file for
+    /// this machine and a checksum list to verify it against.
+    public bool CanDownloadUpdate => _update is { } u
+        && ReleaseAssets.Pick(u.Assets, ReleaseTarget.Current()) is not null
+        && ReleaseAssets.Checksums(u.Assets) is not null;
     public string UpdateText => _update is null
         ? ""
         : $"Spektra {UpdateChecker.FormatVersion(_update.Latest)} is available (you have {UpdateChecker.FormatVersion(CurrentVersion)}).";

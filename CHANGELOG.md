@@ -8,6 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Each release also carries the Windows installer inside a zip, Spektra-version-Setup.zip, for a browser or mail filter that refuses a bare .msi download. The bare installer stays, and the extracted file matches its own line in SHA256SUMS.txt.
+- Check for Updates can now fetch the update for you. Beside View release there is a Download button that saves the right file for your machine into your Downloads folder, with progress and Cancel: the installer when Spektra runs from Program Files, the portable zip otherwise, and the command-line tool's zip on Linux and macOS. The file is checked against the release's SHA256SUMS.txt before anything else happens; a mismatch deletes it and says so. A verified installer gets an Install button that closes Spektra and starts the setup, a zip gets Show in folder, and a file already in Downloads that matches the checksum is used as is. The in-window update banner has the same Download button and starts fetching straight away.
 
 ## [0.23.0] - 2026-09-02
 
