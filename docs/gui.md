@@ -1,6 +1,6 @@
 # Spektra GUI guide
 
-Everyday workflows for the desktop app. Keyboard shortcuts are listed in the [README](../README.md#keyboard-shortcuts).
+Everyday workflows for the desktop app. Keyboard shortcuts are listed in the [README](../README.md#keyboard-shortcuts), along with how to [change them](../README.md#changing-the-shortcuts). **Help → Controls** (F1) shows the keys currently in force, so it is the list to trust once you have remapped anything; it also names the file to edit and reports anything wrong with it.
 
 ## Inspect a file
 

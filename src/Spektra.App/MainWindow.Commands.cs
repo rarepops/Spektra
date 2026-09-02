@@ -250,10 +250,10 @@ public partial class MainWindow
     }
 
     private async void OnControlsClicked(object? sender, RoutedEventArgs e) =>
-        await new ControlsWindow().ShowDialog(this);
+        await new ControlsWindow(_vm.Keys, _vm.KeyProblems).ShowDialog(this);
 
     private async void OnAboutClicked(object? sender, RoutedEventArgs e) =>
-        await new AboutWindow().ShowDialog(this);
+        await new AboutWindow(_vm.Keys, _vm.KeyProblems).ShowDialog(this);
 
     private async void OnCheckUpdatesClicked(object? sender, RoutedEventArgs e)
     {

@@ -91,16 +91,18 @@
       </StackPanel>
       <Menu>
         <MenuItem Header="_File">
-          <MenuItem Header="_Open…" Click="OnOpenClicked" InputGesture="Ctrl+O" />
-          <MenuItem Header="Open Fo_lder…" Click="OnOpenFolderClicked" InputGesture="Ctrl+Shift+O" />
+          <!-- Gesture labels are stamped from the key map in ApplyMenuGestures,
+               so a rebound key cannot leave a menu row describing the old one. -->
+          <MenuItem x:Name="MenuOpen" Header="_Open…" Click="OnOpenClicked" />
+          <MenuItem x:Name="MenuOpenFolder" Header="Open Fo_lder…" Click="OnOpenFolderClicked" />
           <MenuItem x:Name="RecentMenu" Header="Open _Recent" />
-          <MenuItem Header="_Compare…" Click="OnCompareClicked" InputGesture="Ctrl+D" />
+          <MenuItem x:Name="MenuCompare" Header="_Compare…" Click="OnCompareClicked" />
           <Separator />
-          <MenuItem Header="_Save Image…" Click="OnSaveImageClicked" InputGesture="Ctrl+S" />
-          <MenuItem Header="Cop_y Image" Click="OnCopyImageClicked" InputGesture="Ctrl+Shift+C" />
+          <MenuItem x:Name="MenuSaveImage" Header="_Save Image…" Click="OnSaveImageClicked" />
+          <MenuItem x:Name="MenuCopyImage" Header="Cop_y Image" Click="OnCopyImageClicked" />
           <Separator />
           <MenuItem Header="Expor_t" IsEnabled="{Binding CanExportFile}">
-            <MenuItem Header="As _HTML…" Tag="html" Click="OnExportReportClicked" InputGesture="Ctrl+Shift+S" />
+            <MenuItem x:Name="MenuExportHtml" Header="As _HTML…" Tag="html" Click="OnExportReportClicked" />
             <MenuItem Header="As _CSV…" Tag="csv" Click="OnExportReportClicked" />
             <MenuItem Header="As _JSON…" Tag="json" Click="OnExportReportClicked" />
           </MenuItem>
@@ -113,22 +115,22 @@
           <MenuItem Header="E_xit" Click="OnExitClicked" />
         </MenuItem>
         <MenuItem Header="_Edit">
-          <MenuItem Header="_Preferences…" Click="OnPreferencesClicked" InputGesture="Ctrl+E" />
+          <MenuItem x:Name="MenuPreferences" Header="_Preferences…" Click="OnPreferencesClicked" />
         </MenuItem>
         <MenuItem Header="_View">
-          <MenuItem Header="_Next File" Click="OnNextFileClicked"
-                    InputGesture="Ctrl+Right" IsEnabled="{Binding CanStepFile}" />
-          <MenuItem Header="_Previous File" Click="OnPreviousFileClicked"
-                    InputGesture="Ctrl+Left" IsEnabled="{Binding CanStepFile}" />
+          <MenuItem x:Name="MenuNextFile" Header="_Next File" Click="OnNextFileClicked"
+                    IsEnabled="{Binding CanStepFile}" />
+          <MenuItem x:Name="MenuPreviousFile" Header="_Previous File" Click="OnPreviousFileClicked"
+                    IsEnabled="{Binding CanStepFile}" />
           <Separator />
-          <MenuItem Header="Average _Spectrum" ToggleType="CheckBox"
-                    IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" InputGesture="Ctrl+R" />
-          <MenuItem Header="Cross_hair" ToggleType="CheckBox"
-                    IsChecked="{Binding ShowCrosshair, Mode=TwoWay}" InputGesture="Ctrl+H" />
+          <MenuItem x:Name="MenuSpectrum" Header="Average _Spectrum" ToggleType="CheckBox"
+                    IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" />
+          <MenuItem x:Name="MenuCrosshair" Header="Cross_hair" ToggleType="CheckBox"
+                    IsChecked="{Binding ShowCrosshair, Mode=TwoWay}" />
         </MenuItem>
         <MenuItem Header="_Analyze">
-          <MenuItem Header="Check _Integrity" Click="OnCheckIntegrityClicked" InputGesture="Ctrl+I" IsEnabled="{Binding CanAnalyzeTrack}" />
-          <MenuItem Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" InputGesture="Ctrl+L" IsEnabled="{Binding CanAnalyzeTrack}" />
+          <MenuItem x:Name="MenuIntegrity" Header="Check _Integrity" Click="OnCheckIntegrityClicked" IsEnabled="{Binding CanAnalyzeTrack}" />
+          <MenuItem x:Name="MenuLoudness" Header="Measure _Loudness" Click="OnMeasureLoudnessClicked" IsEnabled="{Binding CanAnalyzeTrack}" />
           <Separator />
           <MenuItem Header="{Binding AnalyzeFolderHeader}" IsEnabled="{Binding CanActOnFolder}" Click="OnAnalyzeFolderClicked" />
           <MenuItem Header="{Binding DuplicatesHeader}" Click="OnDuplicateDetectiveClicked" />

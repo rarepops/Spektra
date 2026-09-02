@@ -17,6 +17,10 @@
     <!-- InstallerAudioExtensionsSyncTests reads this at AppContext.BaseDirectory
          to check it against BandwidthReport.AudioExtensions. -->
     <None Include="..\..\packaging\spektra.wxs" Link="packaging\spektra.wxs" CopyToOutputDirectory="PreserveNewest" />
+    <!-- KeyCommandCoverageTests reads the shell's key dispatch as TEXT to check
+         every KeyCommand is actually wired to something. Copied as data, not
+         referenced: the test project links Spektra.Core only, by house rule. -->
+    <None Include="..\..\src\Spektra.App\MainWindow.Input.cs" Link="app\MainWindow.Input.cs" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

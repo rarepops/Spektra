@@ -18,8 +18,20 @@ public partial class AboutWindow : Window
     private readonly string _runtimeLine;
     private string _ffmpegLine;
 
-    public AboutWindow()
+    private readonly KeyMap _keys;
+    private readonly IReadOnlyList<string> _keyProblems;
+
+    /// Carries the shell's key map through rather than reloading the file, so
+    /// the Controls window opened from here and the one opened with F1 can
+    /// never describe two different keyboards.
+    /// For Avalonia's runtime XAML loader only, which needs a public
+    /// parameterless constructor; the shell always passes its own map.
+    public AboutWindow() : this(KeyMap.Defaults, []) { }
+
+    public AboutWindow(KeyMap keys, IReadOnlyList<string> keyProblems)
     {
+        _keys = keys;
+        _keyProblems = keyProblems;
         InitializeComponent();
 
         var v = Assembly.GetExecutingAssembly().GetName().Version;
@@ -65,7 +77,7 @@ public partial class AboutWindow : Window
     }
 
     private void OnControls(object? sender, PointerPressedEventArgs e) =>
-        _ = new ControlsWindow().ShowDialog(this);
+        _ = new ControlsWindow(_keys, _keyProblems).ShowDialog(this);
 
     private async void OnGitHub(object? sender, PointerPressedEventArgs e) => await OpenUrl(RepoUrl);
 

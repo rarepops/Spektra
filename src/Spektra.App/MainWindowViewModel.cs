@@ -356,8 +356,20 @@ public sealed class MainWindowViewModel : StatusViewModel
         RaisePropertyChanged(nameof(ManifestHeader));
     }
 
+    /// What every key does: the shipped defaults with the user's
+    /// keybindings.json merged over them. Read once at startup; Spektra never
+    /// writes this file, so there is nothing to keep in sync afterwards.
+    public KeyMap Keys { get; }
+
+    /// Anything wrong with that file, in the shape PaletteRegistry uses for
+    /// bad palette files. Listed in the Controls window (F1), which is where
+    /// someone wondering about a key will look.
+    public IReadOnlyList<string> KeyProblems { get; }
+
     public MainWindowViewModel()
     {
+        Keys = KeyMapStore.Load(KeyMapStore.DefaultPath, out var keyProblems);
+        KeyProblems = keyProblems;
         Settings = SettingsStore.Load(SettingsStore.DefaultPath);
         // Start new (the default) forgets last run's content before any
         // window reads it; layout and placements survive regardless.
@@ -369,6 +381,13 @@ public sealed class MainWindowViewModel : StatusViewModel
             FfmpegMissing = true;
             ShellErrorText = "ffmpeg was not found. Spektra needs ffmpeg + ffprobe to decode audio.";
         }
+        // Said once, quietly: a bad line in keybindings.json is not an error
+        // worth the red banner, but silently ignoring it would leave someone
+        // pressing a key that was never bound and wondering why.
+        if (KeyProblems.Count > 0)
+            StatusText = KeyProblems.Count == 1
+                ? KeyProblems[0]
+                : $"{KeyProblems.Count} keybinding problems · see Help → Controls (F1)";
     }
 
     private void OnSelectedDocPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -19,6 +19,7 @@ public partial class MainWindow : Window
 
         AddHandler(DragDrop.DropEvent, OnDrop);
 
+        ApplyMenuGestures();
         _vm.RecentFilesChanged += RebuildRecentMenu;
         // Opening or closing a folder tab changes who can be compared with whom.
         _vm.Tabs.CollectionChanged += (_, _) => RebuildCompareFoldersMenu();
@@ -48,6 +49,44 @@ public partial class MainWindow : Window
         };
 
         Opened += async (_, _) => await ApplyAsync(request, isStartup: true);
+    }
+
+    /// Stamps each menu row's gesture label from the key map, so a rebound key
+    /// is shown where it is used rather than only in the Controls window. The
+    /// labels are display only, as Avalonia's InputGesture never invokes
+    /// anything itself; OnKeyDown remains the one thing that runs a command.
+    private void ApplyMenuGestures()
+    {
+        Gesture(MenuOpen, KeyCommand.OpenFiles);
+        Gesture(MenuOpenFolder, KeyCommand.OpenFolder);
+        Gesture(MenuCompare, KeyCommand.Compare);
+        Gesture(MenuSaveImage, KeyCommand.SaveImage);
+        Gesture(MenuCopyImage, KeyCommand.CopyImage);
+        Gesture(MenuExportHtml, KeyCommand.ExportReport);
+        Gesture(MenuPreferences, KeyCommand.Preferences);
+        Gesture(MenuNextFile, KeyCommand.NextFile);
+        Gesture(MenuPreviousFile, KeyCommand.PreviousFile);
+        Gesture(MenuSpectrum, KeyCommand.ToggleSpectrum);
+        Gesture(MenuCrosshair, KeyCommand.ToggleCrosshair);
+        Gesture(MenuIntegrity, KeyCommand.CheckIntegrity);
+        Gesture(MenuLoudness, KeyCommand.MeasureLoudness);
+    }
+
+    private void Gesture(MenuItem item, KeyCommand command) =>
+        item.InputGesture = ToGesture(_vm.Keys.For(command));
+
+    /// Built from the key name rather than handed to Avalonia's own gesture
+    /// parser, because KeyStroke has already canonicalised the name to the Key
+    /// enum's spelling, which Enum.TryParse then matches exactly.
+    private static KeyGesture? ToGesture(KeyStroke? stroke)
+    {
+        if (stroke is not { } s || !Enum.TryParse<Key>(s.Key, ignoreCase: true, out var key))
+            return null;
+        var mods = KeyModifiers.None;
+        if (s.Mods.HasFlag(KeyMods.Ctrl)) mods |= KeyModifiers.Control;
+        if (s.Mods.HasFlag(KeyMods.Shift)) mods |= KeyModifiers.Shift;
+        if (s.Mods.HasFlag(KeyMods.Alt)) mods |= KeyModifiers.Alt;
+        return new KeyGesture(key, mods);
     }
 
     /// Acts on one launch's request. Runs on startup for this process's own

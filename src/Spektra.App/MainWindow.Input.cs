@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Spektra.Core;
 
 namespace Spektra.App;
 
@@ -47,134 +48,180 @@ public partial class MainWindow
             _vm.CloseTab(tab);
     }
 
+    /// The keyboard is a lookup, not a switch on keys: the pressed gesture
+    /// becomes a KeyCommand through the key map, and only then does the shell
+    /// decide what to do with it. That is what lets keybindings.json move a
+    /// key without any of this changing, and what keeps the menus and the
+    /// Controls window from drifting away from what the keys actually do.
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (e.Handled) return;
+
+        // F1 is reserved. It opens the sheet documenting every other key, so a
+        // user who rebound it badly would lose the way to find out what they
+        // had done.
         if (e.Key == Key.F1)
         {
-            _ = new ControlsWindow().ShowDialog(this);
+            _ = new ControlsWindow(_vm.Keys, _vm.KeyProblems).ShowDialog(this);
             e.Handled = true;
             return;
         }
-        if (_vm.Selected is ComparisonViewModel cmp && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+
+        // Positional rather than one command each, so these stay hard-wired
+        // along with their numpad twins.
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && TabIndexOf(e.Key) is { } tab)
         {
-            switch (e.Key)
-            {
-                case Key.T: cmp.FlipAB(); e.Handled = true; return;
-                case Key.D: cmp.Mode = CompareMode.Diff; e.Handled = true; return;
-                case Key.Escape: cmp.Mode = CompareMode.Both; e.Handled = true; return;
-                case Key.A: _ = cmp.AlignAsync(); e.Handled = true; return;
-            }
-        }
-        if (e.Key == Key.F5 && e.KeyModifiers.HasFlag(KeyModifiers.Control)
-            && _vm.Selected is FolderViewModel wfold)
-        {
-            // Must run before the plain-F5 switch: its folder branch inspects
-            // only Shift, so an unintercepted Ctrl+F5 would start an analyze.
-            // Other tab types fall through and keep their old F5 reload.
-            wfold.Refresh();
+            SelectTab(tab);
             e.Handled = true;
             return;
         }
-        if (e.Key == Key.F5)
+
+        if (_vm.Keys.Resolve(StrokeOf(e)) is { } command && Run(command))
+            e.Handled = true;
+    }
+
+    /// Avalonia's Key enum name is exactly the name the key map matches on,
+    /// which is the whole reason KeyStroke holds a string rather than trying
+    /// to mirror a framework enum inside Core.
+    private static KeyStroke StrokeOf(KeyEventArgs e)
+    {
+        var mods = KeyMods.None;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) mods |= KeyMods.Ctrl;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) mods |= KeyMods.Shift;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) mods |= KeyMods.Alt;
+        // The numpad's zero has always reset the view alongside the digit
+        // row's, and the map holds one gesture per command rather than a list
+        // of aliases, so the alias stays here. NumPad1-9 never reach this:
+        // the tab jumps above take them first.
+        var key = e.Key == Key.NumPad0 ? Key.D0 : e.Key;
+        return new KeyStroke(key.ToString(), mods);
+    }
+
+    /// Ctrl+1..9 and their numpad equivalents, as a zero-based tab index.
+    private static int? TabIndexOf(Key key) => key switch
+    {
+        >= Key.D1 and <= Key.D9 => key - Key.D1,
+        >= Key.NumPad1 and <= Key.NumPad9 => key - Key.NumPad1,
+        _ => null,
+    };
+
+    /// Runs a command against the selected tab. Returns false when the tab in
+    /// front of the user has nothing to do with it, so the key falls through
+    /// unhandled exactly as it did before the map existed.
+    private bool Run(KeyCommand command)
+    {
+        switch (command)
         {
-            switch (_vm.Selected)
-            {
-                case DocumentViewModel rdoc: _ = rdoc.LoadOverviewAsync(); e.Handled = true; return;
-                case ComparisonViewModel rcmp: _ = rcmp.LoadAsync(); e.Handled = true; return;
-                case FolderViewModel rfold:
-                    rfold.Analyze(fresh: e.KeyModifiers.HasFlag(KeyModifiers.Shift));
-                    e.Handled = true;
-                    return;
-            }
-        }
-        if (e.Handled || !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
-        switch (e.Key)
-        {
-            case Key.O when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
-                _ = OpenFolderViaDialogAsync();
-                e.Handled = true;
-                break;
-            case Key.O:
+            case KeyCommand.OpenFiles:
                 _ = OpenViaDialogAsync();
-                e.Handled = true;
-                break;
-            case Key.E:
+                return true;
+            case KeyCommand.OpenFolder:
+                _ = OpenFolderViaDialogAsync();
+                return true;
+            case KeyCommand.Preferences:
                 _ = new PreferencesWindow(_vm).ShowDialog(this);
-                e.Handled = true;
-                break;
-            case Key.S when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
-                _ = ExportReportAsync("html");
-                e.Handled = true;
-                break;
-            case Key.S:
+                return true;
+            case KeyCommand.SaveImage:
                 _ = SaveImageAsync();
-                e.Handled = true;
-                break;
-            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                return true;
+            case KeyCommand.CopyImage:
                 _ = CopyImageAsync();
-                e.Handled = true;
-                break;
-            case Key.R:
-                _vm.ShowSpectrum = !_vm.ShowSpectrum;
-                e.Handled = true;
-                break;
-            case Key.H:
-                _vm.ShowCrosshair = !_vm.ShowCrosshair;
-                e.Handled = true;
-                break;
-            case Key.I when _vm.Selected is DocumentViewModel doc:
-                _ = doc.ToggleIntegrityAsync();
-                e.Handled = true;
-                break;
-            case Key.L when _vm.Selected is DocumentViewModel ldoc:
-                _ = ldoc.ToggleLoudnessAsync();
-                e.Handled = true;
-                break;
-            case Key.W when _vm.Selected is { } tab:
-                _vm.CloseTab(tab);
-                e.Handled = true;
-                break;
-            case Key.Tab:
-                _vm.SelectNext(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
-                e.Handled = true;
-                break;
-            case Key.D:
+                return true;
+            case KeyCommand.ExportReport:
+                _ = ExportReportAsync("html");
+                return true;
+            case KeyCommand.Compare:
                 _ = CompareViaDialogAsync();
-                e.Handled = true;
-                break;
-            case Key.D0 or Key.NumPad0:
+                return true;
+            case KeyCommand.ToggleSpectrum:
+                _vm.ShowSpectrum = !_vm.ShowSpectrum;
+                return true;
+            case KeyCommand.ToggleCrosshair:
+                _vm.ShowCrosshair = !_vm.ShowCrosshair;
+                return true;
+            case KeyCommand.NextTab:
+                _vm.SelectNext(1);
+                return true;
+            case KeyCommand.PreviousTab:
+                _vm.SelectNext(-1);
+                return true;
+
+            case KeyCommand.CloseTab when _vm.Selected is { } tab:
+                _vm.CloseTab(tab);
+                return true;
+
+            case KeyCommand.ResetView:
                 switch (_vm.Selected)
                 {
-                    case DocumentViewModel zdoc: zdoc.Viewport.Reset(); break;
-                    case ComparisonViewModel zcmp: zcmp.Viewport.Reset(); break;
+                    case DocumentViewModel doc: doc.Viewport.Reset(); break;
+                    case ComparisonViewModel cmp: cmp.Viewport.Reset(); break;
                 }
-                e.Handled = true;
-                break;
-            case >= Key.D1 and <= Key.D9:
-                SelectTab(e.Key - Key.D1);
-                e.Handled = true;
-                break;
-            case >= Key.NumPad1 and <= Key.NumPad9:
-                SelectTab(e.Key - Key.NumPad1);
-                e.Handled = true;
-                break;
-            // Sibling of the channel step below: one arrow axis for channels
-            // within a file, one for files within a folder. Guarded on the tab
-            // type rather than handled unconditionally, so on a folder tab
-            // Ctrl+Left/Right still reaches the grid's own column navigation.
-            case Key.Left or Key.Right when _vm.Selected is DocumentViewModel:
-                _vm.StepFile(e.Key == Key.Right ? 1 : -1);
-                e.Handled = true;
-                break;
-            case Key.Down or Key.Up when _vm.Selected is DocumentViewModel cdoc && cdoc.HasMultipleChannels:
+                return true;
+
+            case KeyCommand.CheckIntegrity when _vm.Selected is DocumentViewModel idoc:
+                _ = idoc.ToggleIntegrityAsync();
+                return true;
+            case KeyCommand.MeasureLoudness when _vm.Selected is DocumentViewModel ldoc:
+                _ = ldoc.ToggleLoudnessAsync();
+                return true;
+
+            case KeyCommand.NextFile or KeyCommand.PreviousFile
+                when _vm.Selected is DocumentViewModel:
+                _vm.StepFile(command == KeyCommand.NextFile ? 1 : -1);
+                return true;
+
+            case KeyCommand.NextChannel or KeyCommand.PreviousChannel
+                when _vm.Selected is DocumentViewModel cdoc && cdoc.HasMultipleChannels:
+                cdoc.SelectedChannelIndex = Math.Clamp(
+                    cdoc.SelectedChannelIndex + (command == KeyCommand.NextChannel ? 1 : -1),
+                    0, cdoc.ChannelOptions.Count - 1);
+                return true;
+
+            // On any other tab this keeps the plain reload it has always had:
+            // the old code reached its folder branch first and let everything
+            // else fall through to the F5 handler below it.
+            case KeyCommand.RefreshFolder:
+                if (_vm.Selected is FolderViewModel folder)
                 {
-                    var step = e.Key == Key.Down ? 1 : -1;
-                    cdoc.SelectedChannelIndex = Math.Clamp(
-                        cdoc.SelectedChannelIndex + step, 0, cdoc.ChannelOptions.Count - 1);
-                    e.Handled = true;
-                    break;
+                    folder.Refresh();
+                    return true;
                 }
+                return Reload(fresh: false);
+
+            case KeyCommand.Reload:
+                return Reload(fresh: false);
+            case KeyCommand.ReloadFresh:
+                return Reload(fresh: true);
+
+            case KeyCommand.CompareFlip when _vm.Selected is ComparisonViewModel fcmp:
+                fcmp.FlipAB();
+                return true;
+            case KeyCommand.CompareDiff when _vm.Selected is ComparisonViewModel dcmp:
+                dcmp.Mode = CompareMode.Diff;
+                return true;
+            case KeyCommand.CompareBoth when _vm.Selected is ComparisonViewModel bcmp:
+                bcmp.Mode = CompareMode.Both;
+                return true;
+            case KeyCommand.CompareAlign when _vm.Selected is ComparisonViewModel acmp:
+                _ = acmp.AlignAsync();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// Reload means three different things by tab type, and "fresh" only
+    /// means anything to a folder, where it is the ignore-the-cache pass.
+    private bool Reload(bool fresh)
+    {
+        switch (_vm.Selected)
+        {
+            case DocumentViewModel doc: _ = doc.LoadOverviewAsync(); return true;
+            case ComparisonViewModel cmp: _ = cmp.LoadAsync(); return true;
+            case FolderViewModel folder: folder.Analyze(fresh); return true;
+            default: return false;
         }
     }
 

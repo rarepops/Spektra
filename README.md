@@ -76,6 +76,8 @@ Compare two encodes on a shared time axis, aligned automatically, with a signed 
 
 ## Keyboard shortcuts
 
+These are the defaults; all of them except `F1` can be changed (see [Changing the shortcuts](#changing-the-shortcuts) below). **Help → Controls** (`F1`) always shows the keys actually in force, which is the list to trust if you have remapped anything.
+
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+O` · `Ctrl+Shift+O` | Open audio files · open a folder to audit |
@@ -92,6 +94,33 @@ Compare two encodes on a shared time axis, aligned automatically, with a signed 
 | `Ctrl+Left` / `Ctrl+Right` | Previous / next file in the folder, in the same tab |
 | `Ctrl+F5` | Folder tab: re-read the folder from disk, keeping your ticked checkboxes |
 | `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
+
+### Changing the shortcuts
+
+Put a `keybindings.json` beside your settings in `%APPDATA%\Spektra`, listing only the commands you want to move, and restart Spektra:
+
+    {
+      // browser-style navigation between files
+      "next-file": "Alt+Right",
+      "previous-file": "Alt+Left",
+      "save-image": ""
+    }
+
+An empty string unbinds a command. Comments and a trailing comma are allowed, since this file is meant to be edited by hand. Modifiers are `Ctrl`, `Shift` and `Alt` in any order and any casing, and the key is whatever you would call it: `S`, `F5`, `0`, `Left`, `Esc`, `Tab`, `PageUp`.
+
+Binding a command to a key another command already uses is allowed, and the other command loses that key: that is what remapping means, and leaving both bound would fire two things on one press. Swapping two commands' keys therefore works as written. Spektra never writes this file, and never fails over it: anything it cannot understand is listed in the Controls window and skipped, leaving that command's default alone, so a typo costs one line rather than your keyboard.
+
+The command names are:
+
+    open-files        open-folder       close-tab         next-tab
+    previous-tab      preferences       save-image        copy-image
+    export-report     reset-view        toggle-spectrum   toggle-crosshair
+    next-channel      previous-channel  next-file         previous-file
+    check-integrity   measure-loudness  reload            reload-fresh
+    refresh-folder    compare           compare-flip      compare-diff
+    compare-both      compare-align
+
+`F1` is deliberately not in that list. It opens the window documenting every other key, so it stays put. The `Ctrl+1`..`Ctrl+9` tab jumps are positional rather than a command each, and are also fixed.
 
 Check for a newer release any time from **Help → Check for Updates**. Spektra never updates itself; it only tells you when a newer release exists and links to it. You can also enable a quiet once-a-day check on startup in Preferences.
 
