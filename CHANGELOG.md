@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Each release also carries the Windows installer inside a zip, Spektra-version-Setup.zip, for a browser or mail filter that refuses a bare .msi download. The bare installer stays, and the extracted file matches its own line in SHA256SUMS.txt.
+
 ## [0.23.0] - 2026-09-02
 
 ### Added

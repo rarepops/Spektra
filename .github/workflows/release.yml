@@ -90,6 +90,12 @@ jobs:
           Copy-Item LICENSE.md, README.md $g
           Compress-Archive -Path "$g/*" -DestinationPath "$art/Spektra-$ver-win-x64.zip" -Force
 
+          # The installer is published bare, for double-click installs, and
+          # zipped as well, for browsers and mail filters that refuse a bare
+          # .msi download. Same file inside, so the extracted MSI still
+          # matches its own line in SHA256SUMS.txt.
+          Compress-Archive -Path "$art/Spektra-$ver-Setup.msi" -DestinationPath "$art/Spektra-$ver-Setup.zip" -Force
+
           foreach ($rid in 'win-x64','linux-x64','osx-x64','osx-arm64') {
             $s = "dist/stage-cli-$rid"
             New-Item -ItemType Directory -Force $s | Out-Null
