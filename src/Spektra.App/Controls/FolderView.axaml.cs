@@ -20,6 +20,11 @@ public partial class FolderView : UserControl
     public FolderView()
     {
         InitializeComponent();
+        // Tunnelling, not the XAML KeyDown: the DataGrid's own key handling
+        // runs first on the bubbling pass, takes Enter as "commit and step to
+        // the next row", and marks it handled, so a bubbling handler never
+        // saw the key and Enter moved down a track instead of opening one.
+        Grid.AddHandler(KeyDownEvent, OnGridKeyDown, RoutingStrategies.Tunnel);
     }
 
     private AppSettings? _settings;
@@ -233,6 +238,8 @@ public partial class FolderView : UserControl
 
     private void OnRefreshClicked(object? sender, RoutedEventArgs e) => _vm?.Refresh();
 
+    /// Enter opens the selected row, exactly as double-click does. Handled so
+    /// the grid does not also step to the next row afterwards.
     private void OnGridKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && Grid.SelectedItem is FolderRow row)

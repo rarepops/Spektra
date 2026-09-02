@@ -150,7 +150,7 @@
                   CanUserSortColumns="True" CanUserReorderColumns="False"
                   CanUserResizeColumns="True" SelectionMode="Extended"
                   Background="#111111" FontSize="12"
-                  DoubleTapped="OnRowDoubleTapped" KeyDown="OnGridKeyDown">
+                  DoubleTapped="OnRowDoubleTapped">
           <DataGrid.Columns>
             <!-- The only star column, so it absorbs whatever the nine Auto columns
                  leave. Unbounded that reaches ~1370 units on a 2560-unit window for

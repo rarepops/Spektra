@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Enter in a folder tab's grid opens the selected file, as the guide has always said and as double-click does. The grid took Enter for itself first, as "commit and step to the next row", and marked it handled, so the handler meant to open the row never saw the key: Enter moved down one track instead of opening one.
+
 ## [0.22.0] - 2026-09-02
 
 ### Added
