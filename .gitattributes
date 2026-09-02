@@ -1,0 +1,13 @@
+# Every text file is stored and checked out with LF, on every machine and on
+# the CI runner, so the formatter sees one line ending regardless of who wrote
+# the file (git, an editor, a tool). A clone's core.autocrlf no longer matters.
+* text=auto eol=lf
+
+# Binaries, declared rather than left to the NUL-byte heuristic.
+*.flac binary
+*.m4a  binary
+*.mp3  binary
+*.wav  binary
+*.ico  binary
+*.png  binary
+*.msi  binary
