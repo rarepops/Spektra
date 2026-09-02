@@ -89,6 +89,7 @@ Compare two encodes on a shared time axis, aligned automatically, with a signed 
 | `Ctrl+D` · `Ctrl+Shift+S` | Compare two files · export the current file's report |
 | `Ctrl+0` · `Ctrl+1`..`Ctrl+9` | Reset the view · jump to tab N |
 | `Ctrl+Up` / `Ctrl+Down` · `F5` | Previous / next channel · reload the file or analyze the folder's checked files (`Shift+F5` = ignore the cache) |
+| `Ctrl+Left` / `Ctrl+Right` | Previous / next file in the folder, in the same tab |
 | `Ctrl+F5` | Folder tab: re-read the folder from disk, keeping your ticked checkboxes |
 | `Ctrl+H` | Toggle the crosshair (cursor line + readout) |
 

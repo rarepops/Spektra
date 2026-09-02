@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Move to the next or previous file without leaving the spectrum view: **View → Next File / Previous File**, or Ctrl+Right / Ctrl+Left. Reviewing a folder track by track used to mean opening a tab per file and closing it again, because nothing in the app moved between files at all: Ctrl+Tab moved between tabs and Ctrl+Up / Ctrl+Down between the channels of one file, and that was the whole vocabulary. The next file now replaces the current one in the same tab, so a forty-track album costs one tab and keeps its position in the tab strip, leaving Ctrl+1..9 meaning what it meant. For a file opened from a folder tab the sequence is exactly what that tab's grid is listing, walked in the order the tree shows it, so the drilldown scope and the severity filter both apply and filtering to Problems only turns Ctrl+Right into "next problem". The sequence is re-read on every press rather than fixed when the file opened, so re-analyzing, re-filtering, or drilling down between two presses simply takes effect. A file opened any other way walks its own folder in name order. The walk stops at either end instead of wrapping and says which end it reached, and a neighbouring file that already has its own tab is selected rather than opened a second time.
+
 ## [0.21.0] - 2026-08-23
 
 ### Added

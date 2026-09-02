@@ -80,6 +80,10 @@
               <TextBlock Grid.Column="1" Classes="desc" Text="Switch channel" />
             </Grid>
             <Grid ColumnDefinitions="155,*">
+              <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+Left / Ctrl+Right" />
+              <TextBlock Grid.Column="1" Classes="desc" Text="Previous / next file in the folder" />
+            </Grid>
+            <Grid ColumnDefinitions="155,*">
               <TextBlock Grid.Column="0" Classes="key" Text="Ctrl+H" />
               <TextBlock Grid.Column="1" Classes="desc" Text="Toggle the crosshair" />
             </Grid>

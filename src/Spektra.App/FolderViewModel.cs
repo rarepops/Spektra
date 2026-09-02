@@ -237,6 +237,25 @@ public sealed class FolderViewModel : TabViewModelBase
     public IEnumerable<FileNodeViewModel> FilesInScope() =>
         _filesInOrder.Where(f => _scopeFolder is null || PathScope.IsUnder(f.FullPath, _scopeFolder));
 
+    /// The files the grid is listing, in tree order: what Ctrl+Right and
+    /// Ctrl+Left walk from a spectrum tab opened out of this folder.
+    ///
+    /// The two halves come from different places on purpose. Order is the
+    /// tree's, because Rows is in analysis-COMPLETION order (whatever ffmpeg
+    /// finished first), which is nobody's idea of a sequence to walk.
+    /// Membership is IsRowVisible, the same severity-plus-scope rule the grid
+    /// and Export already share, so filtering to "Problems only" turns Next
+    /// into "next problem" without a second opinion about what is shown.
+    public IReadOnlyList<string> VisibleFilesInOrder() =>
+        [.. FilesInScope()
+             .Select(f => f.FullPath)
+             .Where(p => _rowIndex.TryGetValue(p, out var i) && IsRowVisible(Rows[i]))];
+
+    /// What to call this tab's list in a status message: the drilldown scope
+    /// when one is set, the tab root otherwise. Unescaped, unlike the menu
+    /// headers' ScopeLabel.ForMenu.
+    public string ScopeName => ScopeLabel.For(FolderPath, _scopeFolder);
+
     public void SelectAll() => SetAllChecks(true);
     public void SelectNone() => SetAllChecks(false);
 

@@ -159,6 +159,14 @@ public partial class MainWindow
                 SelectTab(e.Key - Key.NumPad1);
                 e.Handled = true;
                 break;
+            // Sibling of the channel step below: one arrow axis for channels
+            // within a file, one for files within a folder. Guarded on the tab
+            // type rather than handled unconditionally, so on a folder tab
+            // Ctrl+Left/Right still reaches the grid's own column navigation.
+            case Key.Left or Key.Right when _vm.Selected is DocumentViewModel:
+                _vm.StepFile(e.Key == Key.Right ? 1 : -1);
+                e.Handled = true;
+                break;
             case Key.Down or Key.Up when _vm.Selected is DocumentViewModel cdoc && cdoc.HasMultipleChannels:
                 {
                     var step = e.Key == Key.Down ? 1 : -1;

@@ -301,6 +301,12 @@ public sealed class MainWindowViewModel : StatusViewModel
     /// and silently doing nothing in a folder tab.
     public bool CanAnalyzeTrack => _selected is DocumentViewModel;
 
+    /// The View menu's Next / Previous File entries. Deliberately does not ask
+    /// whether a neighbour exists: that needs the sequence, which is resolved
+    /// per keypress, and a menu item flickering as you cross the last file
+    /// would be worse than one that lands on an end-of-list message.
+    public bool CanStepFile => _selected is DocumentViewModel;
+
     /// The Analyze menu's folder command acts on the selected folder tab.
     public bool CanActOnFolder => _selected is FolderViewModel;
 
@@ -342,6 +348,7 @@ public sealed class MainWindowViewModel : StatusViewModel
     private void RaiseFolderMenuState()
     {
         RaisePropertyChanged(nameof(CanAnalyzeTrack));
+        RaisePropertyChanged(nameof(CanStepFile));
         RaisePropertyChanged(nameof(CanActOnFolder));
         RaisePropertyChanged(nameof(AnalyzeFolderHeader));
         RaisePropertyChanged(nameof(DuplicatesHeader));
@@ -416,6 +423,97 @@ public sealed class MainWindowViewModel : StatusViewModel
         Settings.PushRecent(path);
         SaveSettings();
         RecentFilesChanged?.Invoke();
+    }
+
+    /// The files Next / Previous walks, and what to call that list in a
+    /// status message.
+    private sealed record FileWalk(IReadOnlyList<string> Files, string Label);
+
+    /// The sequence for a document tab: the grid of the first open folder tab
+    /// listing this file, else the file's own directory.
+    ///
+    /// Resolved on every keypress rather than snapshotted when the tab opened.
+    /// That is what removes the whole invalidation problem: no stale list after
+    /// a Refresh deleted files, no reference from a document tab that could
+    /// keep a closed folder tab alive, and a filter or drilldown changed
+    /// between two presses simply takes effect.
+    private FileWalk WalkFor(DocumentViewModel doc)
+    {
+        foreach (var folder in Tabs.OfType<FolderViewModel>())
+        {
+            var files = folder.VisibleFilesInOrder();
+            if (files.Contains(doc.FilePath, StringComparer.OrdinalIgnoreCase))
+                return new FileWalk(files, folder.ScopeName);
+        }
+        // Opened by Ctrl+O, a drop, the Explorer verb or Recent, so no folder
+        // tab knows about it: fall back to its own folder, non-recursive, so
+        // the keys still do something predictable.
+        var dir = Path.GetDirectoryName(doc.FilePath);
+        if (string.IsNullOrEmpty(dir)) return new FileWalk([], "");
+        try
+        {
+            return new FileWalk(
+                [.. BandwidthReport.FindAudioFiles(dir, recursive: false)],
+                ScopeLabel.For(dir, null));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new FileWalk([], "");
+        }
+    }
+
+    /// Ctrl+Right / Ctrl+Left: show the neighbouring file in the same tab. The
+    /// stepped-to file REPLACES this one rather than opening another, so
+    /// reviewing forty files costs one tab and Ctrl+1..9 keeps meaning what it
+    /// meant. A fresh view model is cheaper and safer than swapping the file
+    /// underneath this one, whose channel cache, verdict, integrity, loudness,
+    /// header and viewport are all derived from the path.
+    ///
+    /// Deliberately does not touch the recent list: walking an album would
+    /// evict every genuinely recent entry and rewrite settings.json once per
+    /// keypress. Whatever opened the walk is already recorded there.
+    public void StepFile(int direction)
+    {
+        if (_ffmpeg is null || _selected is not DocumentViewModel doc) return;
+
+        var walk = WalkFor(doc);
+        if (FileSequence.Step(walk.Files, doc.FilePath, direction) is not { } next)
+        {
+            // Two different nothings, and calling both "last file" would lie:
+            // the walk can also hold no list at all, or one this file is not
+            // in (deleted since it opened, or an extension the audio walk does
+            // not collect but a drop still opened).
+            StatusText = walk.Files.Contains(doc.FilePath, StringComparer.OrdinalIgnoreCase)
+                ? $"{(direction > 0 ? "Last" : "First")} file in {walk.Label}"
+                : "No other files here to step through.";
+            return;
+        }
+
+        // One tab per file is an invariant OpenFile and OpenFolder both keep
+        // and docs/gui.md documents, so a neighbour that is already open gets
+        // selected rather than duplicated; the walk then carries on from there.
+        var existing = Tabs.OfType<DocumentViewModel>().FirstOrDefault(
+            d => string.Equals(d.FilePath, next, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            Selected = existing;
+            return;
+        }
+
+        var index = Tabs.IndexOf(doc);
+        if (index < 0) return;
+        var replacement = new DocumentViewModel(_ffmpeg, next)
+        {
+            WindowSize = Settings.FftSize,
+            Window = Settings.WindowFunction,
+            AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+        };
+        doc.Cancel();
+        Tabs[index] = replacement;
+        Selected = replacement;
+        // Idempotent. The Selected setter has already started this; calling it
+        // here means the decode does not depend on that setter's side effect.
+        _ = replacement.EnsureLoadedAsync();
     }
 
     public ComparisonViewModel? OpenComparison(string pathA, string pathB)

@@ -225,6 +225,10 @@ public partial class MainWindow
     private async void OnPreferencesClicked(object? sender, RoutedEventArgs e) =>
         await new PreferencesWindow(_vm).ShowDialog(this);
 
+    private void OnNextFileClicked(object? sender, RoutedEventArgs e) => _vm.StepFile(1);
+
+    private void OnPreviousFileClicked(object? sender, RoutedEventArgs e) => _vm.StepFile(-1);
+
     private void OnCheckIntegrityClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm.Selected is DocumentViewModel doc) _ = doc.ToggleIntegrityAsync();

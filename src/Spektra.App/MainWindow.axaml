@@ -116,6 +116,11 @@
           <MenuItem Header="_Preferences…" Click="OnPreferencesClicked" InputGesture="Ctrl+E" />
         </MenuItem>
         <MenuItem Header="_View">
+          <MenuItem Header="_Next File" Click="OnNextFileClicked"
+                    InputGesture="Ctrl+Right" IsEnabled="{Binding CanStepFile}" />
+          <MenuItem Header="_Previous File" Click="OnPreviousFileClicked"
+                    InputGesture="Ctrl+Left" IsEnabled="{Binding CanStepFile}" />
+          <Separator />
           <MenuItem Header="Average _Spectrum" ToggleType="CheckBox"
                     IsChecked="{Binding ShowSpectrum, Mode=TwoWay}" InputGesture="Ctrl+R" />
           <MenuItem Header="Cross_hair" ToggleType="CheckBox"

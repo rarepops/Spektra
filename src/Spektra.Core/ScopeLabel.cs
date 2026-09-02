@@ -8,14 +8,18 @@ public static class ScopeLabel
 {
     /// Last path segment of the effective scope. Drive roots fall back to
     /// the path itself (GetFileName of C:\ is empty, and an empty label
-    /// would render as Analyze ''). Underscores double because Avalonia
-    /// menu headers treat a lone '_' as an access-key marker, and the
-    /// header strings carry their own mnemonics around this name.
-    public static string ForMenu(string rootFolder, string? scopeFolder)
+    /// would render as Analyze '').
+    public static string For(string rootFolder, string? scopeFolder)
     {
         var target = Path.TrimEndingDirectorySeparator(scopeFolder ?? rootFolder);
         var name = Path.GetFileName(target);
-        if (name.Length == 0) name = target;
-        return name.Replace("_", "__");
+        return name.Length == 0 ? target : name;
     }
+
+    /// The same name escaped for a menu header: underscores double because
+    /// Avalonia treats a lone '_' as an access-key marker, and the header
+    /// strings carry their own mnemonics around this name. Status-bar text
+    /// wants For instead, where a doubled underscore would render literally.
+    public static string ForMenu(string rootFolder, string? scopeFolder) =>
+        For(rootFolder, scopeFolder).Replace("_", "__");
 }
