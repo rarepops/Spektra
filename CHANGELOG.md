@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.22.0] - 2026-09-02
 
 ### Added
 - Keyboard shortcuts can be changed. Drop a `keybindings.json` beside your settings in `%APPDATA%\Spektra` naming the commands you want to move, and every key except `F1` and the positional `Ctrl+1`..`Ctrl+9` tab jumps is yours to place. An empty string unbinds a command; comments and a trailing comma are allowed, because the file is meant to be edited by hand; and binding a command onto a key another command holds gives it to the newcomer, which is what remapping means and what makes swapping two keys work as written. Spektra reads the file and never writes it, so nothing you put there is reformatted or lost, and it never fails over it: an entry it cannot understand is listed in the Controls window and skipped, leaving that command's default alone, so one typo costs a line rather than a keyboard. The Controls window (`F1`) now reads the same table the keys do, so it shows what your keyboard actually does rather than what shipped, names the file to edit, and reports anything wrong with it. The menus show their real gestures for the same reason. Until now the same shortcut was written out in four places nothing kept in sync, which is why the file navigation added below was missing from the README's table until someone went looking for it.
@@ -472,7 +472,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/rarepops/Spektra/releases/tag/v0.22.0
 [0.21.0]: https://github.com/rarepops/Spektra/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rarepops/Spektra/releases/tag/v0.20.0
 [0.19.0]: https://github.com/rarepops/Spektra/releases/tag/v0.19.0
