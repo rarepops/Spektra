@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.22.1] - 2026-09-02
 
 ### Fixed
 - Enter in a folder tab's grid opens the selected file, as the guide has always said and as double-click does. The grid took Enter for itself first, as "commit and step to the next row", and marked it handled, so the handler meant to open the row never saw the key: Enter moved down one track instead of opening one.
@@ -480,7 +480,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.22.1...HEAD
+[0.22.1]: https://github.com/rarepops/Spektra/releases/tag/v0.22.1
 [0.22.0]: https://github.com/rarepops/Spektra/releases/tag/v0.22.0
 [0.21.0]: https://github.com/rarepops/Spektra/releases/tag/v0.21.0
 [0.20.0]: https://github.com/rarepops/Spektra/releases/tag/v0.20.0
