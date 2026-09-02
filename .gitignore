@@ -20,3 +20,6 @@ dist/
 
 # benchmark results (BenchmarkDotNet writes here; never committed)
 BenchmarkDotNet.Artifacts/
+
+# TUnit 1.65+ writes an HTML and a JSON report here on every test run.
+TestResults/

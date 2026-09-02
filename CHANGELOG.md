@@ -9,6 +9,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - Enter in a folder tab's grid opens the selected file, as the guide has always said and as double-click does. The grid took Enter for itself first, as "commit and step to the next row", and marked it handled, so the handler meant to open the row never saw the key: Enter moved down one track instead of opening one.
 
+### Changed
+- Dependencies brought current, none of which changes behaviour: Avalonia 12.1.2 (two fix-only patches, among them the tooltip flicker and a memory leak when binding to observables), Microsoft.Data.Sqlite 10.0.11 with the bundled SQLite engine at 3.53.4, and TUnit 1.65.68 for the test suite. Nothing in the dependency tree carries a known advisory.
+
 ## [0.22.0] - 2026-09-02
 
 ### Added
