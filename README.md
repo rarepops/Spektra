@@ -4,11 +4,20 @@
 
 <p align="center">
   <a href="https://github.com/rarepops/Spektra/actions/workflows/ci.yml"><img src="https://github.com/rarepops/Spektra/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/rarepops/Spektra/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/rarepops/Spektra/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL" /></a>
+  <!-- event=push keeps manual 0.0.0-dev test builds out of the release badge; only tag pushes count. -->
+  <a href="https://github.com/rarepops/Spektra/actions/workflows/release.yml"><img src="https://github.com/rarepops/Spektra/actions/workflows/release.yml/badge.svg?event=push" alt="Release build" /></a>
   <a href="https://github.com/rarepops/Spektra/releases/latest"><img src="https://img.shields.io/github/v/release/rarepops/Spektra?label=release&color=brightgreen" alt="Latest release" /></a>
   <a href="https://github.com/rarepops/Spektra/releases"><img src="https://img.shields.io/github/downloads/rarepops/Spektra/total?label=downloads" alt="Downloads" /></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm%20Perimeter%201.0.1-blue" alt="License" /></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10" />
+  <a href="https://avaloniaui.net"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fraw.githubusercontent.com%2Frarepops%2FSpektra%2Fmain%2Fsrc%2FSpektra.App%2FSpektra.App.csproj&query=%2F%2FPackageReference%5B%40Include%3D%27Avalonia%27%5D%2F%40Version&label=Avalonia&color=8B44AC" alt="Avalonia version, read from the project file" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-lightgrey" alt="Platforms" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/rarepops/Spektra/commits/dev"><img src="https://img.shields.io/github/last-commit/rarepops/Spektra/dev?label=last%20commit" alt="Last commit on dev" /></a>
+  <a href="https://github.com/rarepops/Spektra/issues"><img src="https://img.shields.io/github/issues/rarepops/Spektra" alt="Open issues" /></a>
 </p>
 
 # Spektra
