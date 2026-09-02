@@ -72,7 +72,10 @@ jobs:
           wix extension add -g WixToolset.UI.wixext/5.0.2
           wix extension add -g WixToolset.Util.wixext/5.0.2
           New-Item -ItemType Directory -Force dist/artifacts | Out-Null
-          wix build packaging/spektra.wxs -arch x64 `
+          # -pdbtype none: without it wix leaves Spektra-<ver>-Setup.wixpdb beside the
+          # MSI, and the checksum step below hashed it into SHA256SUMS.txt for a file
+          # no release ever carried (every list from 0.21.0 to 0.24.0 has that line).
+          wix build packaging/spektra.wxs -arch x64 -pdbtype none `
             -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
             -o "dist/artifacts/Spektra-${{ steps.v.outputs.version }}-Setup.msi"
           if ($LASTEXITCODE -ne 0) { throw "wix build failed" }
