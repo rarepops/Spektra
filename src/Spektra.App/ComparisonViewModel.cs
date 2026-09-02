@@ -7,6 +7,7 @@ public enum CompareMode { Both, A, B, Diff }
 public sealed class ComparisonViewModel : TabViewModelBase
 {
     private readonly FfmpegPaths _ffmpeg;
+    private readonly OverviewCache? _cache;
     private CancellationTokenSource? _diffCts;
     private CancellationTokenSource? _alignCts;
     private CancellationTokenSource? _nullCts;
@@ -68,11 +69,12 @@ public sealed class ComparisonViewModel : TabViewModelBase
     public event Action? BusyChanged;    // long-running op started/finished → repaint overlay
     public event Action? OffsetChanged;  // B shifted → repaint now, re-decode B's sharp tile debounced
 
-    public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB)
+    public ComparisonViewModel(FfmpegPaths ffmpeg, string pathA, string pathB, OverviewCache? cache = null)
     {
         _ffmpeg = ffmpeg;
-        A = new DocumentViewModel(ffmpeg, pathA, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false };
-        B = new DocumentViewModel(ffmpeg, pathB, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false };
+        _cache = cache;
+        A = new DocumentViewModel(ffmpeg, pathA, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false, Cache = cache };
+        B = new DocumentViewModel(ffmpeg, pathB, Viewport) { PrefetchChannels = false, AutoIntegrityCheck = false, Cache = cache };
         TabTitle = $"{A.TabTitle} ⇄ {B.TabTitle}";
         Viewport.Changed += () => { if (_mode == CompareMode.Diff) DiffRequested?.Invoke(); };
     }
@@ -174,6 +176,15 @@ public sealed class ComparisonViewModel : TabViewModelBase
 
     /// Starts the initial overview load once and records it as Loaded.
     public void BeginLoad() => Loaded = LoadAsync();
+
+    /// F5 on a compare tab: both files are read again, whatever the shared
+    /// store remembers about them.
+    public Task ReloadAsync()
+    {
+        _cache?.Forget(A.FilePath);
+        _cache?.Forget(B.FilePath);
+        return LoadAsync();
+    }
 
     public async Task LoadAsync()
     {

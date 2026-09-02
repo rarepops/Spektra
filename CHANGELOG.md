@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Coming back to a file is instant. Finished analyses now stay in memory across tabs, so stepping back with Ctrl+Left to a track you looked at a moment ago, comparing two files you just viewed with Ctrl+D, or opening a file a second time shows its spectrogram at once instead of running ffprobe and the decode all over again, and the integrity result comes back with it rather than costing a second decode of its own. Until now everything a tab had computed lived in that tab alone, and stepping to the next file replaced the tab, so reviewing an album back and forth paid for every track every time. How much to keep is a Preferences slider (Keep in memory, in the Analysis section): 512 MB by default, which is about ten stereo tracks at the default FFT size, and Off means what it always did. The budget counts spectrogram data only and lets go of the least recently viewed file first, whole, so a half-remembered file never happens; it applies live, and it never touches what an open tab is showing, only whether the next load is instant. A file that has changed on disk since it was analyzed is never served from memory, F5 always reads the file again, and switching the FFT size away and back finds the earlier analysis still there.
+
 ## [0.22.1] - 2026-09-02
 
 ### Fixed

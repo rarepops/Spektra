@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Spektra.Core;
 
 public sealed record WindowPlacement(int X, int Y, int Width, int Height, bool Maximized);
@@ -24,6 +26,20 @@ public sealed class AppSettings
     // Every opened file runs the integrity check by itself; off makes Ctrl+I
     // a purely on-demand check again.
     public bool AutoIntegrityCheck { get; set; } = true;
+    // Finished analyses kept in memory across tabs, in MB of spectrogram
+    // column data, so that coming back to a file (Ctrl+Left after Ctrl+Right,
+    // a second Ctrl+D, a re-opened tab) shows at once instead of decoding
+    // again. 0 = off. The Preferences slider runs to MaxOverviewCacheMB.
+    public const int DefaultOverviewCacheMB = 512;
+    public const int MaxOverviewCacheMB = 8192;
+    public int OverviewCacheMB { get; set; } = DefaultOverviewCacheMB;
+
+    /// The budget the app applies. The SavedColumnWidth rule: a hand-edited
+    /// value outside the slider's range is junk, not a wish, so it reads as
+    /// the default rather than as a negative or gigantic budget.
+    [JsonIgnore]
+    public int EffectiveOverviewCacheMB =>
+        OverviewCacheMB is >= 0 and <= MaxOverviewCacheMB ? OverviewCacheMB : DefaultOverviewCacheMB;
 
     // Display. Palette is a name: a built-in (old settings files stored the
     // enum by name, so they load unchanged) or a custom palette from

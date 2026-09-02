@@ -218,8 +218,8 @@ public partial class MainWindow
     {
         switch (_vm.Selected)
         {
-            case DocumentViewModel doc: _ = doc.LoadOverviewAsync(); return true;
-            case ComparisonViewModel cmp: _ = cmp.LoadAsync(); return true;
+            case DocumentViewModel doc: _ = doc.ReloadAsync(); return true;
+            case ComparisonViewModel cmp: _ = cmp.ReloadAsync(); return true;
             case FolderViewModel folder: folder.Analyze(fresh); return true;
             default: return false;
         }

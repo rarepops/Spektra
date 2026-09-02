@@ -17,4 +17,7 @@ public sealed class SpectrogramDocument(
     public float[] GetColumn(int i) { lock (_columns) return _columns[i]; }
 
     public void Append(float[] column) { lock (_columns) _columns.Add(column); }
+
+    /// Memory held by the columns: what the shared OverviewCache budgets.
+    public long ByteSize => (long)Count * Bins * sizeof(float);
 }

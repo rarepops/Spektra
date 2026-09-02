@@ -9,6 +9,10 @@ public sealed class MainWindowViewModel : StatusViewModel
     private FfmpegPaths? _ffmpeg;
     private ITab? _selected;
 
+    /// Finished analyses shared by every document and compare tab, so coming
+    /// back to a file is instant. Budgeted from Preferences, live.
+    private readonly OverviewCache _overviews;
+
     private string? _shellErrorText;
     private bool _ffmpegMissing;
 
@@ -230,6 +234,29 @@ public sealed class MainWindowViewModel : StatusViewModel
         }
     }
 
+    /// Preferences slider: how much analyzed audio stays in memory across
+    /// tabs, in MB; 0 = off. Applied live. Lowering it evicts at once, which
+    /// changes nothing on screen (open tabs keep their own copies), only
+    /// whether the next load of a let-go file is instant.
+    public int OverviewCacheMB
+    {
+        get => Settings.EffectiveOverviewCacheMB;
+        set
+        {
+            var mb = Math.Clamp(value, 0, AppSettings.MaxOverviewCacheMB);
+            if (Settings.EffectiveOverviewCacheMB == mb) return;
+            Settings.OverviewCacheMB = mb;
+            _overviews.Budget = Megabytes(mb);
+            RaisePropertyChanged(nameof(OverviewCacheMB));
+            RaisePropertyChanged(nameof(OverviewCacheLabel));
+            SaveSettings();
+        }
+    }
+
+    public string OverviewCacheLabel => OverviewCacheMB == 0 ? "Off" : $"{OverviewCacheMB} MB";
+
+    private static long Megabytes(int mb) => (long)mb << 20;
+
     /// Silent, once-a-day check run at startup. Shows the banner only when an
     /// update is available; stays quiet when up to date or offline.
     public async Task CheckForUpdatesOnStartupAsync()
@@ -374,6 +401,7 @@ public sealed class MainWindowViewModel : StatusViewModel
         // Start new (the default) forgets last run's content before any
         // window reads it; layout and placements survive regardless.
         Settings.ApplyStartupPolicy();
+        _overviews = new OverviewCache(Megabytes(Settings.EffectiveOverviewCacheMB));
         Tabs.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(ShowHint));
         _ffmpeg = FfmpegLocator.LocateDefault(); // probes app dir, %LOCALAPPDATA%, then PATH
         if (_ffmpeg is null)
@@ -429,6 +457,7 @@ public sealed class MainWindowViewModel : StatusViewModel
             WindowSize = Settings.FftSize,
             Window = Settings.WindowFunction,
             AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+            Cache = _overviews,
         };
         Tabs.Add(doc);
         Selected = doc;
@@ -526,6 +555,7 @@ public sealed class MainWindowViewModel : StatusViewModel
             WindowSize = Settings.FftSize,
             Window = Settings.WindowFunction,
             AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+            Cache = _overviews,
         };
         doc.Cancel();
         Tabs[index] = replacement;
@@ -538,7 +568,7 @@ public sealed class MainWindowViewModel : StatusViewModel
     public ComparisonViewModel? OpenComparison(string pathA, string pathB)
     {
         if (_ffmpeg is null) return null;
-        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
+        var cmp = new ComparisonViewModel(_ffmpeg, pathA, pathB, _overviews) { WindowSize = Settings.FftSize, Window = Settings.WindowFunction };
         Tabs.Add(cmp);
         Selected = cmp;
         cmp.BeginLoad();
@@ -623,6 +653,7 @@ public sealed class MainWindowViewModel : StatusViewModel
                     WindowSize = Settings.FftSize,
                     Window = Settings.WindowFunction,
                     AutoIntegrityCheck = Settings.AutoIntegrityCheck,
+                    Cache = _overviews,
                 };
                 Tabs.Add(doc); // deliberately no LoadOverviewAsync here
                 tab = doc;

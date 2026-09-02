@@ -40,6 +40,22 @@ public sealed class DocumentViewModel : TabViewModelBase
     /// compare layout never shows the integrity banner.
     public bool AutoIntegrityCheck { get; init; } = true;
 
+    /// The store of finished analyses shared across tabs (null = none). A hit
+    /// at load skips ffprobe and the decode; every finished overview,
+    /// integrity report, and loudness measurement is published into it, so
+    /// the next tab to open this file (Ctrl+Left back to it, a compare)
+    /// finds it. The per-document channel cache above stays the store for
+    /// what is on screen; this only decides whether the next load is instant.
+    public OverviewCache? Cache { get; init; }
+
+    private SpectrogramSettings CurrentSettings => new(WindowSize: _windowSize, Window: _window);
+
+    /// A finished overview of this channel at the current settings from the
+    /// shared store, or null.
+    private ChannelOverview? Remembered(int channelIndex) =>
+        Cache?.Lookup(FilePath, CurrentSettings) is { } snapshot
+            && snapshot.Overviews.TryGetValue(channelIndex, out var overview) ? overview : null;
+
     public string HeaderText { get => _headerText; private set => Set(ref _headerText, value); }
 
     public string? ErrorText
@@ -185,6 +201,18 @@ public sealed class DocumentViewModel : TabViewModelBase
                 Loudness = null;
                 StatusText = "Analyzing…";
             }
+            else if (Remembered(value) is { } remembered)
+            {
+                // The shared store backs the per-document one: a channel this
+                // document never computed, or let go of past its three, that
+                // an earlier tab finished is still an instant swap.
+                _channelCache.Set(value, remembered);
+                Document = remembered.Document;
+                DocumentChanged?.Invoke();
+                Verdict = remembered.Verdict;
+                Loudness = remembered.Loudness;
+                StatusText = $"Cached · {remembered.Document.Count} columns";
+            }
             else
             {
                 Verdict = null;
@@ -242,6 +270,15 @@ public sealed class DocumentViewModel : TabViewModelBase
         return LoadOverviewAsync();
     }
 
+    /// F5: an explicit reload reads the file again, whatever the shared store
+    /// remembers about it. Everything else (first load, a settings change,
+    /// Ctrl+Left back to a file) is free to take what is remembered.
+    public Task ReloadAsync()
+    {
+        Cache?.Forget(FilePath);
+        return LoadOverviewAsync();
+    }
+
     public async Task LoadOverviewAsync()
     {
         _loadStarted = true;
@@ -256,13 +293,25 @@ public sealed class DocumentViewModel : TabViewModelBase
         Verdict = null;
         Integrity = null;
         Loudness = null;
-        StatusText = "Reading metadata…";
 
         try
         {
-            var session = new AnalysisSession(_ffmpeg);
-            var meta = await Task.Run(() => session.ReadMetadata(FilePath, cts.Token), cts.Token);
-            if (cts.Token.IsCancellationRequested) return;
+            // What an earlier tab already finished for this file at these
+            // settings. Any remembered overview carries the metadata, so a
+            // hit skips ffprobe as well as the decode.
+            var remembered = Cache?.Lookup(FilePath, CurrentSettings);
+            AudioMetadata meta;
+            if (remembered is { Overviews.Count: > 0 })
+            {
+                meta = remembered.Overviews.Values.First().Document.Metadata;
+            }
+            else
+            {
+                StatusText = "Reading metadata…";
+                var session = new AnalysisSession(_ffmpeg);
+                meta = await Task.Run(() => session.ReadMetadata(FilePath, cts.Token), cts.Token);
+                if (cts.Token.IsCancellationRequested) return;
+            }
             Metadata = meta;
             if (ChannelOptions.Count == 1 && meta.Channels > 1)
                 ChannelOptions = ["Mix", .. Enumerable.Range(1, meta.Channels).Select(i => $"Ch {i}")];
@@ -272,12 +321,30 @@ public sealed class DocumentViewModel : TabViewModelBase
             var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
             Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
 
+            if (remembered is not null)
+            {
+                // Seed the per-document cache, the shown channel last so it is
+                // the one the three-entry LRU is surest to keep; the compute
+                // loop below then has only the missing variants to prefetch.
+                foreach (var (index, overview) in remembered.Overviews.OrderBy(kv => kv.Key == SelectedChannelIndex))
+                    _channelCache.Set(index, overview);
+                if (remembered.Integrity is { } report) Integrity = report;
+            }
+            if (_channelCache.TryGet(SelectedChannelIndex, out var shown))
+            {
+                Document = shown.Document;
+                DocumentChanged?.Invoke();
+                Verdict = shown.Verdict;
+                Loudness = shown.Loudness;
+                StatusText = $"Cached · {shown.Document.Count} columns";
+            }
+
             // Every load checks integrity by itself (unless the preference
-            // says otherwise): a damaged file must not hide behind a green
-            // bandwidth banner until someone remembers Ctrl+I. Runs beside
-            // the overview decode; the banner and lane appear whenever the
-            // result lands.
-            if (AutoIntegrityCheck) _ = RunIntegrityCheckAsync();
+            // says otherwise, or the result is already remembered): a damaged
+            // file must not hide behind a green bandwidth banner until someone
+            // remembers Ctrl+I. Runs beside the overview decode; the banner
+            // and lane appear whenever the result lands.
+            if (Integrity is null && AutoIntegrityCheck) _ = RunIntegrityCheckAsync();
 
             await RestartComputeLoopAsync(meta);
         }
@@ -332,6 +399,9 @@ public sealed class DocumentViewModel : TabViewModelBase
             {
                 var entry = await ComputeOverviewAsync(index, meta, ct);
                 _channelCache.Set(index, entry);
+                // Published even if this tab has since been stepped away
+                // from: a finished decode is worth keeping whoever asked.
+                Cache?.Put(FilePath, entry.Document.Settings, index, entry);
                 if (index == SelectedChannelIndex)
                 {
                     Document = entry.Document;
@@ -491,6 +561,7 @@ public sealed class DocumentViewModel : TabViewModelBase
                 () => new IntegrityScanner(_ffmpeg).Check(FilePath, meta, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested) return;
             Integrity = report;
+            Cache?.PutIntegrity(FilePath, report);
             StatusText = report.Summary;
         }
         catch (OperationCanceledException) { }
@@ -519,7 +590,11 @@ public sealed class DocumentViewModel : TabViewModelBase
                 () => new LoudnessMeasurer(_ffmpeg).Measure(FilePath, channel, cts.Token), cts.Token);
             if (cts.Token.IsCancellationRequested) return;
             if (_channelCache.TryGet(channelIndex, out var entry))
-                _channelCache.Set(channelIndex, entry with { Loudness = report });
+            {
+                var measured = entry with { Loudness = report };
+                _channelCache.Set(channelIndex, measured);
+                Cache?.Put(FilePath, measured.Document.Settings, channelIndex, measured);
+            }
             if (channelIndex == SelectedChannelIndex)
             {
                 Loudness = report;
@@ -540,9 +615,4 @@ public sealed class DocumentViewModel : TabViewModelBase
         for (var i = 0; i < count; i++) columns.Add(doc.GetColumn(i));
         return ProvenanceScan.Analyze(columns, meta);
     }
-
-    /// One channel's finished analysis: the overview document, its bandwidth
-    /// verdict, and any loudness measured while that channel was active.
-    private sealed record ChannelOverview(
-        SpectrogramDocument Document, LosslessVerdict? Verdict, LoudnessReport? Loudness);
 }

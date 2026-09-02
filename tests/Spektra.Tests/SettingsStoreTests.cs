@@ -271,4 +271,32 @@ public sealed class SettingsStoreTests : IDisposable
         await Assert.That(s.RecentFiles.Count).IsEqualTo(AppSettings.MaxRecent);
         await Assert.That(s.RecentFiles[0]).IsEqualTo(@"C:\15.mp3");
     }
+
+    [Test]
+    public async Task OverviewCacheMB_DefaultsTo512_AndRoundTrips()
+    {
+        // Absent from old settings files it must read as the default, not 0,
+        // or upgrading would silently switch the cache off.
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.OverviewCacheMB).IsEqualTo(512);
+
+        SettingsStore.Save(SettingsPath, new AppSettings { OverviewCacheMB = 0 });
+        await Assert.That(SettingsStore.Load(SettingsPath).OverviewCacheMB).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments(0, 0)]
+    [Arguments(256, 256)]
+    [Arguments(8192, 8192)]
+    [Arguments(-1, 512)]
+    [Arguments(8193, 512)]
+    [Arguments(int.MaxValue, 512)]
+    public async Task EffectiveOverviewCacheMB_HonorsOnlyTheSliderRange(int saved, int effective)
+    {
+        // The SavedColumnWidth rule: hand-edited junk in the settings file is
+        // not a wish, so out of range reads as the default rather than as a
+        // gigantic or negative budget.
+        var s = new AppSettings { OverviewCacheMB = saved };
+        await Assert.That(s.EffectiveOverviewCacheMB).IsEqualTo(effective);
+    }
 }
