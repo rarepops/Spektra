@@ -4,7 +4,7 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.24.0] - 2026-09-03
 
 ### Added
 - Each release also carries the Windows installer inside a zip, Spektra-version-Setup.zip, for a browser or mail filter that refuses a bare .msi download. The bare installer stays, and the extracted file matches its own line in SHA256SUMS.txt.
@@ -491,7 +491,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/rarepops/Spektra/releases/tag/v0.24.0
 [0.23.0]: https://github.com/rarepops/Spektra/releases/tag/v0.23.0
 [0.22.1]: https://github.com/rarepops/Spektra/releases/tag/v0.22.1
 [0.22.0]: https://github.com/rarepops/Spektra/releases/tag/v0.22.0
