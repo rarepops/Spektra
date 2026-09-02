@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1] - 2026-09-03
+
+### Fixed
+- The SHA256SUMS.txt published with each release no longer lists Spektra-version-Setup.wixpdb, a WiX build by-product that no release ever uploaded. Every checksum list from 0.21.0 to 0.24.0 carried that line, so `sha256sum -c SHA256SUMS.txt`, the check the README suggests, reported one missing file even when every download was fine.
+
 ## [0.24.0] - 2026-09-03
 
 ### Added
@@ -491,7 +496,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/rarepops/Spektra/releases/tag/v0.24.1
 [0.24.0]: https://github.com/rarepops/Spektra/releases/tag/v0.24.0
 [0.23.0]: https://github.com/rarepops/Spektra/releases/tag/v0.23.0
 [0.22.1]: https://github.com/rarepops/Spektra/releases/tag/v0.22.1
