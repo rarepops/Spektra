@@ -27,8 +27,16 @@ public readonly record struct KeyStroke(string Key, KeyMods Mods)
     private static readonly Dictionary<string, string> Canonical =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["0"] = "D0", ["1"] = "D1", ["2"] = "D2", ["3"] = "D3", ["4"] = "D4",
-            ["5"] = "D5", ["6"] = "D6", ["7"] = "D7", ["8"] = "D8", ["9"] = "D9",
+            ["0"] = "D0",
+            ["1"] = "D1",
+            ["2"] = "D2",
+            ["3"] = "D3",
+            ["4"] = "D4",
+            ["5"] = "D5",
+            ["6"] = "D6",
+            ["7"] = "D7",
+            ["8"] = "D8",
+            ["9"] = "D9",
             ["esc"] = "Escape",
             ["del"] = "Delete",
             ["ins"] = "Insert",
