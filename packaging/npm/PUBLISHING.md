@@ -49,22 +49,35 @@ node packaging/npm/build.mjs --version <X.Y.Z>
 node packaging/npm/publish.mjs --dry-run
 ```
 
-Then log in and publish for real. An account with 2FA has to send a one-time
-password with **every** publish, and `npm login --auth-type=web` does not
-change that on npm 10, so pass a code from your authenticator:
+Then log in and publish for real. **npm 11.5.1 or newer is required**, and not
+only for OIDC later: an account whose second factor is a security key or a
+passkey needs the browser ceremony that older npm cannot offer, and npm 10
+simply fails with `EOTP` telling you to pass a one-time password that no
+longer exists.
 
 ```sh
+npm install -g npm@latest
 npm login --auth-type=web
-node packaging/npm/publish.mjs --otp <code>
+node packaging/npm/publish.mjs
 ```
 
-A code lasts about 30 seconds and four of the five tarballs are around 32 MB,
-so one code may well expire partway through the set. That is survivable by
-design: run it again with a fresh code and it re-packs, compares each tarball
-against what the registry now holds, and publishes only what is still missing.
+npm prints a URL per publish (`Open https://www.npmjs.com/login/<uuid> to use
+your security key ...`). Open it, complete it with the key, and the publish
+continues. Run this in a real terminal: the ceremony is interactive, and a
+non-interactive invocation just fails.
+
+On an account still using a TOTP authenticator (npm no longer issues new ones,
+though existing ones keep working), pass the code instead:
+`node packaging/npm/publish.mjs --otp <code>`. A code lasts about 30 seconds
+and four of the five tarballs are around 32 MB, so one may expire partway
+through the set.
+
+Either way a half-finished set is survivable by design: run it again and it
+re-packs, compares each tarball against what the registry now holds, and
+publishes only what is still missing.
 
 This friction exists only for the bootstrap. Once the trusted publisher below
-is configured, releases publish with no password and no token at all.
+is configured, releases publish with no password, no key and no token.
 
 `publish.mjs` packs each package into a tarball, publishes that exact file,
 and does the four platform packages before the dispatcher.
@@ -76,7 +89,21 @@ automatically from trusted publishing, with no flag involved.
 
 ## 2. Configure the trusted publisher (one time, per package)
 
-On npmjs.com, for **each of the five packages**, Settings to Trusted Publisher:
+This is why the publish above has to happen first: npm has no equivalent of
+PyPI's pending publishers, so a trusted publisher can only be attached to a
+package that already exists (npm/cli#8544, treated as name-hijack protection).
+
+From the CLI, five commands:
+
+```sh
+npm trust github spektra-cli            --file release.yml --allow-publish
+npm trust github spektra-cli-win32-x64  --file release.yml --allow-publish
+npm trust github spektra-cli-linux-x64  --file release.yml --allow-publish
+npm trust github spektra-cli-darwin-x64 --file release.yml --allow-publish
+npm trust github spektra-cli-darwin-arm64 --file release.yml --allow-publish
+```
+
+Or on npmjs.com, for **each of the five packages**, Settings to Trusted Publisher:
 
 | Field | Value |
 | --- | --- |
@@ -90,6 +117,10 @@ On npmjs.com, for **each of the five packages**, Settings to Trusted Publisher:
 Leave Environment blank unless a GitHub environment of that name is actually
 added to the workflow job; a value here that does not match one on the job
 makes every publish fail.
+
+Every field is case-sensitive and npm does **not** validate any of it when you
+save, so a typo in the repository name or the workflow filename shows up only
+as a 403 on the next release. Self-hosted runners are not supported.
 
 ## 3. Require 2FA and disallow token bypass (one time, per package)
 

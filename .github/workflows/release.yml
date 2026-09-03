@@ -52,6 +52,23 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      # The npm bundled with a Node release is whatever was current when that
+      # Node was cut, and it can predate 11.5.1: the usual cause of a 404 or
+      # ENEEDAUTH from an otherwise correct trusted-publishing setup, because
+      # an older npm never attempts the OIDC exchange and falls through to
+      # looking for a token that is deliberately not there. publish.mjs checks
+      # the version too and says so, but a release should not get that far.
+      #
+      # The pair is printed because it is the first thing worth knowing when a
+      # publish is refused: npm also warns rather than fails when its Node is
+      # too old for it, so an unsupported combination is easy to miss.
+      - name: Use an npm that can publish through OIDC
+        shell: bash
+        run: |
+          npm install -g npm@latest
+          node --version
+          npm --version
+
       - name: Resolve version
         id: v
         shell: pwsh
