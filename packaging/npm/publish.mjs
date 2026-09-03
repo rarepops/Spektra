@@ -20,8 +20,14 @@
 // Authentication: none of npm's credentials are handled here. In the release
 // workflow npm authenticates through GitHub's OIDC token (trusted publishing)
 // and attaches provenance by itself, which is why no --provenance flag is
-// passed and no .npmrc is written. For the one-off bootstrap publish, `npm
-// login` first.
+// passed and no .npmrc is written.
+//
+// The one-off bootstrap publish from a machine is different: an account with
+// 2FA has to send a one-time password with every publish, and `npm login
+// --auth-type=web` does not change that on npm 10. Pass `--otp <code>`, which
+// goes to each npm publish untouched. A code lasts about 30 seconds and each
+// platform tarball is ~32 MB, so one code may not cover all five; that is what
+// the integrity comparison is for, and a re-run with a fresh code continues.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -53,6 +59,8 @@ const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dry-run') opts.dryRun = true;
     else if (argv[i] === '--out') opts.out = argv[++i];
+    else if (argv[i] === '--otp') opts.otp = argv[++i];
+    else if (argv[i].startsWith('--otp=')) opts.otp = argv[i].slice('--otp='.length);
     else fail(`unknown argument ${argv[i]}`);
 }
 
@@ -177,6 +185,7 @@ async function registryDist(name, wanted) {
 
 function publish(pkg) {
     const args = ['publish', pkg.filename, '--access', 'public'];
+    if (opts.otp) args.push('--otp', opts.otp);
     if (opts.dryRun) args.push('--dry-run');
     // The tarball is named relative to its own directory, so no path with a
     // space has to survive the shell that shell:true introduces.
@@ -186,7 +195,9 @@ function publish(pkg) {
             + (oidcAvailable
                 ? ' If the registry answered 403 or 404, check that this package names this repository'
                 + ' and release.yml as its trusted publisher on npmjs.com; see packaging/npm/PUBLISHING.md.'
-                : ''));
+                : ' If the registry answered EOTP, a one-time password is required or the one given has'
+                + ' expired: run this again with a fresh --otp <code>. Anything already published with'
+                + ' these exact bytes is skipped, so a re-run picks up where this stopped.'));
 }
 
 console.log(`\nPublishing to ${REGISTRY}${opts.dryRun ? ' (dry run)' : ''}`);

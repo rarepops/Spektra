@@ -49,12 +49,22 @@ node packaging/npm/build.mjs --version <X.Y.Z>
 node packaging/npm/publish.mjs --dry-run
 ```
 
-Then log in and publish for real:
+Then log in and publish for real. An account with 2FA has to send a one-time
+password with **every** publish, and `npm login --auth-type=web` does not
+change that on npm 10, so pass a code from your authenticator:
 
 ```sh
 npm login --auth-type=web
-node packaging/npm/publish.mjs
+node packaging/npm/publish.mjs --otp <code>
 ```
+
+A code lasts about 30 seconds and four of the five tarballs are around 32 MB,
+so one code may well expire partway through the set. That is survivable by
+design: run it again with a fresh code and it re-packs, compares each tarball
+against what the registry now holds, and publishes only what is still missing.
+
+This friction exists only for the bootstrap. Once the trusted publisher below
+is configured, releases publish with no password and no token at all.
 
 `publish.mjs` packs each package into a tarball, publishes that exact file,
 and does the four platform packages before the dispatcher.
