@@ -26,21 +26,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { TARGETS } from './lib/targets.mjs';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..', '..');
-
-// Every runtime identifier the release workflow publishes, and the npm
-// package each one becomes. `cpu` is what npm matches against process.arch:
-// the Windows package accepts arm64 as well, because Windows 11 on ARM runs
-// x64 binaries under emulation and an emulated build beats no build. Adding
-// a platform here means adding its rid to release.yml's publish loop and its
-// entry to PACKAGES in bin/spektra-cli.js.
-const TARGETS = [
-    { rid: 'win-x64', pkg: 'spektra-cli-win32-x64', os: 'win32', cpu: ['x64', 'arm64'], exe: 'spektra-cli.exe', label: 'Windows x64' },
-    { rid: 'linux-x64', pkg: 'spektra-cli-linux-x64', os: 'linux', cpu: ['x64'], exe: 'spektra-cli', label: 'Linux x64 (glibc)' },
-    { rid: 'osx-x64', pkg: 'spektra-cli-darwin-x64', os: 'darwin', cpu: ['x64'], exe: 'spektra-cli', label: 'macOS x64 (Intel)' },
-    { rid: 'osx-arm64', pkg: 'spektra-cli-darwin-arm64', os: 'darwin', cpu: ['arm64'], exe: 'spektra-cli', label: 'macOS arm64 (Apple silicon)' },
-];
 
 function fail(message) {
     console.error(`build.mjs: ${message}`);
@@ -151,7 +140,10 @@ const version = opts.version ?? repoVersion();
 const dist = path.resolve(repo, opts.dist ?? 'dist');
 const out = path.resolve(repo, opts.out ?? path.join(dist, 'npm'));
 
-if (!/^\d+\.\d+\.\d+/.test(version)) fail(`"${version}" is not a version`);
+// Loose on purpose: a manual workflow_dispatch build stamps something like
+// 0.0.0-dev to exercise the packaging without a tag. publish.mjs is the gate
+// that refuses anything but a bare X.Y.Z for a real publish.
+if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) fail(`"${version}" is not a version`);
 
 rmSync(out, { recursive: true, force: true });
 console.log(`Assembling spektra-cli ${version} npm packages in ${path.relative(repo, out)}`);

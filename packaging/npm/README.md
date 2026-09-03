@@ -55,6 +55,14 @@ into a script or a continuous integration job:
 
 Full reference with sample output: [docs/cli.md](https://github.com/rarepops/Spektra/blob/main/docs/cli.md).
 
+## Where these files come from
+
+Every version after the first is published straight from the repository's
+release workflow, which means npm shows a **provenance** attestation linking
+the tarball you install to the exact commit and workflow run that produced it.
+`npm audit signatures` verifies it. Nothing here is built or uploaded from
+anyone's laptop.
+
 ## Platforms
 
 Prebuilt binaries cover Windows x64, Linux x64 (glibc), and macOS on both

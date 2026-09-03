@@ -27,19 +27,27 @@ jobs:
       - name: Verify formatting
         run: dotnet format Spektra.slnx --verify-no-changes
 
-      # The npm package's dispatcher decides which prebuilt binary a machine
-      # needs, and nothing else in the build compiles or runs it. Node's own
-      # test runner covers that decision, and --check parses the two release
-      # scripts, which otherwise only ever run while a tag is being published.
+      # The npm packaging decides which prebuilt binary a machine needs, and
+      # whether a version already on the registry may be skipped. Nothing else
+      # in the build compiles or runs any of it. Node's own test runner covers
+      # those decisions, and --check parses the release-time scripts, which
+      # otherwise only ever run while a tag is being published.
+      #
       # Windows runners ship Node, so there is nothing to install. bash rather
       # than pwsh: pwsh does not stop a multi-line run when a native command
-      # exits non-zero, so a failure here would pass silently.
-      - name: Test npm dispatcher
+      # exits non-zero, so a failure here would pass silently. Test files are
+      # named rather than discovered, so smoke.mjs (which installs from the
+      # registry over the network) can never be picked up as a unit test.
+      - name: Test npm packaging
         shell: bash
         run: |
-          node --check packaging/npm/build.mjs
-          node --check packaging/npm/publish.mjs
-          node --test packaging/npm/test/shim.test.cjs
+          for f in build publish smoke lib/registry lib/targets; do
+            node --check "packaging/npm/$f.mjs"
+          done
+          node --test \
+            packaging/npm/test/shim.test.cjs \
+            packaging/npm/test/registry.test.mjs \
+            packaging/npm/test/targets.test.mjs
 
       # ffmpeg comes from the repo's own pinned fetcher rather than a package
       # feed. On 2026-08-21 community.chocolatey.org answered package queries

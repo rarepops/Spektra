@@ -1,0 +1,63 @@
+name: npm-smoke
+
+# Installs a published spektra-cli the way a user would, one runner per
+# platform, and proves that the right binary came with it and runs. Called by
+# release.yml straight after a publish, and runnable by hand for any version
+# that is already on the registry.
+#
+# This is the only check that sees what npm actually does on a machine that is
+# not Windows: everything else about the npm packages is built and tested on
+# the Windows release runner.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Published version to install (X.Y.Z)'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published version to install (X.Y.Z)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      # Every platform reports. One platform failing must not hide whether the
+      # other three worked, which is the whole point of a matrix here.
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            runner: windows-latest
+            expect: spektra-cli-win32-x64
+          - label: Linux x64 (glibc)
+            runner: ubuntu-latest
+            expect: spektra-cli-linux-x64
+          # Intel macOS is no longer a plain macos-13 runner: that image is
+          # gone and macos-14 is deprecated, so x64 comes from an -intel label.
+          - label: macOS x64
+            runner: macos-15-intel
+            expect: spektra-cli-darwin-x64
+          - label: macOS arm64
+            runner: macos-latest
+            expect: spektra-cli-darwin-arm64
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned, and Node 24 to match the version the release job publishes
+      # with. No `cache:`: there is no lockfile here and nothing to reuse.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install spektra-cli ${{ inputs.version }} and run it
+        run: node packaging/npm/smoke.mjs --version "${{ inputs.version }}" --expect ${{ matrix.expect }}

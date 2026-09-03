@@ -16,13 +16,17 @@ on:
 
 permissions:
   contents: write
-  # For npm provenance: `npm publish --provenance` signs the published
-  # tarballs against this workflow run, which needs an OIDC token.
+  # npm trusted publishing: npm exchanges this job's OIDC token for a
+  # short-lived registry credential and attaches provenance itself. No
+  # publish token is stored anywhere.
   id-token: write
 
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      # The smoke job installs exactly what this job published.
+      version: ${{ steps.v.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -34,6 +38,20 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Pinned, unlike the first-party actions above, because this one's npm
+      # is what authenticates and publishes. Node 24 for an npm new enough to
+      # publish through OIDC (11.5.1 or newer; publish.mjs checks and says so
+      # if this is ever downgraded).
+      #
+      # No `cache:` on purpose. This job publishes packages rather than
+      # building a JavaScript project: there is no lockfile to key a cache on,
+      # and a restored ~/.npm has no business influencing bytes that get
+      # published under a permanent version number.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
       - name: Resolve version
         id: v
         shell: pwsh
@@ -42,6 +60,15 @@ jobs:
           else { $ver = '${{ inputs.version }}' }
           "version=$ver" >> $env:GITHUB_OUTPUT
           Write-Host "Building version $ver"
+
+      # Before anything is built, let alone published: a bare X.Y.Z, matching
+      # Directory.Build.props, on main. See tools/validate-release.ps1 for why
+      # each one matters. Manual builds skip this; they are stamped 0.0.0-dev
+      # and never publish.
+      - name: Validate release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: ./tools/validate-release.ps1 -Version '${{ steps.v.outputs.version }}' -Sha $env:GITHUB_SHA
 
       - name: Publish GUI (win-x64)
         run: >
@@ -159,28 +186,47 @@ jobs:
       # npm comes after the GitHub release on purpose: the release page is the
       # shop window and nothing about a second distribution channel should be
       # able to stop it appearing. Assembling runs on manual builds too, so
-      # its checks (every runtime identifier present, and the win-x64 binary
-      # actually reporting the version being stamped) are exercised without a
-      # tag. Node ships on the Windows runners.
+      # its checks (every runtime identifier present, none of them stale, and
+      # the win-x64 binary actually reporting the version being stamped) are
+      # exercised without a tag.
       - name: Assemble npm packages
         run: node packaging/npm/build.mjs --version ${{ steps.v.outputs.version }}
 
-      # Does nothing until the NPM_TOKEN secret exists, and says so in the log.
-      # The first publish of these five package names is done by hand from a
-      # machine that is logged in (node packaging/npm/publish.mjs), so the
-      # names are claimed and proven before a release job is trusted with
-      # them. The token is scoped to this step rather than the job.
+      # Trusted publishing. npm exchanges this job's OIDC token for a
+      # short-lived credential and attaches provenance by itself, so there is
+      # no token to store, no NODE_AUTH_TOKEN, no .npmrc to write, and no
+      # --provenance flag to pass. It requires each of the five packages to
+      # name this repository and this workflow file as its trusted publisher
+      # on npmjs.com; until that is configured npm answers 403 and this step
+      # fails, with the GitHub release already complete. See
+      # packaging/npm/PUBLISHING.md.
       - name: Publish to npm
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if (-not $env:NPM_TOKEN) {
-            Write-Host "No NPM_TOKEN secret is set, so nothing was published to npm."
-            exit 0
-          }
-          # npm reads credentials from .npmrc, not from the environment.
-          "//registry.npmjs.org/:_authToken=$env:NPM_TOKEN" | Out-File "$env:USERPROFILE/.npmrc" -Encoding ascii
-          node packaging/npm/publish.mjs --provenance
-          if ($LASTEXITCODE -ne 0) { throw "npm publish failed" }
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node packaging/npm/publish.mjs
+
+      # A manual build packs the same tarballs and reports the integrity each
+      # one would be published under, without touching the registry, so the
+      # packaging can be inspected before any tag exists.
+      - name: Pack npm packages (dry run)
+        if: github.ref_type != 'tag'
+        run: node packaging/npm/publish.mjs --dry-run
+
+      - name: Upload npm packages
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: spektra-npm-${{ steps.v.outputs.version }}
+          path: |
+            dist/npm/*.tgz
+            dist/npm/INTEGRITY.txt
+
+  # Installs what was just published on one runner per platform and runs it.
+  # Everything above happens on Windows, so this is the only check that sees
+  # the Linux and macOS binaries actually execute. Tags only, because only a
+  # tag publishes.
+  smoke:
+    needs: release
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/npm-smoke.yml
+    with:
+      version: ${{ needs.release.outputs.version }}

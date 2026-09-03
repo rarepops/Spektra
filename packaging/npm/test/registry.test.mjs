@@ -1,0 +1,120 @@
+// The publisher's decisions, tested away from the network: how a tarball's
+// integrity string is formed, what counts as a releasable version, whether the
+// npm in use can publish through OIDC, and whether a version already on the
+// registry may be skipped or must stop the release. Run with:
+//
+//     node --test packaging/npm/test/registry.test.mjs
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+    integrityOf,
+    isStrictVersion,
+    publishVerdict,
+    sha1Of,
+    supportsTrustedPublishing,
+} from '../lib/registry.mjs';
+
+// NIST vectors, so the hash and the base64 encoding are both pinned to
+// something published rather than to another call of the same library.
+const EMPTY_SHA512 = 'cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce'
+    + '47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e';
+const ABC_SHA512 = 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a'
+    + '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f';
+
+const b64 = (hex) => Buffer.from(hex, 'hex').toString('base64');
+
+test('integrity is the registry form: sha512- and base64, not hex', () => {
+    assert.equal(integrityOf(Buffer.alloc(0)), `sha512-${b64(EMPTY_SHA512)}`);
+    assert.equal(integrityOf(Buffer.from('abc')), `sha512-${b64(ABC_SHA512)}`);
+});
+
+test('sha1 is lowercase hex, the shape a registry shasum takes', () => {
+    // SHA-1("abc"), the published vector.
+    assert.equal(sha1Of(Buffer.from('abc')), 'a9993e364706816aba3e25717850c26c9cd0d89d');
+});
+
+test('only a bare X.Y.Z is releasable', () => {
+    for (const good of ['0.24.1', '1.0.0', '10.20.30']) assert.equal(isStrictVersion(good), true, good);
+    for (const bad of ['0.0.0-dev', '1.2', '1.2.3.4', 'v1.2.3', '1.2.3-rc.1', '', '1.2.3 ', 'x.y.z'])
+        assert.equal(isStrictVersion(bad), false, bad);
+});
+
+test('a leading zero is not a version component', () => {
+    // Guards against 01.2.3 sliding through a lazy \d+ and publishing under a
+    // name npm would normalise to something else.
+    assert.equal(isStrictVersion('01.2.3'), false);
+    assert.equal(isStrictVersion('1.02.3'), false);
+});
+
+test('trusted publishing needs npm 11.5.1 or newer', () => {
+    assert.equal(supportsTrustedPublishing('11.5.1'), true);
+    assert.equal(supportsTrustedPublishing('11.6.0'), true);
+    assert.equal(supportsTrustedPublishing('12.0.0'), true);
+    assert.equal(supportsTrustedPublishing('11.5.0'), false);
+    assert.equal(supportsTrustedPublishing('10.9.2'), false);
+});
+
+test('version comparison is numeric, not lexical', () => {
+    // '11.10.0' sorts before '11.5.1' as text, which is the classic way this
+    // check passes for old npm and fails for new.
+    assert.equal(supportsTrustedPublishing('11.10.0'), true);
+    assert.equal(supportsTrustedPublishing('11.4.99'), false);
+});
+
+test('a prerelease npm build is judged on its release numbers', () => {
+    assert.equal(supportsTrustedPublishing('11.6.0-pre.0'), true);
+});
+
+test('an unpublished version is published', () => {
+    const verdict = publishVerdict({ name: 'spektra-cli', version: '0.24.1', local: { integrity: 'sha512-A' }, dist: null });
+    assert.equal(verdict.action, 'publish');
+});
+
+test('a published version with the same integrity is skipped', () => {
+    const verdict = publishVerdict({
+        name: 'spektra-cli', version: '0.24.1',
+        local: { integrity: 'sha512-A', sha1: 'aa' },
+        dist: { integrity: 'sha512-A' },
+    });
+    assert.equal(verdict.action, 'skip');
+});
+
+test('a published version with different contents stops the release', () => {
+    const verdict = publishVerdict({
+        name: 'spektra-cli', version: '0.24.1',
+        local: { integrity: 'sha512-LOCAL', sha1: 'aa' },
+        dist: { integrity: 'sha512-REGISTRY' },
+    });
+    assert.equal(verdict.action, 'fail');
+    assert.match(verdict.reason, /sha512-REGISTRY/);
+    assert.match(verdict.reason, /sha512-LOCAL/);
+    assert.match(verdict.reason, /0\.24\.1/);
+});
+
+test('a registry entry with no integrity falls back to the shasum', () => {
+    const same = publishVerdict({
+        name: 'x', version: '1.0.0',
+        local: { integrity: 'sha512-A', sha1: 'abc123' },
+        dist: { shasum: 'abc123' },
+    });
+    assert.equal(same.action, 'skip');
+
+    const different = publishVerdict({
+        name: 'x', version: '1.0.0',
+        local: { integrity: 'sha512-A', sha1: 'abc123' },
+        dist: { shasum: 'def456' },
+    });
+    assert.equal(different.action, 'fail');
+});
+
+test('a registry entry with nothing to compare is never assumed identical', () => {
+    const verdict = publishVerdict({
+        name: 'x', version: '1.0.0',
+        local: { integrity: 'sha512-A', sha1: 'abc123' },
+        dist: {},
+    });
+    assert.equal(verdict.action, 'fail');
+    assert.match(verdict.reason, /cannot be compared/i);
+});
