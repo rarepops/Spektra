@@ -100,12 +100,12 @@ function platformManifest(target, version) {
         ...shared,
         os: [target.os],
         cpu: target.cpu,
-        // A bin entry under the package's own name, which cannot collide with
+        // A bin entry under the package's unscoped basename, which cannot collide with
         // the dispatcher's `spektra-cli`. It exists for its side effect: npm
         // sets mode 0o755 on a bin target when it links it, and these
         // tarballs are packed on Windows, which has no executable bit to
         // preserve. bin/spektra-cli.js chmods as a fallback.
-        bin: { [target.pkg]: target.exe },
+        bin: { [target.dir]: target.exe },
         files: [target.exe],
         // Yarn Berry keeps this package unpacked rather than zipped, so the
         // binary is a real file on disk that can be executed.
@@ -163,7 +163,7 @@ for (const target of TARGETS) {
         continue;
     }
     checkStampedVersion(exe, version, target);
-    const dir = path.join(out, target.pkg);
+    const dir = path.join(out, target.dir);
     mkdirSync(dir, { recursive: true });
     copyFileSync(exe, path.join(dir, target.exe));
     copyFileSync(path.join(repo, 'LICENSE.md'), path.join(dir, 'LICENSE.md'));
@@ -202,9 +202,9 @@ manifest.version = version;
 // carrying Windows backslashes is not read as a path at all. Either way the
 // lookup fails and, the dependency being optional, npm skips it in silence
 // and the tool installs without a binary.
-const localSpec = (pkg) => `file:${path.join(out, pkg).replaceAll(path.sep, '/')}`;
+const localSpec = (target) => `file:${path.join(out, target.dir).replaceAll(path.sep, '/')}`;
 manifest.optionalDependencies = Object.fromEntries(built.map((t) =>
-    [t.pkg, opts.local ? localSpec(t.pkg) : version]));
+    [t.pkg, opts.local ? localSpec(t) : version]));
 
 const main = path.join(out, 'spektra-cli');
 mkdirSync(path.join(main, 'bin'), { recursive: true });

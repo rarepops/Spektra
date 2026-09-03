@@ -12,7 +12,8 @@ export const DISPATCHER = 'spektra-cli';
 export const TARGETS = [
     {
         rid: 'win-x64',
-        pkg: 'spektra-cli-win32-x64',
+        pkg: '@rarepops/spektra-cli-win32-x64',
+        dir: 'spektra-cli-win32-x64',
         os: 'win32',
         // Windows 11 on ARM runs x64 user-mode binaries under emulation, so
         // the x64 build is offered there rather than nothing at all.
@@ -22,7 +23,8 @@ export const TARGETS = [
     },
     {
         rid: 'linux-x64',
-        pkg: 'spektra-cli-linux-x64',
+        pkg: '@rarepops/spektra-cli-linux-x64',
+        dir: 'spektra-cli-linux-x64',
         os: 'linux',
         cpu: ['x64'],
         exe: 'spektra-cli',
@@ -30,7 +32,8 @@ export const TARGETS = [
     },
     {
         rid: 'osx-x64',
-        pkg: 'spektra-cli-darwin-x64',
+        pkg: '@rarepops/spektra-cli-darwin-x64',
+        dir: 'spektra-cli-darwin-x64',
         os: 'darwin',
         cpu: ['x64'],
         exe: 'spektra-cli',
@@ -38,7 +41,8 @@ export const TARGETS = [
     },
     {
         rid: 'osx-arm64',
-        pkg: 'spektra-cli-darwin-arm64',
+        pkg: '@rarepops/spektra-cli-darwin-arm64',
+        dir: 'spektra-cli-darwin-arm64',
         os: 'darwin',
         cpu: ['arm64'],
         exe: 'spektra-cli',

@@ -1,9 +1,13 @@
 # Publishing spektra-cli to npm
 
 Five packages go out together: the dispatcher `spektra-cli`, and one binary
-package per platform (`spektra-cli-win32-x64`, `spektra-cli-linux-x64`,
-`spektra-cli-darwin-x64`, `spektra-cli-darwin-arm64`). The bare name `spektra`
-belongs to an unrelated project and is never used.
+package per platform (`@rarepops/spektra-cli-win32-x64`,
+`@rarepops/spektra-cli-linux-x64`, `@rarepops/spektra-cli-darwin-x64`,
+`@rarepops/spektra-cli-darwin-arm64`). The platform packages are scoped because
+npm's spam filter rejected the equivalent unscoped binary-package name. The
+user-facing dispatcher stays unscoped, so installation is still
+`npm install -g spektra-cli`. The bare name `spektra` belongs to an unrelated
+project and is never used.
 
 Releases publish themselves from `.github/workflows/release.yml` using npm
 **trusted publishing**: npm exchanges the workflow's OIDC token for a
@@ -24,10 +28,10 @@ Check the names are still free. Each should answer `E404`:
 
 ```sh
 npm view spektra-cli
-npm view spektra-cli-win32-x64
-npm view spektra-cli-linux-x64
-npm view spektra-cli-darwin-x64
-npm view spektra-cli-darwin-arm64
+npm view @rarepops/spektra-cli-win32-x64
+npm view @rarepops/spektra-cli-linux-x64
+npm view @rarepops/spektra-cli-darwin-x64
+npm view @rarepops/spektra-cli-darwin-arm64
 ```
 
 Build all five from one set of release binaries. Publish every runtime
@@ -96,11 +100,11 @@ package that already exists (npm/cli#8544, treated as name-hijack protection).
 From the CLI, five commands:
 
 ```sh
-npm trust github spektra-cli            --file release.yml --allow-publish
-npm trust github spektra-cli-win32-x64  --file release.yml --allow-publish
-npm trust github spektra-cli-linux-x64  --file release.yml --allow-publish
-npm trust github spektra-cli-darwin-x64 --file release.yml --allow-publish
-npm trust github spektra-cli-darwin-arm64 --file release.yml --allow-publish
+npm trust github spektra-cli --repository rarepops/Spektra --file release.yml --allow-publish
+npm trust github @rarepops/spektra-cli-win32-x64 --repository rarepops/Spektra --file release.yml --allow-publish
+npm trust github @rarepops/spektra-cli-linux-x64 --repository rarepops/Spektra --file release.yml --allow-publish
+npm trust github @rarepops/spektra-cli-darwin-x64 --repository rarepops/Spektra --file release.yml --allow-publish
+npm trust github @rarepops/spektra-cli-darwin-arm64 --repository rarepops/Spektra --file release.yml --allow-publish
 ```
 
 Or on npmjs.com, for **each of the five packages**, Settings to Trusted Publisher:
@@ -126,10 +130,10 @@ as a 403 on the next release. Self-hosted runners are not supported.
 
 ```sh
 npm access set mfa=publish spektra-cli
-npm access set mfa=publish spektra-cli-win32-x64
-npm access set mfa=publish spektra-cli-linux-x64
-npm access set mfa=publish spektra-cli-darwin-x64
-npm access set mfa=publish spektra-cli-darwin-arm64
+npm access set mfa=publish @rarepops/spektra-cli-win32-x64
+npm access set mfa=publish @rarepops/spektra-cli-linux-x64
+npm access set mfa=publish @rarepops/spektra-cli-darwin-x64
+npm access set mfa=publish @rarepops/spektra-cli-darwin-arm64
 ```
 
 Verify on each package's Settings page that it now reads **"Require

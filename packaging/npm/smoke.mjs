@@ -6,7 +6,7 @@
 // for this machine came with it and no other did, and the binary runs and
 // reports the version that was released.
 //
-//     node packaging/npm/smoke.mjs --version 0.24.1 --expect spektra-cli-win32-x64
+//     node packaging/npm/smoke.mjs --version 0.24.1 --expect @rarepops/spektra-cli-win32-x64
 //
 // Flags:
 //   --version X.Y.Z  the version to install and the version the binary must report
@@ -21,7 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { DISPATCHER, targetFor } from './lib/targets.mjs';
+import { DISPATCHER, PLATFORM_PACKAGES, targetFor } from './lib/targets.mjs';
 
 const opts = {};
 const argv = process.argv.slice(2);
@@ -98,11 +98,23 @@ console.log(`  ok      ${DISPATCHER}@${dispatcherVersion} installed`);
 function platformPackagesIn(root, depth = 0) {
     if (depth > 3 || !existsSync(root)) return [];
     const found = [];
+    const platformPackages = new Set(PLATFORM_PACKAGES);
+    const collect = (name, packageRoot) => {
+        if (platformPackages.has(name)) found.push(name);
+        found.push(...platformPackagesIn(path.join(packageRoot, 'node_modules'), depth + 1));
+    };
     for (const entry of readdirSync(root, { withFileTypes: true })) {
         if (entry.name.startsWith('.')) continue;
         if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
-        if (/^spektra-cli-/.test(entry.name)) found.push(entry.name);
-        found.push(...platformPackagesIn(path.join(root, entry.name, 'node_modules'), depth + 1));
+        const packageRoot = path.join(root, entry.name);
+        if (entry.name.startsWith('@')) {
+            for (const scoped of readdirSync(packageRoot, { withFileTypes: true })) {
+                if (!scoped.isDirectory() && !scoped.isSymbolicLink()) continue;
+                collect(`${entry.name}/${scoped.name}`, path.join(packageRoot, scoped.name));
+            }
+        } else {
+            collect(entry.name, packageRoot);
+        }
     }
     return found;
 }

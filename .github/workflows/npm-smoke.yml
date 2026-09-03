@@ -38,18 +38,18 @@ jobs:
         include:
           - label: Windows x64
             runner: windows-latest
-            expect: spektra-cli-win32-x64
+            expect: '@rarepops/spektra-cli-win32-x64'
           - label: Linux x64 (glibc)
             runner: ubuntu-latest
-            expect: spektra-cli-linux-x64
+            expect: '@rarepops/spektra-cli-linux-x64'
           # Intel macOS is no longer a plain macos-13 runner: that image is
           # gone and macos-14 is deprecated, so x64 comes from an -intel label.
           - label: macOS x64
             runner: macos-15-intel
-            expect: spektra-cli-darwin-x64
+            expect: '@rarepops/spektra-cli-darwin-x64'
           - label: macOS arm64
             runner: macos-latest
-            expect: spektra-cli-darwin-arm64
+            expect: '@rarepops/spektra-cli-darwin-arm64'
     steps:
       - uses: actions/checkout@v7
 

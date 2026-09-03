@@ -41,12 +41,14 @@ test('the reserved name is never used', () => {
     // `spektra` on npm belongs to an unrelated project.
     const all = [DISPATCHER, ...PLATFORM_PACKAGES];
     assert.ok(!all.includes('spektra'));
-    for (const name of all) assert.match(name, /^spektra-cli/);
+    assert.equal(DISPATCHER, 'spektra-cli');
+    for (const name of PLATFORM_PACKAGES) assert.match(name, /^@rarepops\/spektra-cli-/);
 });
 
-test('one binary per runtime identifier, no duplicate package names', () => {
+test('one binary per runtime identifier, no duplicate package names or directories', () => {
     assert.equal(new Set(TARGETS.map((t) => t.rid)).size, TARGETS.length);
     assert.equal(new Set(PLATFORM_PACKAGES).size, TARGETS.length);
+    assert.equal(new Set(TARGETS.map((t) => t.dir)).size, TARGETS.length);
 });
 
 test('only the Windows binary carries an exe suffix', () => {

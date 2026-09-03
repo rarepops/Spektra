@@ -24,11 +24,11 @@ const ISSUES = 'https://github.com/rarepops/Spektra/issues';
 // build but far better than "no build for your machine". The win32 package
 // therefore allows both CPUs; every other entry is an exact match.
 const PACKAGES = {
-    'win32-x64': 'spektra-cli-win32-x64',
-    'win32-arm64': 'spektra-cli-win32-x64',
-    'linux-x64': 'spektra-cli-linux-x64',
-    'darwin-x64': 'spektra-cli-darwin-x64',
-    'darwin-arm64': 'spektra-cli-darwin-arm64',
+    'win32-x64': '@rarepops/spektra-cli-win32-x64',
+    'win32-arm64': '@rarepops/spektra-cli-win32-x64',
+    'linux-x64': '@rarepops/spektra-cli-linux-x64',
+    'darwin-x64': '@rarepops/spektra-cli-darwin-x64',
+    'darwin-arm64': '@rarepops/spektra-cli-darwin-arm64',
 };
 
 /// Which binary package this machine needs: `{ package }`, or `{ error }`
