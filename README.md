@@ -145,7 +145,7 @@ Grab the latest build from the **[releases page](https://github.com/rarepops/Spe
 - `Spektra-<version>-Setup.msi`: the Windows installer. It installs the desktop app and the command-line tool together, and its Options page has a checkbox for putting both on your PATH (`spektra` opens the app, `spektra-cli` runs the command-line tool) and one for adding Spektra to the Explorer right-click menu.
 - `Spektra-<version>-Setup.zip`: the same installer inside a zip, for a browser or mail filter that refuses a bare `.msi` download. Extract and run it; the extracted file matches the `Setup.msi` line in `SHA256SUMS.txt`.
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
-- `spektra-cli-<version>-<os>.zip`: the command-line tool on its own (Windows, Linux, macOS), for machines that do not want the app.
+- `spektra-cli-<version>-<os>.zip`: the command-line tool on its own (Windows, Linux, macOS), for machines that do not want the app. Also on npm as [`spektra-cli`](https://www.npmjs.com/package/spektra-cli), which picks the build for your machine: `npm install -g spektra-cli`.
 
 Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protected your PC"** or an **Unknown Publisher** prompt. That's expected for an unsigned open-source build, not a sign of a problem: choose **More info → Run anyway** to continue. To verify a download first, check it against the `SHA256SUMS.txt` published with each release:
 
@@ -172,7 +172,13 @@ Compare two files directly (also available in-app via File → Compare…):
 
 ## Command line
 
-Spektra ships a small cross-platform companion CLI (`spektra-cli`) that reuses the analysis engine. It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
+Spektra ships a small cross-platform companion CLI (command-line interface, `spektra-cli`) that reuses the analysis engine. It comes with the installer, as a standalone zip, and from npm:
+
+    npm install -g spektra-cli      # or run it once: npx spektra-cli audit ~/Music
+
+The npm package carries the same self-contained binaries the releases page does, one per platform, and npm installs only the one your machine can run: Windows x64 (ARM64 under emulation), Linux x64 with glibc, and macOS on Intel or Apple silicon. It still needs ffmpeg on your `PATH`, which it does not bundle.
+
+It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
 
     spektra-cli report <file|folder> ...   Bandwidth verdict per file.
     spektra-cli scan <folder>              Compact bandwidth scan of a library.

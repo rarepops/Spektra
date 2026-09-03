@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- The command-line tool can be installed from npm: `npm install -g spektra-cli`, or run once without installing as `npx spektra-cli audit ~/Music`. It is the same self-contained binary the releases page carries, one package per platform, and npm downloads only the one your machine can run: Windows x64 (and ARM64 under emulation), Linux x64 with glibc, and macOS on Intel or Apple silicon. Nothing is fetched at install time and there is no install script. A machine with no build for it, an Alpine container for instance, is told which platforms have one instead of failing on a missing library. ffmpeg is still yours to install, as with every other way of getting the tool.
+
 ## [0.24.1] - 2026-09-03
 
 ### Fixed

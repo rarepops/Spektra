@@ -1,0 +1,43 @@
+{
+  "name": "spektra-cli",
+  "version": "0.0.0",
+  "description": "Spot transcodes, upsamples, corruption and duplicates in a music library from the command line.",
+  "keywords": [
+    "audio",
+    "spectrum",
+    "spectrogram",
+    "spectral-analysis",
+    "flac",
+    "lossless",
+    "transcode",
+    "upsample",
+    "loudness",
+    "lufs",
+    "duplicates",
+    "music-library",
+    "ffmpeg",
+    "cli"
+  ],
+  "homepage": "https://github.com/rarepops/Spektra#readme",
+  "bugs": {
+    "url": "https://github.com/rarepops/Spektra/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rarepops/Spektra.git",
+    "directory": "src/Spektra.Cli"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Rares (rarepops)",
+  "bin": {
+    "spektra-cli": "bin/spektra-cli.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "preferGlobal": true,
+  "optionalDependencies": {}
+}

@@ -4,6 +4,12 @@ The `spektra-cli` command-line tool reuses the desktop app's analysis engine. It
 
     spektra-cli <command> <file|folder> ... [--json|--csv] [--jobs N]
 
+Install it with the Windows installer, from a `spektra-cli-<version>-<os>.zip` on the [releases page](https://github.com/rarepops/Spektra/releases/latest), or from npm:
+
+    npm install -g spektra-cli      # or run it once: npx spektra-cli audit ~/Music
+
+The npm package holds the same self-contained binaries as the zips, one per platform, and npm installs only the one the machine can run (Windows x64, ARM64 under emulation; Linux x64 with glibc, so not Alpine; macOS Intel and Apple silicon). It bundles no ffmpeg, exactly like the zips.
+
 - A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
 - **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).

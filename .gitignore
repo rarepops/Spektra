@@ -3,6 +3,12 @@ bin/
 obj/
 artifacts/
 
+# ...except this one, which is source: it is the npm package's bin directory,
+# named by npm's convention rather than by .NET's, and `bin/` above hides it.
+# Re-including the directory is what makes the file inside visible; git cannot
+# re-include a file whose parent directory is still excluded.
+!packaging/npm/bin/
+
 # IDE
 .vs/
 .idea/

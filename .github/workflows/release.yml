@@ -16,6 +16,9 @@ on:
 
 permissions:
   contents: write
+  # For npm provenance: `npm publish --provenance` signs the published
+  # tarballs against this workflow run, which needs an OIDC token.
+  id-token: write
 
 jobs:
   release:
@@ -152,3 +155,32 @@ jobs:
             dist/artifacts/*.msi
             dist/artifacts/SHA256SUMS.txt
           generate_release_notes: true
+
+      # npm comes after the GitHub release on purpose: the release page is the
+      # shop window and nothing about a second distribution channel should be
+      # able to stop it appearing. Assembling runs on manual builds too, so
+      # its checks (every runtime identifier present, and the win-x64 binary
+      # actually reporting the version being stamped) are exercised without a
+      # tag. Node ships on the Windows runners.
+      - name: Assemble npm packages
+        run: node packaging/npm/build.mjs --version ${{ steps.v.outputs.version }}
+
+      # Does nothing until the NPM_TOKEN secret exists, and says so in the log.
+      # The first publish of these five package names is done by hand from a
+      # machine that is logged in (node packaging/npm/publish.mjs), so the
+      # names are claimed and proven before a release job is trusted with
+      # them. The token is scoped to this step rather than the job.
+      - name: Publish to npm
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if (-not $env:NPM_TOKEN) {
+            Write-Host "No NPM_TOKEN secret is set, so nothing was published to npm."
+            exit 0
+          }
+          # npm reads credentials from .npmrc, not from the environment.
+          "//registry.npmjs.org/:_authToken=$env:NPM_TOKEN" | Out-File "$env:USERPROFILE/.npmrc" -Encoding ascii
+          node packaging/npm/publish.mjs --provenance
+          if ($LASTEXITCODE -ne 0) { throw "npm publish failed" }
