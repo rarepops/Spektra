@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- The Windows installer leaves a copy of the license beside the program. It has always shown the license and refused to continue until it was accepted, but left nothing on disk, so an installed copy of Spektra was the only one that came without its terms: the portable zip, every command-line zip and every npm package have always carried LICENSE.md. That file now also ends with a `Required Notice:` line naming the copyright holder, which PolyForm Perimeter obliges anyone passing this software on to carry with it, and which nobody was obliged to carry while none was provided. The license text itself is unchanged, and still matches the published PolyForm Perimeter 1.0.1 word for word.
+
 ## [0.24.4] - 2026-09-04
 
 ### Fixed
