@@ -4,13 +4,20 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.4] - 2026-09-04
+
+### Fixed
+- Installing from npm works on Linux. It did not in 0.24.1 or 0.24.3, because the package holding the Linux binary is one npm accepts publishes to and then never serves: both versions were taken, both reported success, and the registry returns 404 for the package and its tarball while refusing a republish because versions are immutable. Nothing on this side can repair that, and 0.24.3 proved a new version does not route around it, so the Linux binary now ships as `@rarepops/spektra-cli-linux-x64-glibc`, which is a fresh package and honest anyway, since the build needs glibc and refuses to run on musl. Windows and macOS were never affected and are unchanged. `npm install -g spektra-cli` is still the whole command.
+- A release can no longer publish a tool that cannot be installed. `npm publish` exits 0 and prints `+ name@version` for a package the registry then 404s, which is how 0.24.3 announced "5 published" with one package missing and shipped a dispatcher naming a dependency nobody could fetch. Every package is now read back from the registry before the next one is published, and the dispatcher goes last, so a swallowed publish stops the release instead of completing it. Slowness is not failure: a package has taken over four minutes to appear after a successful publish, so the read-back waits about ten and says how long it has been waiting.
+- The post-publish smoke test no longer reports a slow package as a broken one. It retried the dispatcher 404ing, but a platform package that is not being served yet produces no error at all: the dependency is optional, npm skips it in silence, and the install succeeds. It now retries the check that matters rather than the install, which is what turned a macOS package that was two minutes late into a failed release.
+
 ## [0.24.3] - 2026-09-04
 
 ### Added
 - The command-line tool can be installed from npm: `npm install -g spektra-cli`, or run once without installing as `npx spektra-cli audit ~/Music`. It is the same self-contained binary the releases page carries, one package per platform, and npm downloads only the one your machine can run: Windows x64 (and ARM64 under emulation), Linux x64 with glibc, and macOS on Intel or Apple silicon. Nothing is fetched at install time and there is no install script. A machine with no build for it, an Alpine container for instance, is told which platforms have one instead of failing on a missing library. ffmpeg is still yours to install, as with every other way of getting the tool. Releases publish themselves, so npm carries a provenance attestation tying each package to the commit and the workflow run that built it, which `npm audit signatures` checks; the only version not covered by one is the first, published by hand to claim the names.
 
 ### Fixed
-- 0.24.3 is the first complete set of npm packages. The ones published for 0.24.1 are missing Linux: npm accepted that package during a registry incident on 3 September and then never served it, leaving the version published and undownloadable at once, since it cannot be published again (npm versions are immutable) and cannot be installed either (nothing is there). `spektra-cli@0.24.1` therefore names a Linux dependency that does not exist, and installing it on Linux leaves you with no binary. Windows and macOS are unaffected, and so is every other way of getting the tool. Anyone on Linux should install 0.24.3 or later, which is published by the release workflow itself and carries a provenance attestation for every package.
+- npm installation works on Windows and macOS, with a provenance attestation on every package. Linux is still missing here, for the same reason it was missing in 0.24.1: the package holding the Linux binary is one npm takes publishes for and never serves. That was assumed at the time to be fallout from a registry incident on 3 September, and publishing 0.24.3 into it disproved that, so it is fixed in 0.24.4 rather than here. Every other way of getting the tool, Linux included, is unaffected.
 - Releasing no longer depends on whichever npm shipped that morning. The 0.24.2 release reached npm and stopped: `npm pack --json` answers with an array up to npm 11 and with an object keyed by package name from npm 12, the publisher read the array form, and the release job installed whatever npm was newest. Both halves are fixed: the publisher reads either shape and refuses anything it does not recognise instead of guessing, and the job pins the npm it publishes with, so upgrading that is now a deliberate change.
 - A failed release keeps the packages it had already built. The npm tarballs were uploaded as workflow artifacts only on manual runs, which is the run that least needs them; they are now kept from a tagged run too, and specifically when the publish failed. Without them there is no way to finish a partly published release by hand, because a re-run rebuilds the binaries, that output is not byte-reproducible, and the publisher then refuses to republish the packages that did land.
 
@@ -512,7 +519,8 @@ at all; `npm install -g spektra-cli` gives you 0.24.3 or later.
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.3...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.4...HEAD
+[0.24.4]: https://github.com/rarepops/Spektra/releases/tag/v0.24.4
 [0.24.3]: https://github.com/rarepops/Spektra/releases/tag/v0.24.3
 [0.24.2]: https://github.com/rarepops/Spektra/releases/tag/v0.24.2
 [0.24.1]: https://github.com/rarepops/Spektra/releases/tag/v0.24.1
