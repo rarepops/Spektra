@@ -59,23 +59,42 @@ function npm(args, options = {}) {
     return spawnSync('npm', args, { cwd: dir, shell: true, encoding: 'utf8', ...options });
 }
 
-// A version published seconds ago is not always visible to the next install,
-// so a 404 is retried before it is believed.
-let installed = null;
-for (let attempt = 1; attempt <= 4; attempt++) {
-    installed = npm(['install', spec, '--no-audit', '--no-fund', '--loglevel', 'error']);
-    if (installed.status === 0) break;
-    const output = `${installed.stdout ?? ''}${installed.stderr ?? ''}`;
-    if (attempt === 4 || !/E404|404 Not Found/.test(output)) {
-        process.stderr.write(output);
-        die(`npm install ${spec} failed`);
-    }
-    console.log(`  not on the registry yet (attempt ${attempt}), waiting 15s`);
-    // Synchronous wait, so the retry needs no async restructuring.
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
-}
-
 const modules = path.join(dir, 'node_modules');
+const ATTEMPTS = 6;
+// Synchronous wait, so the retry needs no async restructuring.
+const wait = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
+
+// A version published seconds ago is not always visible to the next install,
+// and the wait can run to minutes. Two symptoms, and only one of them is an
+// error: the dispatcher itself 404s, or the dispatcher installs cleanly and
+// its platform dependency is quietly skipped, because a missing OPTIONAL
+// dependency is not a failure to npm and `npm install` still exits 0. Retrying
+// only the first is how a released macOS package that was merely two minutes
+// late got reported as a broken release. So the whole assertion is retried,
+// not the install.
+//
+// --prefer-online because a retry that reads npm's cached 404 learns nothing.
+let installed = null;
+let platformPackages = [];
+for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    const last = attempt === ATTEMPTS;
+    installed = npm(['install', spec, '--no-audit', '--no-fund', '--prefer-online', '--loglevel', 'error']);
+    if (installed.status !== 0) {
+        const output = `${installed.stdout ?? ''}${installed.stderr ?? ''}`;
+        if (last || !/E404|404 Not Found/.test(output)) {
+            process.stderr.write(output);
+            die(`npm install ${spec} failed`);
+        }
+        console.log(`  not on the registry yet (attempt ${attempt}), waiting 15s`);
+        wait();
+        continue;
+    }
+    platformPackages = [...new Set(platformPackagesIn(modules))].sort();
+    if (platformPackages.length === 1 && platformPackages[0] === expected) break;
+    if (last) break;
+    console.log(`  ${expected} did not come with it (attempt ${attempt}), waiting 15s`);
+    wait();
+}
 
 // --- the dispatcher ---
 
@@ -119,10 +138,11 @@ function platformPackagesIn(root, depth = 0) {
     return found;
 }
 
-const platformPackages = [...new Set(platformPackagesIn(modules))].sort();
 if (platformPackages.length !== 1 || platformPackages[0] !== expected)
-    die(`installed platform packages are [${platformPackages.join(', ')}], expected exactly [${expected}]. `
-        + 'npm should install one binary per machine and skip the rest through os/cpu.');
+    die(`installed platform packages are [${platformPackages.join(', ')}], expected exactly [${expected}], `
+        + `after ${ATTEMPTS} attempts. npm should install one binary per machine and skip the rest through `
+        + 'os/cpu. An empty list here is npm declining to serve that package rather than a slow one: the '
+        + 'dependency is optional, so npm skips it in silence and the install still succeeds.');
 console.log(`  ok      only ${expected} came with it`);
 
 // --- the binary runs ---

@@ -13,6 +13,7 @@ import {
     isStrictVersion,
     packFilenameOf,
     publishVerdict,
+    readBackVerdict,
     sha1Of,
     supportsTrustedPublishing,
 } from '../lib/registry.mjs';
@@ -160,4 +161,41 @@ test('a pack entry carrying no file name is refused', () => {
 
 test('output that is not JSON is refused', () => {
     assert.throws(() => packFilenameOf('npm warn config production\n'), /not JSON/);
+});
+
+// After publishing, the registry is asked for what was just sent. npm answers
+// a publish with success before the package is readable, and has answered with
+// success and then never served the package at all, which is how 0.24.1 and
+// 0.24.3 shipped a dispatcher naming a Linux package nobody could install.
+test('a read-back that finds our own bytes is present', () => {
+    const verdict = readBackVerdict({
+        local: { integrity: 'sha512-A', sha1: 'abc123' },
+        dist: { integrity: 'sha512-A' },
+    });
+    assert.equal(verdict, 'present');
+});
+
+test('a read-back that finds nothing is absent, not a failure', () => {
+    // Propagation is measured in minutes, so this is the caller's cue to wait
+    // rather than to give up.
+    assert.equal(readBackVerdict({ local: { integrity: 'sha512-A' }, dist: null }), 'absent');
+});
+
+test('a read-back that finds other bytes is different', () => {
+    const verdict = readBackVerdict({
+        local: { integrity: 'sha512-A', sha1: 'abc123' },
+        dist: { integrity: 'sha512-B' },
+    });
+    assert.equal(verdict, 'different');
+});
+
+test('a read-back falls back to the shasum when there is no integrity', () => {
+    const local = { integrity: 'sha512-A', sha1: 'abc123' };
+    assert.equal(readBackVerdict({ local, dist: { shasum: 'abc123' } }), 'present');
+    assert.equal(readBackVerdict({ local, dist: { shasum: 'def456' } }), 'different');
+});
+
+test('a read-back with nothing to compare is never assumed present', () => {
+    const verdict = readBackVerdict({ local: { integrity: 'sha512-A' }, dist: {} });
+    assert.equal(verdict, 'different');
 });

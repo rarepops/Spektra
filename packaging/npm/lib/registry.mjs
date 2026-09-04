@@ -117,3 +117,20 @@ export function packFilenameOf(stdout) {
     }
     return filename;
 }
+
+/// What asking the registry for a version we just published means.
+///
+/// `npm publish` answers with success before the package is readable, and it
+/// has answered with success and then never served the package at all: that is
+/// how `@rarepops/spektra-cli-linux-x64` came to have two versions npm accepts
+/// writes for and refuses to serve. A publisher that trusts the exit code
+/// therefore ships a dispatcher naming a platform package nobody can install,
+/// which is the one failure this whole design exists to prevent.
+///
+/// `absent` is not a failure: it means wait and ask again.
+export function readBackVerdict({ local, dist }) {
+    if (!dist) return 'absent';
+    if (dist.integrity) return dist.integrity === local.integrity ? 'present' : 'different';
+    if (dist.shasum) return dist.shasum === local.sha1 ? 'present' : 'different';
+    return 'different';
+}

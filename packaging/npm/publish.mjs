@@ -42,6 +42,7 @@ import {
     isStrictVersion,
     packFilenameOf,
     publishVerdict,
+    readBackVerdict,
     sha1Of,
     supportsTrustedPublishing,
 } from './lib/registry.mjs';
@@ -201,6 +202,47 @@ function publish(pkg) {
                 + ' these exact bytes is skipped, so a re-run picks up where this stopped.'));
 }
 
+// Reading a publish back. npm serves a package a little after it accepts it,
+// so `absent` has to be waited on rather than failed on; two minutes has been
+// seen for real. The wait is bounded because the other thing npm does is
+// accept a publish it will never serve, and a release that hangs forever is no
+// better than one that lies.
+const READ_BACK_ATTEMPTS = 12;
+const READ_BACK_WAIT_MS = 15_000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/// Refuses to move on until the registry actually serves what was just
+/// published. Without this the publisher believes `npm publish`, which exits 0
+/// and prints `+ name@version` for a package the registry then 404s, and the
+/// dispatcher goes out naming a platform package nobody can install. That has
+/// happened twice to the same name, so this is not defensive programming.
+async function confirmPublished(pkg) {
+    const name = pkg.manifest.name;
+    for (let attempt = 1; attempt <= READ_BACK_ATTEMPTS; attempt++) {
+        const verdict = readBackVerdict({
+            local: { integrity: pkg.integrity, sha1: pkg.sha1 },
+            dist: await registryDist(name, version),
+        });
+        if (verdict === 'present') {
+            console.log(`  readable on the registry${attempt > 1 ? ` after ${attempt} checks` : ''}`);
+            return;
+        }
+        if (verdict === 'different')
+            fail(`${name}@${version} is on the registry with contents other than the tarball just published.`);
+        if (attempt < READ_BACK_ATTEMPTS) {
+            if (attempt === 1) console.log('  waiting for the registry to serve it');
+            await sleep(READ_BACK_WAIT_MS);
+        }
+    }
+    const waited = Math.round((READ_BACK_ATTEMPTS - 1) * READ_BACK_WAIT_MS / 1000);
+    fail(`npm accepted ${name}@${version} and is still not serving it ${waited} seconds later.`
+        + ' This is not slow propagation: npm can take a publish, report success, and never serve the'
+        + ' package, which leaves the version unpublishable (403, versions are immutable) and'
+        + ' uninstallable (404) at the same time. Nothing here can repair it. Publish the platform'
+        + ' binary under a new package name and open a support ticket for this one; see'
+        + ' packaging/npm/PUBLISHING.md.');
+}
+
 console.log(`\nPublishing to ${REGISTRY}${opts.dryRun ? ' (dry run)' : ''}`);
 if (!opts.dryRun)
     console.log(oidcAvailable
@@ -228,6 +270,10 @@ for (const pkg of packed) {
     console.log(`\n${name}@${version}`);
     publish(pkg);
     published++;
+    // Every package is read back before the next one goes out, so the
+    // dispatcher can never be published naming a platform package the registry
+    // is not serving. A dry run publishes nothing, so there is nothing to read.
+    if (!opts.dryRun) await confirmPublished(pkg);
 }
 
 console.log(`\n${published} published, ${skipped} already there.`);
