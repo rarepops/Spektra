@@ -228,11 +228,20 @@ jobs:
         if: github.ref_type != 'tag'
         run: node packaging/npm/publish.mjs --dry-run
 
+      # Kept from a tag run too, and kept even when the publish above failed,
+      # which is the case that needs them. publish.mjs packs every tarball
+      # before it publishes any of them, so these are the exact bytes it sent
+      # or would have sent. Without them a partial publish cannot be finished:
+      # a re-run rebuilds the binaries, .NET single-file output is not
+      # byte-reproducible, and publish.mjs then correctly refuses to republish
+      # the packages that did land, so the whole release needs a new version
+      # number. With them, the missing ones can be published by hand.
       - name: Upload npm packages
-        if: github.ref_type != 'tag'
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: spektra-npm-${{ steps.v.outputs.version }}
+          if-no-files-found: ignore
           path: |
             dist/npm/*.tgz
             dist/npm/INTEGRITY.txt
