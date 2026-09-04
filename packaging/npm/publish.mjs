@@ -202,13 +202,19 @@ function publish(pkg) {
                 + ' these exact bytes is skipped, so a re-run picks up where this stopped.'));
 }
 
-// Reading a publish back. npm serves a package a little after it accepts it,
-// so `absent` has to be waited on rather than failed on; two minutes has been
-// seen for real. The wait is bounded because the other thing npm does is
-// accept a publish it will never serve, and a release that hangs forever is no
-// better than one that lies.
-const READ_BACK_ATTEMPTS = 12;
-const READ_BACK_WAIT_MS = 15_000;
+// Reading a publish back. npm serves a package after it accepts it, not when,
+// so `absent` has to be waited on rather than failed on. The wait is generous
+// because the measured numbers are worse than they sound: a package appeared
+// 255 seconds after a successful publish, and a first draft of this guard
+// allowed 165 and would have failed that release for a publish that was
+// merely slow. The tarball tends to be fetchable minutes before the packument
+// mentions it, so a partial appearance is not progress worth shortening for.
+//
+// Bounded all the same, because the other thing npm does is accept a publish
+// it will never serve, and a release that hangs forever is no better than one
+// that lies.
+const READ_BACK_ATTEMPTS = 30;
+const READ_BACK_WAIT_MS = 20_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /// Refuses to move on until the registry actually serves what was just
@@ -230,7 +236,10 @@ async function confirmPublished(pkg) {
         if (verdict === 'different')
             fail(`${name}@${version} is on the registry with contents other than the tarball just published.`);
         if (attempt < READ_BACK_ATTEMPTS) {
-            if (attempt === 1) console.log('  waiting for the registry to serve it');
+            // Said out loud, and repeated, because this can run to minutes and
+            // a silent job looks like a hung one.
+            if (attempt === 1 || attempt % 5 === 0)
+                console.log(`  waiting for the registry to serve it (${(attempt - 1) * READ_BACK_WAIT_MS / 1000}s so far)`);
             await sleep(READ_BACK_WAIT_MS);
         }
     }

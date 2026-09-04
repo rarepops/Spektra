@@ -60,7 +60,7 @@ function npm(args, options = {}) {
 }
 
 const modules = path.join(dir, 'node_modules');
-const ATTEMPTS = 6;
+const ATTEMPTS = 12;
 // Synchronous wait, so the retry needs no async restructuring.
 const wait = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
 
