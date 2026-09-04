@@ -4,10 +4,13 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.24.2] - 2026-09-04
 
 ### Added
 - The command-line tool can be installed from npm: `npm install -g spektra-cli`, or run once without installing as `npx spektra-cli audit ~/Music`. It is the same self-contained binary the releases page carries, one package per platform, and npm downloads only the one your machine can run: Windows x64 (and ARM64 under emulation), Linux x64 with glibc, and macOS on Intel or Apple silicon. Nothing is fetched at install time and there is no install script. A machine with no build for it, an Alpine container for instance, is told which platforms have one instead of failing on a missing library. ffmpeg is still yours to install, as with every other way of getting the tool. Releases publish themselves, so npm carries a provenance attestation tying each package to the commit and the workflow run that built it, which `npm audit signatures` checks; the only version not covered by one is the first, published by hand to claim the names.
+
+### Fixed
+- 0.24.2 is the first complete set of npm packages; the ones published for 0.24.1 are missing Linux. npm accepted that package during a registry incident on 3 September and then never served it, leaving the version published and undownloadable at once: it cannot be published again, because npm versions are immutable, and it cannot be installed either, because nothing is there. `spektra-cli@0.24.1` therefore names a Linux dependency that does not exist, and installing it on Linux leaves you with no binary. Windows and macOS are unaffected. Anyone on Linux should install 0.24.2 or later, which is published by the release workflow itself and carries a provenance attestation for every package.
 
 ## [0.24.1] - 2026-09-03
 
@@ -501,7 +504,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.24.2...HEAD
+[0.24.2]: https://github.com/rarepops/Spektra/releases/tag/v0.24.2
 [0.24.1]: https://github.com/rarepops/Spektra/releases/tag/v0.24.1
 [0.24.0]: https://github.com/rarepops/Spektra/releases/tag/v0.24.0
 [0.23.0]: https://github.com/rarepops/Spektra/releases/tag/v0.23.0
