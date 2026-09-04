@@ -41,7 +41,7 @@ jobs:
             expect: '@rarepops/spektra-cli-win32-x64'
           - label: Linux x64 (glibc)
             runner: ubuntu-latest
-            expect: '@rarepops/spektra-cli-linux-x64'
+            expect: '@rarepops/spektra-cli-linux-x64-glibc'
           # Intel macOS is no longer a plain macos-13 runner: that image is
           # gone and macos-14 is deprecated, so x64 comes from an -intel label.
           - label: macOS x64

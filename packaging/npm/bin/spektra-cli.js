@@ -26,7 +26,7 @@ const ISSUES = 'https://github.com/rarepops/Spektra/issues';
 const PACKAGES = {
     'win32-x64': '@rarepops/spektra-cli-win32-x64',
     'win32-arm64': '@rarepops/spektra-cli-win32-x64',
-    'linux-x64': '@rarepops/spektra-cli-linux-x64',
+    'linux-x64': '@rarepops/spektra-cli-linux-x64-glibc',
     'darwin-x64': '@rarepops/spektra-cli-darwin-x64',
     'darwin-arm64': '@rarepops/spektra-cli-darwin-arm64',
 };

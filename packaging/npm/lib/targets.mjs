@@ -23,8 +23,8 @@ export const TARGETS = [
     },
     {
         rid: 'linux-x64',
-        pkg: '@rarepops/spektra-cli-linux-x64',
-        dir: 'spektra-cli-linux-x64',
+        pkg: '@rarepops/spektra-cli-linux-x64-glibc',
+        dir: 'spektra-cli-linux-x64-glibc',
         os: 'linux',
         cpu: ['x64'],
         exe: 'spektra-cli',

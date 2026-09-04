@@ -2,12 +2,18 @@
 
 Five packages go out together: the dispatcher `spektra-cli`, and one binary
 package per platform (`@rarepops/spektra-cli-win32-x64`,
-`@rarepops/spektra-cli-linux-x64`, `@rarepops/spektra-cli-darwin-x64`,
+`@rarepops/spektra-cli-linux-x64-glibc`, `@rarepops/spektra-cli-darwin-x64`,
 `@rarepops/spektra-cli-darwin-arm64`). The platform packages are scoped because
 npm's spam filter rejected the equivalent unscoped binary-package name. The
 user-facing dispatcher stays unscoped, so installation is still
 `npm install -g spektra-cli`. The bare name `spektra` belongs to an unrelated
 project and is never used.
+
+The Linux package carries a `-glibc` suffix because its predecessor,
+`@rarepops/spektra-cli-linux-x64`, is unusable: npm accepted publishes to it
+twice (0.24.1 and 0.24.3), reported success both times, and has never served
+it. That name is now a tombstone. The suffix is honest anyway, since the build
+needs glibc and refuses to run on musl.
 
 Releases publish themselves from `.github/workflows/release.yml` using npm
 **trusted publishing**: npm exchanges the workflow's OIDC token for a
@@ -29,7 +35,7 @@ Check the names are still free. Each should answer `E404`:
 ```sh
 npm view spektra-cli
 npm view @rarepops/spektra-cli-win32-x64
-npm view @rarepops/spektra-cli-linux-x64
+npm view @rarepops/spektra-cli-linux-x64-glibc
 npm view @rarepops/spektra-cli-darwin-x64
 npm view @rarepops/spektra-cli-darwin-arm64
 ```
@@ -102,7 +108,7 @@ From the CLI, five commands:
 ```sh
 npm trust github spektra-cli --repository rarepops/Spektra --file release.yml --allow-publish
 npm trust github @rarepops/spektra-cli-win32-x64 --repository rarepops/Spektra --file release.yml --allow-publish
-npm trust github @rarepops/spektra-cli-linux-x64 --repository rarepops/Spektra --file release.yml --allow-publish
+npm trust github @rarepops/spektra-cli-linux-x64-glibc --repository rarepops/Spektra --file release.yml --allow-publish
 npm trust github @rarepops/spektra-cli-darwin-x64 --repository rarepops/Spektra --file release.yml --allow-publish
 npm trust github @rarepops/spektra-cli-darwin-arm64 --repository rarepops/Spektra --file release.yml --allow-publish
 ```
@@ -131,7 +137,7 @@ as a 403 on the next release. Self-hosted runners are not supported.
 ```sh
 npm access set mfa=publish spektra-cli
 npm access set mfa=publish @rarepops/spektra-cli-win32-x64
-npm access set mfa=publish @rarepops/spektra-cli-linux-x64
+npm access set mfa=publish @rarepops/spektra-cli-linux-x64-glibc
 npm access set mfa=publish @rarepops/spektra-cli-darwin-x64
 npm access set mfa=publish @rarepops/spektra-cli-darwin-arm64
 ```
@@ -180,6 +186,20 @@ public is never overwritten; release the fix as the next version. Note that npm
 does not guarantee a byte-identical tarball across npm versions, so this can
 also mean "same files, different packer": compare the file lists before
 concluding the code differs.
+
+**"npm accepted X and is still not serving it."** The read-back after each
+publish. npm took the tarball, answered `+ name@version`, and the registry
+serves nothing for it. The version is now unpublishable (403, versions are
+immutable) and uninstallable (404) at the same time, and no client-side
+command repairs it: a later version publishes just as successfully and is
+swallowed just as completely, which is what 0.24.3 proved after 0.24.1.
+
+Publish that platform binary under a **new package name**: change `pkg` and
+`dir` for that target in `lib/targets.mjs` and the entry in the shim's
+`PACKAGES`, then bootstrap the new name through steps 1 to 3 above. Bootstrap
+it at the *previous* version, not the one being released, or the release will
+rebuild the binary, get different bytes for a version that already exists, and
+stop. Open an npm support ticket for the dead name; only npm can clear it.
 
 **404 on publish, from a laptop.** Almost always an expired login rather than
 a missing package: npm answers an unauthenticated write with 404 instead of

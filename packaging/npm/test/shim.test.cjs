@@ -14,7 +14,7 @@ const shim = require('../bin/spektra-cli.js');
 
 test('each platform with a published build selects its own binary package', () => {
     assert.equal(shim.select('win32', 'x64', null).package, '@rarepops/spektra-cli-win32-x64');
-    assert.equal(shim.select('linux', 'x64', 'glibc').package, '@rarepops/spektra-cli-linux-x64');
+    assert.equal(shim.select('linux', 'x64', 'glibc').package, '@rarepops/spektra-cli-linux-x64-glibc');
     assert.equal(shim.select('darwin', 'x64', null).package, '@rarepops/spektra-cli-darwin-x64');
     assert.equal(shim.select('darwin', 'arm64', null).package, '@rarepops/spektra-cli-darwin-arm64');
 });
@@ -56,28 +56,28 @@ test('the binary is spektra-cli.exe on Windows and spektra-cli elsewhere', () =>
 
 test('the binary sits beside the platform package manifest', () => {
     const resolve = (request) => {
-        assert.equal(request, '@rarepops/spektra-cli-linux-x64/package.json');
-        return path.join('/opt/node_modules/@rarepops/spektra-cli-linux-x64', 'package.json');
+        assert.equal(request, '@rarepops/spektra-cli-linux-x64-glibc/package.json');
+        return path.join('/opt/node_modules/@rarepops/spektra-cli-linux-x64-glibc', 'package.json');
     };
     assert.equal(
-        shim.binaryPath('@rarepops/spektra-cli-linux-x64', 'linux', resolve),
-        path.join('/opt/node_modules/@rarepops/spektra-cli-linux-x64', 'spektra-cli'));
+        shim.binaryPath('@rarepops/spektra-cli-linux-x64-glibc', 'linux', resolve),
+        path.join('/opt/node_modules/@rarepops/spektra-cli-linux-x64-glibc', 'spektra-cli'));
 });
 
 test('a skipped optional dependency resolves to null rather than throwing', () => {
     const resolve = () => {
-        const e = new Error("Cannot find module '@rarepops/spektra-cli-linux-x64/package.json'");
+        const e = new Error("Cannot find module '@rarepops/spektra-cli-linux-x64-glibc/package.json'");
         e.code = 'MODULE_NOT_FOUND';
         throw e;
     };
-    assert.equal(shim.binaryPath('@rarepops/spektra-cli-linux-x64', 'linux', resolve), null);
+    assert.equal(shim.binaryPath('@rarepops/spektra-cli-linux-x64-glibc', 'linux', resolve), null);
 });
 
 test('a resolver failure that is not a missing module is not swallowed', () => {
     const resolve = () => {
         throw new Error('disk went away');
     };
-    assert.throws(() => shim.binaryPath('@rarepops/spektra-cli-linux-x64', 'linux', resolve), /disk went away/);
+    assert.throws(() => shim.binaryPath('@rarepops/spektra-cli-linux-x64-glibc', 'linux', resolve), /disk went away/);
 });
 
 test('glibc is read from the process report and musl from its absence', () => {
@@ -87,7 +87,7 @@ test('glibc is read from the process report and musl from its absence', () => {
 });
 
 test('the not-installed message names the package to install', () => {
-    const message = shim.missingPackageMessage('@rarepops/spektra-cli-linux-x64');
+    const message = shim.missingPackageMessage('@rarepops/spektra-cli-linux-x64-glibc');
     assert.match(message, /@rarepops\/spektra-cli-linux-x64/);
     assert.match(message, /npm install/);
 });
