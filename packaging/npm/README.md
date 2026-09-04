@@ -73,9 +73,25 @@ other musl systems are not covered: the Linux build needs glibc, and
 `spektra-cli` says so rather than failing at the loader. No Linux ARM build
 yet, so a Raspberry Pi or an ARM server needs a build from source.
 
+## Accuracy, and your files
+
+`spektra-cli` only reads. It never renames, moves, deletes or rewrites a file.
+
+Its verdicts are evidence, not proof: a bandwidth verdict infers an encoder's
+low-pass from the spectrum, and an honest recording with nothing up high (a
+dark master, an old tape source, a spoken-word transfer) can look much like a
+transcode. `dupes` matches acoustically, so two different masters of one song
+may not pair. Scripting a delete off `--json` is exactly the use these reports
+are for, and it is also the use that loses music: read the reason a row gives,
+and keep a backup.
+
 ## License
 
 [PolyForm Perimeter 1.0.1](https://github.com/rarepops/Spektra/blob/main/LICENSE.md).
 Free to use, including at work; you may not use it to build a competing
 product. Not an Open Source Initiative approved license, so a dependency
 scanner set to allow only approved licenses will flag it.
+
+As that license says, the software comes as is, with no warranty of any kind,
+and the author is not liable for any damages arising from its use, lost or
+deleted files included.

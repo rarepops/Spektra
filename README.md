@@ -87,6 +87,14 @@ Spektra calls ffmpeg as a separate process instead of bundling a decoder, so it 
 
 Spektra never modifies your audio files. Every view is read-only and every result leaves as a report, which is the right default for an auditing tool but does mean there is no rename, no tag write, and no colour label to sort by afterwards.
 
+## Accuracy, and your files
+
+Spektra only reads. It never renames, moves, deletes or rewrites a file, and every window that lists your library is view-only.
+
+The verdicts are evidence, not proof. A bandwidth verdict infers an encoder's low-pass from the spectrum, and an honest recording with nothing up high (a dark master, an old tape source, a spoken-word transfer) can look much like a transcode. Duplicate matching is acoustic, so two different masters of one song may not pair, and a tie stars more than one copy rather than guessing a winner. Read the reason a row gives you before acting on it, and keep a backup before deleting anything on the strength of any tool's verdict, this one included.
+
+As the [licence](LICENSE.md) says, the software comes as is, with no warranty of any kind, and the author is not liable for any damages arising from its use, lost or deleted files included.
+
 ## Screenshots
 
 Audit a whole library at once. The tree shows what is where, the grid streams a verdict per file as it lands, and the coloured dots separate a bandwidth problem from an integrity one.
