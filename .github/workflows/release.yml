@@ -62,10 +62,17 @@ jobs:
       # The pair is printed because it is the first thing worth knowing when a
       # publish is refused: npm also warns rather than fails when its Node is
       # too old for it, so an unsupported combination is easy to miss.
+      # Pinned, not @latest. @latest made the tool that publishes a moving
+      # target: 0.24.2 failed here because npm 12 changed `npm pack --json`
+      # from an array to an object keyed by package name, which no local dry
+      # run could have caught while this machine was on npm 11. publish.mjs
+      # reads both shapes now, but the version that does the publishing should
+      # still be one that was tested, and upgrading it should be a commit.
+      # Nothing bumps this automatically, so raise it deliberately.
       - name: Use an npm that can publish through OIDC
         shell: bash
         run: |
-          npm install -g npm@latest
+          npm install -g npm@12.0.2
           node --version
           npm --version
 

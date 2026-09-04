@@ -40,6 +40,7 @@ import {
     MIN_NPM_VERSION,
     integrityOf,
     isStrictVersion,
+    packFilenameOf,
     publishVerdict,
     sha1Of,
     supportsTrustedPublishing,
@@ -143,9 +144,9 @@ function pack(pkg) {
     }
     let filename;
     try {
-        filename = JSON.parse(result.stdout)[0].filename;
-    } catch {
-        fail(`could not read npm pack output for ${pkg.manifest.name}: ${result.stdout}`);
+        filename = packFilenameOf(result.stdout);
+    } catch (e) {
+        fail(`could not read npm pack output for ${pkg.manifest.name}: ${e.message}\n${result.stdout}`);
     }
     const tarball = path.join(out, filename);
     if (!existsSync(tarball)) fail(`npm pack reported ${filename} but it is not in ${path.relative(repo, out)}`);

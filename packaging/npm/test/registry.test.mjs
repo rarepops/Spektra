@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
     integrityOf,
     isStrictVersion,
+    packFilenameOf,
     publishVerdict,
     sha1Of,
     supportsTrustedPublishing,
@@ -117,4 +118,46 @@ test('a registry entry with nothing to compare is never assumed identical', () =
     });
     assert.equal(verdict.action, 'fail');
     assert.match(verdict.reason, /cannot be compared/i);
+});
+
+// `npm pack --json` changed shape between majors: npm 11 and earlier answer
+// with an array of entries, npm 12 with an object keyed by package name. The
+// publisher packs one directory at a time, so either shape holds exactly one
+// entry, and reading the wrong one aborts a release after the GitHub release
+// has already been created.
+const PACK_ENTRY = {
+    id: '@rarepops/spektra-cli-win32-x64@0.24.2',
+    name: '@rarepops/spektra-cli-win32-x64',
+    version: '0.24.2',
+    size: 34117174,
+    filename: 'rarepops-spektra-cli-win32-x64-0.24.2.tgz',
+};
+
+test('an npm 11 pack result names the tarball', () => {
+    assert.equal(packFilenameOf(JSON.stringify([PACK_ENTRY])), PACK_ENTRY.filename);
+});
+
+test('an npm 12 pack result names the same tarball', () => {
+    const keyed = { [PACK_ENTRY.name]: PACK_ENTRY };
+    assert.equal(packFilenameOf(JSON.stringify(keyed)), PACK_ENTRY.filename);
+});
+
+test('a pack result holding no entry is refused in either shape', () => {
+    assert.throws(() => packFilenameOf('[]'), /no packed file/);
+    assert.throws(() => packFilenameOf('{}'), /no packed file/);
+    assert.throws(() => packFilenameOf('null'), /no packed file/);
+});
+
+test('a pack result naming more than one tarball is refused', () => {
+    const two = [PACK_ENTRY, { ...PACK_ENTRY, filename: 'other-0.24.2.tgz' }];
+    assert.throws(() => packFilenameOf(JSON.stringify(two)), /one package at a time/);
+});
+
+test('a pack entry carrying no file name is refused', () => {
+    const nameless = { ...PACK_ENTRY, filename: undefined };
+    assert.throws(() => packFilenameOf(JSON.stringify([nameless])), /no file name/);
+});
+
+test('output that is not JSON is refused', () => {
+    assert.throws(() => packFilenameOf('npm warn config production\n'), /not JSON/);
 });

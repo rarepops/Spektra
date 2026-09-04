@@ -89,3 +89,31 @@ export function publishVerdict({ name, version, local, dist }) {
             + 'these bytes. Nothing was published.',
     };
 }
+
+/// The tarball `npm pack --json` just wrote. npm 11 and earlier answer with an
+/// array of entries; npm 12 answers with an object keyed by package name. Both
+/// carry one entry per directory packed and the publisher packs one at a time,
+/// so any other shape is one we do not understand and must not guess at.
+///
+/// The name is read rather than derived because npm's own naming is not
+/// obvious: a scoped package packs to `scope-name-version.tgz`, with the `@`
+/// and the `/` gone.
+export function packFilenameOf(stdout) {
+    let parsed;
+    try {
+        parsed = JSON.parse(stdout);
+    } catch {
+        throw new Error('npm pack answered with something that is not JSON');
+    }
+    const entries = Array.isArray(parsed) ? parsed
+        : (parsed && typeof parsed === 'object' ? Object.values(parsed) : []);
+    if (entries.length === 0) throw new Error('npm pack reported no packed file');
+    if (entries.length > 1) {
+        throw new Error(`npm pack reported ${entries.length} packed files, and the publisher packs one package at a time`);
+    }
+    const filename = entries[0]?.filename;
+    if (typeof filename !== 'string' || filename === '') {
+        throw new Error('npm pack reported no file name for the packed file');
+    }
+    return filename;
+}
