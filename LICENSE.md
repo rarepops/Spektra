@@ -69,3 +69,12 @@ A **product** can be a good or service, or a combination of them.
 **Your licenses** are all the licenses granted to you for the software under these terms.
 
 **Use** means anything you do with the software requiring one of your licenses.
+
+---
+
+The line below is the notice this software's licensor provides under
+[Notices](#notices) above. It is not part of the license text. Anyone who
+passes on any part of this software, changed or unchanged, has to pass this
+line on with it.
+
+Required Notice: Copyright Rares (rarepops) (https://github.com/rarepops/Spektra)

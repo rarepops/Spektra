@@ -52,6 +52,16 @@
       <Component Id="CliExe" Directory="INSTALLFOLDER">
         <File Id="spektraCliExe" Source="dist\cli-win-x64\spektra-cli.exe" KeyPath="yes" />
       </Component>
+      <!-- The license, on disk beside the binaries. The wizard already shows
+           it and will not continue until it is accepted, but that leaves
+           nothing behind, and this was the only channel where an installed
+           copy of Spektra had no terms with it: the portable zip, all four
+           CLI zips and every npm package ship this same file. It also carries
+           the Required Notice line, which anyone passing this software on has
+           to pass on with it, so the copy matters more than the display. -->
+      <Component Id="LicenseFile" Directory="INSTALLFOLDER">
+        <File Id="licenseMd" Source="LICENSE.md" KeyPath="yes" />
+      </Component>
       <Component Id="StartMenuShortcut" Directory="SpektraMenuFolder">
         <Shortcut Id="AppShortcut" Name="Spektra"
                   Target="[INSTALLFOLDER]spektra.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
