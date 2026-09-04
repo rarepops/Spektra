@@ -181,6 +181,13 @@ does not guarantee a byte-identical tarball across npm versions, so this can
 also mean "same files, different packer": compare the file lists before
 concluding the code differs.
 
+**404 on publish, from a laptop.** Almost always an expired login rather than
+a missing package: npm answers an unauthenticated write with 404 instead of
+403, because it will not confirm that a package you may not touch exists. Run
+`npm whoami` first. A 401 there means log in again. This is also why
+`npm owner ls` succeeds for a published sibling and 404s for the package you
+are trying to publish: the first is a public read, the second is not.
+
 **403 or 404 on publish, from CI.** The trusted publisher is not configured
 for that package, or one of its fields does not match. Check the workflow
 filename is exactly `release.yml` and the Environment field is blank.

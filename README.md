@@ -53,6 +53,40 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Integrity check: flags corrupt frames, missing data (interior digital silence), and truncated (partially downloaded) files; runs automatically on every file opened in the app (on by default, Preferences toggle; Ctrl+I hides/shows the results) and on demand in the CLI; silent gaps and the missing tail are marked on a lane along the time axis
 - Loudness & dynamics: integrated LUFS, loudness range, true peak, crest factor, and a clipping hint (EBU R128 via ffmpeg), in the app (Ctrl+L) or the CLI
 
+## How Spektra compares
+
+Spektra is a free alternative to the tools people reach for when they suspect a "lossless" file is not: [Spek](https://www.spek.cc/) for eyeballing one file, [Fakin' The Funk?](https://fakinthefunk.net/en/) and [Spectro](https://www.getspectro.app/) for checking a lot of them. It gives the same batch verdict the paid tools do, adds the library work they leave out (duplicates, A/B comparison, loudness, integrity), and scripts from a command line on all three desktop platforms.
+
+Advertised features only, taken from each vendor's own pages and checked on 4 September 2026. A blank cell means the vendor does not advertise it, which is not the same as the tool being unable to do it. Some rows go the other way, and those are worth reading before you pick.
+
+| | **Spektra** | Spek | Fakin' The Funk? | Spectro |
+| --- | --- | --- | --- | --- |
+| Price | Free · source available | Free · GPL | €15.99 · free for 100 files | $24.99 · free for 100 files |
+| Desktop app | Windows | Windows · macOS · Linux | Windows · macOS | macOS 13+ |
+| Command-line tool | Windows · Linux · macOS | | | |
+| Formats | anything ffmpeg decodes | all popular lossy and lossless, via ffmpeg | 13 named formats | 6 named formats |
+| Spectrogram view | ✓ | ✓ | ✓ | ✓ |
+| Save the spectrogram as an image | ✓ | ✓ | | |
+| Automated lossless / lossy verdict | ✓ | | ✓ | ✓ |
+| Batch folder audit | ✓ | | ✓ | ✓ |
+| Upsampled hi-res detection | ✓ | | | |
+| Corrupt / truncated file detection | ✓ | | ✓ | |
+| Clipping detection | ✓ | | ✓ | |
+| Compilation / DJ mix aware verdicts | ✓ | | | |
+| Duplicate finder (acoustic fingerprint) | ✓ | | | |
+| A/B compare · null test | ✓ | | | |
+| Loudness · LUFS · true peak (EBU R128) | ✓ | | | |
+| CSV · JSON · HTML export | ✓ | | | CSV |
+| Audio playback | | | ✓ | |
+| Watch folder · playlist import | | | | ✓ |
+| Writes back to your files (rename · tags) | | | ✓ | ✓ |
+
+Two differences are worth spelling out, because they cut against us as often as for us.
+
+Spektra calls ffmpeg as a separate process instead of bundling a decoder, so it reads whatever your ffmpeg reads and stays out of the licensing question. The cost is that ffmpeg has to be there; the app offers a one-click download when it is not, and the CLI expects it on your `PATH`.
+
+Spektra never modifies your audio files. Every view is read-only and every result leaves as a report, which is the right default for an auditing tool but does mean there is no rename, no tag write, and no colour label to sort by afterwards.
+
 ## Screenshots
 
 Audit a whole library at once. The tree shows what is where, the grid streams a verdict per file as it lands, and the coloured dots separate a bandwidth problem from an integrity one.
@@ -147,7 +181,7 @@ Grab the latest build from the **[releases page](https://github.com/rarepops/Spe
 - `Spektra-<version>-win-x64.zip`: the portable desktop app, no install needed.
 - `spektra-cli-<version>-<os>.zip`: the command-line tool on its own (Windows, Linux, macOS), for machines that do not want the app. Also on npm as [`spektra-cli`](https://www.npmjs.com/package/spektra-cli), which picks the build for your machine: `npm install -g spektra-cli`.
 
-Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protected your PC"** or an **Unknown Publisher** prompt. That's expected for an unsigned open-source build, not a sign of a problem: choose **More info → Run anyway** to continue. To verify a download first, check it against the `SHA256SUMS.txt` published with each release:
+Spektra isn't code-signed yet, so Windows SmartScreen may show **"Windows protected your PC"** or an **Unknown Publisher** prompt. That's expected for an unsigned independent build, not a sign of a problem: choose **More info → Run anyway** to continue. To verify a download first, check it against the `SHA256SUMS.txt` published with each release:
 
     # Windows (PowerShell)
     (Get-FileHash .\Spektra-<version>-Setup.msi -Algorithm SHA256).Hash
