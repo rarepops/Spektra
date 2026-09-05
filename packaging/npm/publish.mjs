@@ -22,12 +22,16 @@
 // and attaches provenance by itself, which is why no --provenance flag is
 // passed and no .npmrc is written.
 //
-// The one-off bootstrap publish from a machine is different: an account with
-// 2FA has to send a one-time password with every publish, and `npm login
-// --auth-type=web` does not change that on npm 10. Pass `--otp <code>`, which
-// goes to each npm publish untouched. A code lasts about 30 seconds and each
-// platform tarball is ~32 MB, so one code may not cover all five; that is what
-// the integrity comparison is for, and a re-run with a fresh code continues.
+// Publishing by hand is a different thing, and needs a real terminal. An
+// account whose second factor is a security key gets a browser ceremony from
+// npm 11 and newer, and npm blocks while polling for it: any non-interactive
+// shell makes it print the URL and then die with EOTP, which is what happens
+// through a tool-run shell that merely looks interactive. `--otp <code>` is
+// for the TOTP authenticators npm no longer issues and does nothing for a
+// security key; a code also lasts about 30 seconds while each platform
+// tarball is ~32 MB, so one rarely covers the set. Either way a half-finished
+// set is survivable, which is what the integrity comparison is for: a re-run
+// publishes only what is still missing.
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';

@@ -1,8 +1,9 @@
 // Pure decisions the publisher makes, kept away from the network and the
 // filesystem so they can be tested: how a tarball's integrity string is
 // formed, what counts as a releasable version, whether the npm in use can
-// publish through OIDC, and whether a version already on the registry may be
-// skipped or has to stop the release.
+// publish through OIDC, which file `npm pack` says it just wrote, whether a
+// version already on the registry may be skipped or has to stop the release,
+// and whether a publish that reported success actually landed.
 //
 // Nothing here is published. build.mjs copies only bin/ into the dispatcher.
 
@@ -50,9 +51,32 @@ export function supportsTrustedPublishing(version) {
 
 export const MIN_NPM_VERSION = MIN_NPM_FOR_OIDC.join('.');
 
+/// How the registry's record of a version compares with the tarball in hand.
+/// Both verdicts below are this one question asked at different moments, once
+/// before publishing and once after, so the cascade lives here rather than
+/// twice: `dist` is `versions[v].dist`, or null when there is no such version.
+///
+/// `incomparable` is its own answer rather than folded into `other`, because
+/// "the bytes differ" and "there is nothing to compare" call for different
+/// words to the person reading the failure.
+function compareWithRegistry(local, dist) {
+    if (!dist) return { state: 'absent' };
+    if (dist.integrity)
+        return {
+            state: dist.integrity === local.integrity ? 'same' : 'other',
+            kind: 'integrity', theirs: dist.integrity, ours: local.integrity,
+        };
+    // Entries published before integrity existed carry only a sha1 shasum.
+    if (dist.shasum)
+        return {
+            state: dist.shasum === local.sha1 ? 'same' : 'other',
+            kind: 'shasum', theirs: dist.shasum, ours: local.sha1,
+        };
+    return { state: 'incomparable' };
+}
+
 /// Whether this exact tarball should be published, skipped, or treated as a
-/// release-stopping conflict. `dist` is the registry's `versions[v].dist`, or
-/// null when the registry has no such version.
+/// release-stopping conflict.
 ///
 /// A version already published is only ever skipped when the bytes match. The
 /// point is that a re-run of a half-finished release finishes it, while a
@@ -60,27 +84,19 @@ export const MIN_NPM_VERSION = MIN_NPM_FOR_OIDC.join('.');
 /// of quietly leaving the registry and the release page describing different
 /// code.
 export function publishVerdict({ name, version, local, dist }) {
-    if (!dist) return { action: 'publish' };
+    const { state, kind, theirs, ours } = compareWithRegistry(local, dist);
 
-    const conflict = (kind, theirs, ours) => ({
+    if (state === 'absent') return { action: 'publish' };
+    if (state === 'same') return { action: 'skip' };
+
+    if (state === 'other') return {
         action: 'fail',
         reason: `${name}@${version} is already on the registry with different contents. `
             + `The registry's ${kind} is ${theirs}, this build packed ${ours}. Nothing was published. `
             + 'A published version is never overwritten: release the fix as the next version. '
             + 'Note that npm does not guarantee a byte-identical tarball across npm versions, so this '
             + 'can also mean "same files, different packer"; compare the file lists before deciding.',
-    });
-
-    if (dist.integrity)
-        return dist.integrity === local.integrity
-            ? { action: 'skip' }
-            : conflict('integrity', dist.integrity, local.integrity);
-
-    // Entries published before integrity existed carry only a sha1 shasum.
-    if (dist.shasum)
-        return dist.shasum === local.sha1
-            ? { action: 'skip' }
-            : conflict('shasum', dist.shasum, local.sha1);
+    };
 
     return {
         action: 'fail',
@@ -129,8 +145,12 @@ export function packFilenameOf(stdout) {
 ///
 /// `absent` is not a failure: it means wait and ask again.
 export function readBackVerdict({ local, dist }) {
-    if (!dist) return 'absent';
-    if (dist.integrity) return dist.integrity === local.integrity ? 'present' : 'different';
-    if (dist.shasum) return dist.shasum === local.sha1 ? 'present' : 'different';
+    const { state } = compareWithRegistry(local, dist);
+    if (state === 'absent') return 'absent';
+    if (state === 'same') return 'present';
+    // Both `other` and `incomparable` land here on purpose. Before publishing,
+    // "cannot be compared" is worth its own message; immediately after
+    // publishing it is not, because either way the registry is not
+    // demonstrably serving the tarball just sent, and that is a stop.
     return 'different';
 }

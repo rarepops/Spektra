@@ -60,6 +60,10 @@ function npm(args, options = {}) {
 }
 
 const modules = path.join(dir, 'node_modules');
+// Declared up here rather than inside platformPackagesIn below, which is a
+// hoisted function called from the retry loop: a `const` beside that function
+// would not be initialised yet when the loop first calls it.
+const WANTED = new Set(PLATFORM_PACKAGES);
 const ATTEMPTS = 12;
 // Synchronous wait, so the retry needs no async restructuring.
 const wait = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
@@ -74,11 +78,10 @@ const wait = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 
 // not the install.
 //
 // --prefer-online because a retry that reads npm's cached 404 learns nothing.
-let installed = null;
 let platformPackages = [];
 for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     const last = attempt === ATTEMPTS;
-    installed = npm(['install', spec, '--no-audit', '--no-fund', '--prefer-online', '--loglevel', 'error']);
+    const installed = npm(['install', spec, '--no-audit', '--no-fund', '--prefer-online', '--loglevel', 'error']);
     if (installed.status !== 0) {
         const output = `${installed.stdout ?? ''}${installed.stderr ?? ''}`;
         if (last || !/E404|404 Not Found/.test(output)) {
@@ -117,9 +120,8 @@ console.log(`  ok      ${DISPATCHER}@${dispatcherVersion} installed`);
 function platformPackagesIn(root, depth = 0) {
     if (depth > 3 || !existsSync(root)) return [];
     const found = [];
-    const platformPackages = new Set(PLATFORM_PACKAGES);
     const collect = (name, packageRoot) => {
-        if (platformPackages.has(name)) found.push(name);
+        if (WANTED.has(name)) found.push(name);
         found.push(...platformPackagesIn(path.join(packageRoot, 'node_modules'), depth + 1));
     };
     for (const entry of readdirSync(root, { withFileTypes: true })) {

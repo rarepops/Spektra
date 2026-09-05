@@ -26,7 +26,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { TARGETS } from './lib/targets.mjs';
+import { DISPATCHER, TARGETS } from './lib/targets.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..', '..');
@@ -194,6 +194,12 @@ if (built.length === 0) fail(`no current CLI publish under ${path.relative(repo,
 // The dispatcher. Its optional dependencies are pinned to this exact version:
 // a range would let npm pair a new dispatcher with an old binary.
 const manifest = JSON.parse(readFileSync(path.join(here, 'spektra-cli.package.json'), 'utf8'));
+// The template names the dispatcher and so does targets.mjs, and publish.mjs
+// finds the dispatcher by that name. If the two ever disagree the build still
+// succeeds and publish.mjs fails much later with "no such package", so they
+// are compared here, where the fix is obvious.
+if (manifest.name !== DISPATCHER)
+    fail(`spektra-cli.package.json is named ${manifest.name}, but targets.mjs calls the dispatcher ${DISPATCHER}`);
 manifest.version = version;
 // --local uses an absolute file: spec with forward slashes on purpose, and
 // both halves of that matter. npm resolves a relative spec against the
@@ -206,7 +212,7 @@ const localSpec = (target) => `file:${path.join(out, target.dir).replaceAll(path
 manifest.optionalDependencies = Object.fromEntries(built.map((t) =>
     [t.pkg, opts.local ? localSpec(t) : version]));
 
-const main = path.join(out, 'spektra-cli');
+const main = path.join(out, DISPATCHER);
 mkdirSync(path.join(main, 'bin'), { recursive: true });
 copyFileSync(path.join(here, 'bin', 'spektra-cli.js'), path.join(main, 'bin', 'spektra-cli.js'));
 copyFileSync(path.join(repo, 'LICENSE.md'), path.join(main, 'LICENSE.md'));
@@ -215,5 +221,5 @@ writeJson(path.join(main, 'package.json'), manifest);
 
 console.log(`\n${built.length + 1} packages:`);
 for (const t of built) console.log(`  ${t.pkg.padEnd(30)} ${t.os}/${t.cpu.join(',')}`);
-console.log(`  ${'spektra-cli'.padEnd(30)} dispatcher -> ${opts.local ? 'sibling directories' : version}`);
+console.log(`  ${DISPATCHER.padEnd(30)} dispatcher -> ${opts.local ? 'sibling directories' : version}`);
 if (opts.local) console.log('\n--local build: for installing and running here, not for publishing.');
