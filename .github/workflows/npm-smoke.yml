@@ -60,4 +60,4 @@ jobs:
           node-version: 24
 
       - name: Install spektra-cli ${{ inputs.version }} and run it
-        run: node packaging/npm/smoke.mjs --version "${{ inputs.version }}" --expect ${{ matrix.expect }}
+        run: node packaging/npm/smoke.mjs --version "${{ inputs.version }}" --expect "${{ matrix.expect }}"

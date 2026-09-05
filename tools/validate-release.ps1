@@ -41,6 +41,8 @@ $props = Get-Content $propsPath -Raw
 if ($props -notmatch '<Version>\s*([^<]+?)\s*</Version>') {
     throw "no <Version> element in $propsPath"
 }
+# Reaching here means the pattern did match, and a match populates $Matches
+# whichever way round the operator was written.
 $declared = $Matches[1]
 if ($declared -ne $Version) {
     throw "the tag says $Version but Directory.Build.props says $declared. Bump the props file, or tag the right commit."

@@ -89,7 +89,7 @@ function muslMessage() {
     return [
         'spektra-cli: the Linux binary needs glibc, so it will not run on musl.',
         'Alpine and other musl systems are not covered by a published build. Use a',
-        'glibc image such as node:22-slim or debian, or build from source with .NET.',
+        'glibc image such as the Debian-based node images, or build from source with .NET.',
         `Want a musl build? Say so at ${ISSUES}`,
     ].join('\n');
 }
