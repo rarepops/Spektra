@@ -55,3 +55,10 @@ test('only the Windows binary carries an exe suffix', () => {
     for (const t of TARGETS)
         assert.equal(t.exe, t.os === 'win32' ? 'spektra-cli.exe' : 'spektra-cli', t.rid);
 });
+
+test("each target's directory is its package name without the scope", () => {
+    // Two fields carry one fact: `pkg` is what npm calls the package, `dir` is
+    // the staging directory and the bin key, which cannot hold a scope. They
+    // were renamed together once already; this is what says they must be.
+    for (const t of TARGETS) assert.equal(t.dir, t.pkg.split('/').pop());
+});

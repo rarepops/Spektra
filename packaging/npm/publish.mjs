@@ -43,6 +43,7 @@ import { DISPATCHER, PLATFORM_PACKAGES } from './lib/targets.mjs';
 import {
     MIN_NPM_VERSION,
     integrityOf,
+    isRetryableStatus,
     isStrictVersion,
     packFilenameOf,
     publishVerdict,
@@ -54,6 +55,11 @@ import {
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REGISTRY = 'https://registry.npmjs.org';
 const INTEGRITY_FILE = 'INTEGRITY.txt';
+
+// Declared here rather than beside the read-back that leans on it: everything
+// in this file runs at module top level, so a `const` further down would be in
+// its temporal dead zone for anything called before that point.
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fail(message) {
     console.error(`publish.mjs: ${message}`);
@@ -180,13 +186,38 @@ writeFileSync(path.join(out, INTEGRITY_FILE),
     `${packed.map((p) => `${p.integrity}  ${p.filename}`).join('\n')}\n`);
 console.log(`  -> ${INTEGRITY_FILE}`);
 
+// A registry read is retried on the failures that are not answers: a socket
+// that drops, a 5xx from the CDN. Brief, because the read-back around it does
+// the long waiting; this only has to survive a blip. Without it a single
+// dropped connection anywhere in the ten minutes the read-back can run ends a
+// release whose packages are already published, which is the worst moment
+// available to give up.
+const READ_ATTEMPTS = 3;
+const READ_RETRY_MS = 5_000;
+
 /// The registry's record of this exact version, or null when it has none.
 async function registryDist(name, wanted) {
-    const response = await fetch(`${REGISTRY}/${encodeURIComponent(name)}`);
-    if (response.status === 404) return null;
-    if (!response.ok) fail(`registry answered ${response.status} for ${name}`);
-    const body = await response.json();
-    return body.versions?.[wanted]?.dist ?? null;
+    let why = '';
+    for (let attempt = 1; attempt <= READ_ATTEMPTS; attempt++) {
+        try {
+            const response = await fetch(`${REGISTRY}/${encodeURIComponent(name)}`);
+            if (response.status === 404) return null;
+            if (response.ok) {
+                const body = await response.json();
+                return body.versions?.[wanted]?.dist ?? null;
+            }
+            // An answer we will not get a different one to by asking again.
+            if (!isRetryableStatus(response.status))
+                fail(`registry answered ${response.status} for ${name}`);
+            why = `HTTP ${response.status}`;
+        } catch (e) {
+            // fetch throws for DNS, TLS and socket failures, none of which say
+            // anything about whether the version is there.
+            why = e.message;
+        }
+        if (attempt < READ_ATTEMPTS) await sleep(READ_RETRY_MS);
+    }
+    fail(`could not read ${name} from the registry after ${READ_ATTEMPTS} attempts: ${why}`);
 }
 
 function publish(pkg) {
@@ -219,7 +250,6 @@ function publish(pkg) {
 // that lies.
 const READ_BACK_ATTEMPTS = 30;
 const READ_BACK_WAIT_MS = 20_000;
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /// Refuses to move on until the registry actually serves what was just
 /// published. Without this the publisher believes `npm publish`, which exits 0

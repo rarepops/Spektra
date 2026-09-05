@@ -51,6 +51,18 @@ export function supportsTrustedPublishing(version) {
 
 export const MIN_NPM_VERSION = MIN_NPM_FOR_OIDC.join('.');
 
+/// Whether a registry response is worth asking about again, as opposed to
+/// being an answer. A dropped socket and a 5xx from the CDN are the registry
+/// failing to answer; 404 is an answer ("no such version"), and 401 or 403
+/// will not improve by repeating the question.
+///
+/// This matters most during the read-back after publishing, which can run for
+/// minutes with packages already on the registry: treating one blip there as
+/// fatal ends a release that actually succeeded.
+export function isRetryableStatus(status) {
+    return status === 408 || status === 429 || status >= 500;
+}
+
 /// How the registry's record of a version compares with the tarball in hand.
 /// Both verdicts below are this one question asked at different moments, once
 /// before publishing and once after, so the cascade lives here rather than

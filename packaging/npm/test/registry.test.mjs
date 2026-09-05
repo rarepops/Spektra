@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
     integrityOf,
+    isRetryableStatus,
     isStrictVersion,
     packFilenameOf,
     publishVerdict,
@@ -198,4 +199,19 @@ test('a read-back falls back to the shasum when there is no integrity', () => {
 test('a read-back with nothing to compare is never assumed present', () => {
     const verdict = readBackVerdict({ local: { integrity: 'sha512-A' }, dist: {} });
     assert.equal(verdict, 'different');
+});
+
+// Reading the registry is retried on the answers that are not answers. This
+// matters most during the read-back, which can run for minutes after packages
+// are already published: giving up there ends a release that succeeded.
+test('a registry status that means "ask again" is retryable', () => {
+    for (const status of [408, 429, 500, 502, 503, 504])
+        assert.equal(isRetryableStatus(status), true, String(status));
+});
+
+test('a registry status that is an answer is not retried', () => {
+    // 404 is "no such package", which the caller reads as absent, and 401/403
+    // will not improve by asking again.
+    for (const status of [200, 301, 400, 401, 403, 404])
+        assert.equal(isRetryableStatus(status), false, String(status));
 });
