@@ -100,12 +100,17 @@ public sealed class DiffFileItem : IFileItem
 /// One side of the folder diff: a scan root and the files only it has. Roots
 /// with nothing unique still get a column, because "this folder has no extras"
 /// and "this folder is not in the comparison" must not look the same.
-public sealed class DiffColumnItem(string root, IReadOnlyList<DiffFileItem> files, long bytes)
+public sealed class DiffColumnItem(string root, string label, IReadOnlyList<DiffFileItem> files, long bytes)
 {
     public string Root { get; } = root;
-    public string Label { get; } = System.IO.Path.GetFileName(root.TrimEnd('\\', '/')) is { Length: > 0 } name
-        ? name
-        : root;
+
+    /// Handed in rather than derived from this one root, because the shortest
+    /// label that identifies a folder depends on what it is sitting next to.
+    /// The leaf name alone fails the common case: a diff usually compares two
+    /// copies of one library, whose leaves match by construction, and two
+    /// columns both headed "Album" tell the reader nothing. ScopeLabel
+    /// .Distinguish gives each root the shortest unique one.
+    public string Label { get; } = label;
     public IReadOnlyList<DiffFileItem> Files { get; } = files;
     public string Summary { get; } = files.Count == 0
         ? "nothing only here"
@@ -184,11 +189,17 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 .Where(u => tokens.Count == 0 || Matches(u, tokens))
                 .GroupBy(u => u.Root, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-            foreach (var root in Roots)
+            // Computed over all the roots at once: a column's label is only
+            // meaningful next to its neighbours, so it cannot be worked out
+            // one root at a time inside DiffColumnItem.
+            var labels = ScopeLabel.Distinguish(Roots);
+            for (var i = 0; i < Roots.Count; i++)
             {
+                var root = Roots[i];
                 var files = byRoot.GetValueOrDefault(root) ?? [];
                 DiffColumns.Add(new DiffColumnItem(
                     root,
+                    labels[i],
                     [.. files.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f => new DiffFileItem(f))],
                     files.Sum(f => f.SizeBytes)));
             }
@@ -244,7 +255,11 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     private string _progressText = "";
     public string ProgressText { get => _progressText; private set => Set(ref _progressText, value); }
 
-    private string _footerText = "Add one or more folders, then Scan.";
+    /// The empty state. The footer doubles as the status line, so getting back
+    /// to it has to be an explicit write; nothing restores it on its own.
+    private const string EmptyFooter = "Add one or more folders, then Scan.";
+
+    private string _footerText = EmptyFooter;
     public string FooterText { get => _footerText; private set => Set(ref _footerText, value); }
 
     public DupesResult? LastResult { get; private set; }
@@ -340,16 +355,48 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         RaisePropertyChanged(nameof(CanScan));
     }
 
-    /// Empties the whole folder list in one go, for recomposing a scan set
-    /// without removing entries one by one. Like Remove, it leaves the last
-    /// results on screen; the next Scan is what clears those.
+    /// Empties the folder list and the results with it.
+    ///
+    /// Removing one folder deliberately keeps the results: that is usually
+    /// recomposing a set the results still largely describe. Clearing
+    /// everything is not that. It means starting over, and results left behind
+    /// describe folders that are no longer listed anywhere, down to a footer
+    /// counting groups found in them, which is worse than an empty panel
+    /// because it reads as current.
+    ///
+    /// The empty-list early return also has to consider the results, or
+    /// clearing after the roots were removed one at a time would find nothing
+    /// to do and leave those results on screen.
     public void ClearRoots()
     {
         if (IsScanning) { SetError(ScanBusyNote); return; }
-        if (Roots.Count == 0) return;
+        if (Roots.Count == 0 && !HasResults) return;
         Roots.Clear();
         PersistRoots();
+        ClearResults();
+        FooterText = EmptyFooter;
         RaisePropertyChanged(nameof(CanScan));
+    }
+
+    /// Drops everything the last scan produced. A starting scan needs this so
+    /// the old run's rows are not on screen while it works, and clearing the
+    /// folder list needs it for the reason above.
+    ///
+    /// CanExport is raised by hand because it reads LastResult as well as
+    /// IsScanning. A scan gets that refresh free, since IsScanning changes on
+    /// the line before; clearing the roots changes neither, so without this
+    /// Export stays enabled over results that are no longer displayed.
+    private void ClearResults()
+    {
+        Groups.Clear();
+        _allGroups.Clear();
+        _allUnpaired.Clear();
+        NotAnalyzed.Clear();
+        DiffColumns.Clear();
+        _baseFooter = null;
+        LastResult = null;
+        RaisePropertyChanged(nameof(HasResults));
+        RaisePropertyChanged(nameof(CanExport));
     }
 
     private void PersistRoots() => settings.DuplicateRoots = [.. Roots];
@@ -360,14 +407,10 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     {
         if (IsScanning || Roots.Count == 0) return;
         IsScanning = true;
-        Groups.Clear();
-        _allGroups.Clear();
-        _baseFooter = null;
-        RaisePropertyChanged(nameof(HasResults));
-        NotAnalyzed.Clear();
-        DiffColumns.Clear();
-        _allUnpaired.Clear();
-        LastResult = null;
+        // The footer is left alone here on purpose: it still reads as the last
+        // scan's summary while this one runs, which beats resetting it to the
+        // "add some folders" prompt underneath a running scan.
+        ClearResults();
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;

@@ -97,7 +97,7 @@
                 IsEnabled="{Binding !IsScanning}" />
         <Button Content="Clear all" Click="OnClearFoldersClicked" HorizontalAlignment="Stretch"
                 IsEnabled="{Binding !IsScanning}"
-                ToolTip.Tip="Empty the folder list; the last results stay until the next scan" />
+                ToolTip.Tip="Empty the folder list and clear the last results" />
         <Button Content="Scan" Click="OnScanClicked" IsEnabled="{Binding CanScan}"
                 IsVisible="{Binding !IsScanning}" HorizontalAlignment="Stretch" />
         <Button Content="Cancel" Click="OnCancelClicked" IsVisible="{Binding IsScanning}"
@@ -224,19 +224,31 @@
 
         <!-- Weak matches: probably the same recording, but the evidence is thin,
              so they are shown rather than hidden. This is the only place a diff
-             has to hand the judgement back. -->
+             has to hand the judgement back.
+
+             The list scrolls inside a capped height, and the cap is the point.
+             This row is Auto and the columns above it take the rest, so an
+             uncapped list grew to fit every weak match and squeezed the diff
+             itself, which is the view the user actually opened, down to a
+             sliver. The cap matches the folder list's above, so the two lists
+             in this window agree on how much room a list may take. The count
+             stays outside the scroll: it is the sentence that says how much is
+             down there, so it has to be readable without scrolling to it. -->
         <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
                 BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
           <StackPanel>
             <TextBlock Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
                        Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
-            <ItemsControl ItemsSource="{Binding Groups}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="app:DupeGroupItem">
-                  <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="app:DupeGroupItem">
+                    <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Headline}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
           </StackPanel>
         </Border>
       </Grid>
