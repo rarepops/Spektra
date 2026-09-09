@@ -159,6 +159,46 @@ public sealed class FingerprintMatcherTests
         await Assert.That(m.Similarity).IsGreaterThanOrEqualTo(FingerprintMatcher.HighThreshold);
     }
 
+    /// A track that repeats a figure, which every fixture above deliberately
+    /// avoids: their words come straight from an LCG, so no word ever recurs
+    /// and the vote histogram is a single clean spike. Real music recurs, and
+    /// a word two frames back recurs far more often than the one immediately
+    /// before it (adjacent analysis frames overlap, so consecutive words
+    /// differ by construction).
+    private static Fingerprint RepeatingFigureTrack(uint seed, int words = 640)
+    {
+        var state = seed;
+        var w = new uint[words];
+        for (var t = 0; t < words; t++)
+            w[t] = t >= 2 && t % 4 == 0 ? w[t - 2] : Lcg(ref state);
+        // A few adjacent repeats as well. Without any, the offsets one frame
+        // either side of the peak collect no votes at all, so they never
+        // become dictionary keys and are never even considered as alignments;
+        // the defect needs them present but outnumbered, which is what a real
+        // track looks like.
+        for (var t = 40; t < words; t += 160) w[t] = w[t - 1];
+        return new Fingerprint(8, w);
+    }
+
+    [Test]
+    public async Task IdenticalCopyOfARepeatingTrack_ScoresAsACopy()
+    {
+        // Regression for the owner-library miss of 2026-09-09: 146 pairs of
+        // byte-identical fingerprints scored 0. Two copies of one track make
+        // the vote histogram symmetric (votes[-d] == votes[+d]), so the
+        // windows centred one frame either side of the peak tie with each
+        // other, and both beat the window centred ON the peak as soon as the
+        // track repeats a word two frames back more often than it repeats the
+        // previous one. Whichever tie wins, the alignment is off by a frame.
+        var a = RepeatingFigureTrack(seed: 4242);
+        var b = new Fingerprint(a.FramesPerSecond, (uint[])a.Words.Clone());
+
+        var m = FingerprintMatcher.Match(a, b);
+        await Assert.That(m).IsNotNull();
+        await Assert.That(m!.OffsetFrames).IsEqualTo(0);
+        await Assert.That(m.Similarity).IsGreaterThanOrEqualTo(FingerprintMatcher.HighThreshold);
+    }
+
     [Test]
     public async Task EmptyOrMismatchedRate_IsNull()
     {
