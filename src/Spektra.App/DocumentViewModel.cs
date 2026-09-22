@@ -223,7 +223,7 @@ public sealed class DocumentViewModel : TabViewModelBase
         }
     }
 
-    public int? SelectedChannel => _selectedChannelIndex == 0 ? null : _selectedChannelIndex - 1;
+    public int? SelectedChannel => ChannelList.ChannelFor(_selectedChannelIndex, Metadata?.Channels ?? 1);
 
     /// FFT window size (frequency buckets = WindowSize / 2 + 1). Changing it while
     /// a file is loaded re-analyzes at the new resolution.
@@ -314,7 +314,7 @@ public sealed class DocumentViewModel : TabViewModelBase
             }
             Metadata = meta;
             if (ChannelOptions.Count == 1 && meta.Channels > 1)
-                ChannelOptions = ["Mix", .. Enumerable.Range(1, meta.Channels).Select(i => $"Ch {i}")];
+                ChannelOptions = ChannelList.Options(meta.Channels);
             HeaderText = meta.ToDisplayLine(TabTitle);
 
             // max-zoom clamp: a nominal 1024-column tile never drops below 64 samples/hop
@@ -443,9 +443,8 @@ public sealed class DocumentViewModel : TabViewModelBase
     {
         if (!_channelCache.TryGet(SelectedChannelIndex, out _)) return SelectedChannelIndex;
         if (!PrefetchChannels || meta.Channels < 2) return -1;
-        var variants = 1 + meta.Channels;
-        if (variants > ChannelCacheCapacity) return -1;
-        for (var i = 0; i < variants; i++)
+        if (!ChannelList.CanPrefetch(meta.Channels, SelectedChannelIndex, ChannelCacheCapacity)) return -1;
+        for (var i = 0; i <= meta.Channels; i++)
             if (!failed.Contains(i) && !_channelCache.TryGet(i, out _)) return i;
         return -1;
     }
@@ -471,7 +470,7 @@ public sealed class DocumentViewModel : TabViewModelBase
             StatusText = "Analyzing…";
         }
 
-        var channel = index == 0 ? (int?)null : index - 1;
+        var channel = ChannelList.ChannelFor(index, meta.Channels);
         await Task.Run(() =>
         {
             var sinceRefresh = 0;

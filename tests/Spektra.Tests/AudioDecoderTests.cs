@@ -141,4 +141,29 @@ public class AudioDecoderTests
         await Assert.That(col[46] > -12f).IsTrue();  // 1 kHz present
         await Assert.That(col[139] > -12f).IsTrue(); // 3 kHz present
     }
+
+    [Test]
+    public async Task Difference_OfIdenticalChannels_IsSilence()
+    {
+        // Mono content in a stereo file, the case the Difference view exists
+        // to expose: whatever the two channels share cancels, and these two
+        // share everything.
+        var peak = Decoder().DecodeMonoChunks(
+                Path.Combine(Fixtures, "sine-1khz-stereo.wav"), CancellationToken.None,
+                new DecodeOptions(Channel: DecodeOptions.Difference))
+            .SelectMany(c => c).Max(MathF.Abs);
+        await Assert.That(peak).IsLessThan(1e-4f);
+    }
+
+    [Test]
+    public async Task Difference_KeepsWhatTheChannelsDoNotShare()
+    {
+        // 1 kHz left, 3 kHz right: nothing is shared, so the tones survive.
+        // Without this, a Difference that returned silence for everything
+        // would pass the test above.
+        var bin = DominantBin(Decoder().DecodeMonoChunks(
+            Path.Combine(Fixtures, "sine-dual-channel.wav"), CancellationToken.None,
+            new DecodeOptions(Channel: DecodeOptions.Difference)));
+        await Assert.That(bin is (>= 46 and <= 47) or (>= 139 and <= 140)).IsTrue();
+    }
 }

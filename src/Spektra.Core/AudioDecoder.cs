@@ -31,7 +31,11 @@ public sealed class AudioDecoder(string ffmpegPath)
         if (o.Channel is { } channel)
         {
             args.Add("-af");
-            args.Add($"pan=mono|c0=c{channel}");
+            // Difference is halved so it can never exceed full scale: left and
+            // right at opposite full-scale peaks would otherwise read +6 dB.
+            args.Add(channel == DecodeOptions.Difference
+                ? "pan=mono|c0=0.5*c0-0.5*c1"
+                : $"pan=mono|c0=c{channel}");
         }
         else
         {
