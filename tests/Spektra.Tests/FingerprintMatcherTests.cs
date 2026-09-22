@@ -163,8 +163,7 @@ public sealed class FingerprintMatcherTests
     /// avoids: their words come straight from an LCG, so no word ever recurs
     /// and the vote histogram is a single clean spike. Real music recurs, and
     /// a word two frames back recurs far more often than the one immediately
-    /// before it (adjacent analysis frames overlap, so consecutive words
-    /// differ by construction).
+    /// before it.
     private static Fingerprint RepeatingFigureTrack(uint seed, int words = 640)
     {
         var state = seed;

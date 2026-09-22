@@ -74,8 +74,7 @@ public static class FingerprintMatcher
         // one frame off the true peak still contains that peak, so it can
         // out-total the window centred on it whenever the track repeats a word
         // two frames back more often than the one before it, which is what
-        // music does (adjacent analysis frames overlap, so consecutive words
-        // differ by construction). For two copies of one track the histogram is
+        // music does. For two copies of one track the histogram is
         // symmetric, votes[-d] == votes[+d], so both neighbouring windows tie
         // and one of them wins outright. Scoring there compares the track with
         // itself shifted by a frame, which decorrelates every word: measured on
