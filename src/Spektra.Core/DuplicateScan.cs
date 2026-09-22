@@ -10,7 +10,16 @@ public sealed record NotAnalyzedFile(string Path, string Reason);
 /// no use for these; a folder diff is mostly made of them, because "only in
 /// this folder" is the commonest kind of difference. Root is whichever scan
 /// root the file sits under, so a diff can say which side is missing it.
-public sealed record UnpairedFile(string Path, string Root, AuditRow Row, long SizeBytes);
+public sealed record UnpairedFile(string Path, string Root, AuditRow Row, long SizeBytes)
+{
+    /// A file under another scan root that names the same track, when this one
+    /// matched nothing by audio but the track is present over there anyway.
+    /// Null when the other side really does not have it.
+    ///
+    /// Evidence for a folder diff, never for grouping: see TitleTwin for why
+    /// the two questions are allowed different answers.
+    public string? TwinPath { get; init; }
+}
 
 public sealed record DupesGroupReport(
     DuplicateGroup Group, QualityRanking Quality,
@@ -200,15 +209,30 @@ public static class DuplicateScan
 
         // Longest root first: with nested roots the deepest is the honest answer.
         var rootsByDepth = roots.OrderByDescending(r => r.Length).ToArray();
+        string RootOf(string path) => Array.Find(rootsByDepth, r =>
+            path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
+
         var unpaired = new List<UnpairedFile>();
         foreach (var i in usable)
         {
             var path = files[i].Path;
             if (grouped.Contains(path)) continue;
-            var root = Array.Find(rootsByDepth, r =>
-                path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
-            unpaired.Add(new UnpairedFile(path, root, entryByPath[path].Row, files[i].SizeBytes));
+            unpaired.Add(new UnpairedFile(path, RootOf(path), entryByPath[path].Row, files[i].SizeBytes));
         }
+
+        // Matching nothing by audio is not the same as being absent, and a
+        // diff that conflates them buries its own answer: on the owner's
+        // library 278 of 319 "only in this folder" files were sitting on the
+        // other side under a name that says so. The haystack is every
+        // collected file rather than the analyzed ones, because a track too
+        // short or too broken to fingerprint is still a track the other folder
+        // has.
+        var twins = TitleTwin.FindAcrossRoots(
+            unpaired.Select(u => (u.Path, u.Root)),
+            files.Select(f => (f.Path, Root: RootOf(f.Path))));
+        for (var i = 0; i < unpaired.Count; i++)
+            if (twins.TryGetValue(unpaired[i].Path, out var twin))
+                unpaired[i] = unpaired[i] with { TwinPath = twin };
 
         return new DupesResult(
             [.. reports.OrderByDescending(r => r.ReclaimableBytes)],

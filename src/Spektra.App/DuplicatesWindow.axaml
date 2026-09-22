@@ -131,6 +131,11 @@
          while active; the toggle turns the same results into a folder diff. -->
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" IsVisible="{Binding HasResults}">
       <CheckBox DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
+                Content="Hide name matches"
+                IsVisible="{Binding OnlyDifferences}"
+                IsChecked="{Binding HideTitleTwins, Mode=TwoWay}"
+                ToolTip.Tip="Also hide files whose track the other folder has under a matching name, which Spektra could not confirm by ear · the count stays under each column" />
+      <CheckBox DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
                 Content="Only differences"
                 IsChecked="{Binding OnlyDifferences, Mode=TwoWay}"
                 ToolTip.Tip="Hide tracks both folders have, and show the ones only one folder has" />
@@ -199,7 +204,7 @@
                     <ItemsControl ItemsSource="{Binding Files}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="app:DiffFileItem">
-                          <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto"
+                          <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto,Auto"
                                 DoubleTapped="OnDiffFileDoubleTapped">
                             <Grid.ContextMenu>
                               <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
@@ -212,6 +217,12 @@
                             <TextBlock Grid.Row="0" Text="{Binding Relative}" Foreground="#CCCCCC"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
                             <TextBlock Grid.Row="1" Text="{Binding Facts}" Foreground="#888888" FontSize="12" />
+                            <!-- Only on the rows that have one, and in the warning
+                                 colour the weak-match panel uses: this file is not
+                                 the plain "only here" the column otherwise means. -->
+                            <TextBlock Grid.Row="2" Text="{Binding TwinNote}" Foreground="#E0A030"
+                                       FontSize="12" IsVisible="{Binding HasTwin}"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TwinNote}" />
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>

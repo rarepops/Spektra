@@ -88,11 +88,27 @@ public sealed class DiffFileItem : IFileItem
             : file.Path;
         var cutoff = file.Row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
         Facts = $"{file.Row.Codec ?? "?"} · {file.Row.Bandwidth}{cutoff} · {Reporting.FormatBytes(file.SizeBytes)}";
+        HasTwin = file.TwinPath is not null;
+        TwinNote = file.TwinPath is { } twin
+            ? string.Equals(
+                System.IO.Path.GetFileName(twin), System.IO.Path.GetFileName(file.Path),
+                StringComparison.OrdinalIgnoreCase)
+                ? "the other folder has this name too · the audio differs"
+                : $"the other folder has: {System.IO.Path.GetFileName(twin)}"
+            : null;
     }
 
     public string Path { get; }
     public string Relative { get; }
     public string Facts { get; }
+
+    /// Another scan root holds a file naming the same track, so this is a
+    /// track both folders have and Spektra could not confirm by ear, NOT a
+    /// track only this folder has. Saying so is the whole point: on the
+    /// owner's library 278 of 319 files in these columns were of this kind,
+    /// which made the 41 real ones impossible to see.
+    public bool HasTwin { get; }
+    public string? TwinNote { get; }
 
     string IFileItem.FullPath => Path;
 }
@@ -100,7 +116,8 @@ public sealed class DiffFileItem : IFileItem
 /// One side of the folder diff: a scan root and the files only it has. Roots
 /// with nothing unique still get a column, because "this folder has no extras"
 /// and "this folder is not in the comparison" must not look the same.
-public sealed class DiffColumnItem(string root, string label, IReadOnlyList<DiffFileItem> files, long bytes)
+public sealed class DiffColumnItem(
+    string root, string label, IReadOnlyList<DiffFileItem> files, long bytes, int alsoThere)
 {
     public string Root { get; } = root;
 
@@ -112,10 +129,23 @@ public sealed class DiffColumnItem(string root, string label, IReadOnlyList<Diff
     /// .Distinguish gives each root the shortest unique one.
     public string Label { get; } = label;
     public IReadOnlyList<DiffFileItem> Files { get; } = files;
-    public string Summary { get; } = files.Count == 0
-        ? "nothing only here"
-        : $"{files.Count} file(s) only here · {Reporting.FormatBytes(bytes)}";
+
+    /// Always names both numbers, and names them even when one list is
+    /// hidden. A count of what is left, on its own, cannot be told apart from
+    /// a folder that really has nothing extra, and the two mean opposite
+    /// things to someone deciding what to copy across.
+    public string Summary { get; } = Describe(files.Count(f => !f.HasTwin), alsoThere, bytes);
     public bool HasFiles { get; } = files.Count > 0;
+
+    /// Counted whether or not they are being shown, so the footer can say so
+    /// either way.
+    public int AlsoThere { get; } = alsoThere;
+
+    private static string Describe(int only, int alsoThere, long bytes)
+    {
+        var here = only == 0 ? "nothing only here" : $"{only} file(s) only here · {Reporting.FormatBytes(bytes)}";
+        return alsoThere == 0 ? here : $"{here} · {alsoThere} the other folder has under a matching name";
+    }
 }
 
 /// The Duplicate Detective window's state: scan roots, one run at a time, groups
@@ -133,8 +163,12 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     public ObservableCollection<DiffColumnItem> DiffColumns { get; } = [];
     private readonly List<UnpairedFile> _allUnpaired = [];
 
-    /// Total across the columns, for the footer.
-    private int UnpairedShown => DiffColumns.Sum(c => c.Files.Count);
+    /// Totals across the columns, for the footer. Files the other folder has
+    /// under a matching name are counted apart from the ones it has not got:
+    /// lumping them together is what made a 319-file answer out of a 41-file
+    /// one, and the footer is the last place that should repeat the mistake.
+    private int UnpairedShown => DiffColumns.Sum(c => c.Files.Count(f => !f.HasTwin));
+    private int NameMatched => DiffColumns.Sum(c => c.AlsoThere);
 
     private bool _onlyDifferences;
     /// Hides the groups that are confidently the same recording, and reveals
@@ -146,6 +180,22 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     {
         get => _onlyDifferences;
         set { if (Set(ref _onlyDifferences, value)) ApplyGroupFilter(); }
+    }
+
+    private bool _hideTitleTwins = true;
+    /// Drops the files whose track the other folder demonstrably has, leaving
+    /// the ones it does not.
+    ///
+    /// On by default, which is a deliberate exception to this window's rule of
+    /// hiding nothing without audio proof. The columns exist to answer "what
+    /// would I have to copy across", and a name is sound evidence for that
+    /// even though it is not sound evidence for deleting anything. The count
+    /// stays in the column summary either way, so the answer is never silently
+    /// smaller than it looks.
+    public bool HideTitleTwins
+    {
+        get => _hideTitleTwins;
+        set { if (Set(ref _hideTitleTwins, value)) ApplyGroupFilter(); }
     }
 
     /// Every group of the last completed scan; Groups is the filtered view.
@@ -197,11 +247,19 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             {
                 var root = Roots[i];
                 var files = byRoot.GetValueOrDefault(root) ?? [];
+                var alsoThere = files.Count(f => f.TwinPath is not null);
+                var shown = HideTitleTwins ? files.Where(f => f.TwinPath is null).ToList() : files;
                 DiffColumns.Add(new DiffColumnItem(
                     root,
                     labels[i],
-                    [.. files.OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase).Select(f => new DiffFileItem(f))],
-                    files.Sum(f => f.SizeBytes)));
+                    // Files the other folder has not got come first even when
+                    // both kinds are shown: they are the answer, the rest is
+                    // the working.
+                    [.. shown.OrderBy(f => f.TwinPath is not null)
+                             .ThenBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
+                             .Select(f => new DiffFileItem(f))],
+                    shown.Sum(f => f.SizeBytes),
+                    alsoThere));
             }
         }
 
@@ -213,8 +271,11 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             // real answer ("these folders hold the same music") and without a
             // count it is indistinguishable from a scan that found nothing.
             var hidden = _allGroups.Count(g => g.Report.IsSameTrack);
-            suffix += $" · differences: {hidden} same hidden · "
-                + $"{UnpairedShown} in one folder only · {Groups.Count} weak match";
+            // Confidence, descending: proved the same, named the same, only
+            // one side has it, too weak to call either way.
+            suffix += $" · differences: {hidden} same hidden";
+            if (NameMatched > 0) suffix += $" · {NameMatched} same name only";
+            suffix += $" · {UnpairedShown} in one folder only · {Groups.Count} weak match";
             // Never let an unanalysable file pass as agreement: a file absent
             // from a diff reads as "these folders match", which would be a lie.
             if (NotAnalyzed.Count > 0)
