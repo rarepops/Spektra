@@ -211,6 +211,23 @@ public partial class DuplicatesWindow : Window
             await FileActions.CopyTextAsync(this, string.Join(Environment.NewLine, group.AllPaths));
     }
 
+    // The group's label, not the composed headline: the headline carries file
+    // counts and sizes that are useless anywhere but on this screen.
+    private async void OnCopyGroupNameClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is DupeGroupItem group)
+            await FileActions.CopyTextAsync(this, group.Report.Group.Label);
+    }
+
+    // Dragging the weak-match list's top edge up gives it more room. The
+    // view model clamps to sane absolutes; this clamps to what the diff has
+    // right now, so a long drag cannot shove the columns off the window.
+    private void OnWeakPanelDrag(object? sender, VectorEventArgs e)
+    {
+        var ceiling = Math.Max(60, DiffGrid.Bounds.Height - 150);
+        _vm.WeakPanelHeight = Math.Min(ceiling, _vm.WeakPanelHeight - e.Vector.Y);
+    }
+
     // Open the format flyout on hover, so the three options are one move away
     // with no click. ShowAt just re-anchors if it is already open.
     private void OnExportHover(object? sender, PointerEventArgs e)

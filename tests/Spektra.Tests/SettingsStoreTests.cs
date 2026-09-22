@@ -105,6 +105,17 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task DuplicatesWeakPanelHeight_DefaultNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.DuplicatesWeakPanelHeight).IsNull();
+
+        SettingsStore.Save(SettingsPath, new AppSettings { DuplicatesWeakPanelHeight = 264.5 });
+
+        await Assert.That(SettingsStore.Load(SettingsPath).DuplicatesWeakPanelHeight).IsEqualTo(264.5);
+    }
+
+    [Test]
     public async Task SavedColumnWidth_HonorsOnlySaneValues()
     {
         // Never saved (no map at all, or no entry for this header) falls back
@@ -164,6 +175,7 @@ public sealed class SettingsStoreTests : IDisposable
             FolderColumnWidths = new() { ["File"] = 300 },
             ManifestColumnWidths = new() { ["Kind"] = 90 },
             FolderManifestWindow = new WindowPlacement(1, 2, 800, 600, false),
+            DuplicatesWeakPanelHeight = 300,
         };
         s.PushRecent(@"C:\music\a.flac");
         s.ApplyStartupPolicy();
@@ -177,6 +189,8 @@ public sealed class SettingsStoreTests : IDisposable
         await Assert.That(s.FolderColumnWidths!["File"]).IsEqualTo(300);
         await Assert.That(s.ManifestColumnWidths!["Kind"]).IsEqualTo(90);
         await Assert.That(s.FolderManifestWindow).IsNotNull();
+        // A panel height is how the window looks, not what was open in it.
+        await Assert.That(s.DuplicatesWeakPanelHeight).IsEqualTo(300);
         await Assert.That(s.RecentFiles.Count).IsEqualTo(1);
     }
 

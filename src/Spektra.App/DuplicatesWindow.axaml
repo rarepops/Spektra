@@ -35,6 +35,22 @@
     <Style Selector="Expander /template/ ToggleButton:checked /template/ Path#PART_Chevron">
       <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
+    <!-- The diff's weak matches are a list of names first and foldouts second,
+         so their headers run at text height: the 30 px band above suits a
+         group box and made a list of one-line entries a long scroll. Every
+         layer that can hold a header open is lowered, the Expander, the
+         theme's toggle and this window's band, because which of them sets the
+         floor is the theme's business and can move under an update. -->
+    <Style Selector="Expander.weak">
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="Expander.weak /template/ ToggleButton">
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="Expander.weak /template/ ToggleButton /template/ Border#HeaderBand">
+      <Setter Property="MinHeight" Value="20" />
+      <Setter Property="Padding" Value="6,2" />
+    </Style>
     <!-- The member rows live in a plain ItemsControl (no selection model), so
          row feedback comes from here: a hover tint shows which file a
          double-tap or right-click would act on, and the menuOpen class pins
@@ -51,6 +67,57 @@
       <Setter Property="Background" Value="#1E1E1E" />
     </Style>
   </Window.Styles>
+  <!-- One member row for every list of group members in this window, the
+       duplicate hunt's groups and the diff's weak matches alike, so a verb added
+       here reaches both. Implicit by type, the way FolderView's tree templates
+       are: an ItemsControl of DupeMemberItems with no template of its own picks
+       this one up. -->
+  <Window.DataTemplates>
+    <DataTemplate DataType="app:DupeMemberItem" x:DataType="app:DupeMemberItem">
+      <!-- One line per copy: the path fills the row and the
+           verdict facts sit in fixed lanes, so they read as
+           columns across every group. -->
+      <Grid Classes="memberRow" ColumnDefinitions="18,12,*,60,110,64,76,104,96"
+            Margin="4,2" DoubleTapped="OnMemberDoubleTapped"
+            ToolTip.Tip="{Binding Path}">
+        <Grid.ContextMenu>
+          <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
+            <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
+            <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
+            <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
+                      IsEnabled="{Binding CanCompareWithWinner}"
+                      ToolTip.Tip="Both copies side by side in the main window · the winner is A" />
+            <Separator />
+            <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+            <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+          </ContextMenu>
+        </Grid.ContextMenu>
+        <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
+                   VerticalAlignment="Center" IsVisible="{Binding IsWinner}"
+                   ToolTip.Tip="The copy worth keeping" />
+        <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
+                 Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
+        <TextBlock Grid.Column="2" Text="{Binding Path}" Margin="8,0,8,0"
+                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="3" Text="{Binding Codec}" Foreground="#999999"
+                   FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="4" Text="{Binding Bandwidth}" Foreground="#999999"
+                   FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="5" Text="{Binding Integrity}"
+                   Foreground="{Binding IntegrityBrush}" FontSize="12"
+                   VerticalAlignment="Center" />
+        <TextBlock Grid.Column="6" Text="{Binding SizeText}" Foreground="#999999"
+                   FontSize="12" TextAlignment="Right" Margin="0,0,16,0"
+                   VerticalAlignment="Center" />
+        <TextBlock Grid.Column="7" Text="{Binding SamenessText}" Foreground="#999999"
+                   FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="8" Text="found by audio" Foreground="#6FB3E8"
+                   FontSize="12" VerticalAlignment="Center"
+                   IsVisible="{Binding FoundByAudio}"
+                   ToolTip.Tip="Matched by fingerprint despite an unrelated name" />
+      </Grid>
+    </DataTemplate>
+  </Window.DataTemplates>
   <!-- Bottom inset 4 (not 12) so the footer band matches the main window,
        whose status line sits 4px off the edge. -->
   <DockPanel Margin="12,12,12,4">
@@ -183,7 +250,7 @@
            so "what does this side have that the other does not" is read across,
            with weak matches pinned underneath as the one thing a diff cannot
            answer for you. -->
-      <Grid IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
+      <Grid x:Name="DiffGrid" IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
         <ItemsControl Grid.Row="0" ItemsSource="{Binding DiffColumns}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -236,32 +303,57 @@
 
         <!-- Weak matches: probably the same recording, but the evidence is thin,
              so they are shown rather than hidden. This is the only place a diff
-             has to hand the judgement back.
+             has to hand the judgement back, so every entry must be something a
+             person can actually check: the same foldout the duplicate hunt uses,
+             with the same member rows and verbs, closed by default so the list
+             still reads as a list of names. It used to be a bare line of text,
+             which asked for a check it gave no way to make.
 
-             The list scrolls inside a capped height, and the cap is the point.
-             This row is Auto and the columns above it take the rest, so an
-             uncapped list grew to fit every weak match and squeezed the diff
-             itself, which is the view the user actually opened, down to a
-             sliver. The cap matches the folder list's above, so the two lists
-             in this window agree on how much room a list may take. The count
-             stays outside the scroll: it is the sentence that says how much is
-             down there, so it has to be readable without scrolling to it. -->
+             Sized by a ceiling, not a row. The row stays Auto so the panel folds
+             away entirely when nothing is weak, and a ceiling is what stops a long
+             list squeezing the diff columns above it, which are the view the user
+             actually opened. The ceiling is dragged at the panel's top edge and
+             remembered. The count stays outside the scroll: it is the sentence
+             that says how much is down there. -->
         <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
                 BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
-          <StackPanel>
-            <TextBlock Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
+          <DockPanel>
+            <Thumb DockPanel.Dock="Top" Height="6" Margin="-8,-6,-8,0"
+                   Cursor="SizeNorthSouth" DragDelta="OnWeakPanelDrag"
+                   ToolTip.Tip="Drag to give this list more or less room">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Border Background="Transparent" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+            <TextBlock DockPanel.Dock="Top" Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
                        Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
-            <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer MaxHeight="{Binding WeakPanelHeight}" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="app:DupeGroupItem">
-                    <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12" Margin="0,1"
-                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Headline}" />
+                    <Expander Classes="weak" HorizontalAlignment="Stretch">
+                      <!-- No "Copy loser paths" here, on purpose: these are the
+                           matches Spektra is unsure of, and that verb exists to
+                           feed a delete. -->
+                      <Expander.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Copy _name" Click="OnCopyGroupNameClicked" />
+                          <MenuItem Header="Copy _all paths" Click="OnCopyGroupPathsClicked" />
+                        </ContextMenu>
+                      </Expander.ContextMenu>
+                      <Expander.Header>
+                        <TextBlock Text="{Binding Headline}" Foreground="#CCCCCC" FontSize="12"
+                                   ToolTip.Tip="{Binding Headline}" />
+                      </Expander.Header>
+                      <ItemsControl ItemsSource="{Binding Members}" />
+                    </Expander>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </ScrollViewer>
-          </StackPanel>
+          </DockPanel>
         </Border>
       </Grid>
 
@@ -278,6 +370,7 @@
                      (innermost menu wins). -->
                 <Expander.ContextMenu>
                   <ContextMenu>
+                    <MenuItem Header="Copy _name" Click="OnCopyGroupNameClicked" />
                     <MenuItem Header="Copy _loser paths" Click="OnCopyLosersClicked"
                               IsEnabled="{Binding !!LoserPaths.Count}"
                               ToolTip.Tip="Every copy except the winner, one path per line" />
@@ -288,54 +381,9 @@
                   <TextBlock Text="{Binding Headline}" Foreground="#DDDDDD" />
                 </Expander.Header>
                 <StackPanel>
-                  <ItemsControl ItemsSource="{Binding Members}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="app:DupeMemberItem">
-                        <!-- One line per copy: the path fills the row and the
-                             verdict facts sit in fixed lanes, so they read as
-                             columns across every group. -->
-                        <Grid Classes="memberRow" ColumnDefinitions="18,12,*,60,110,64,76,104,96"
-                              Margin="4,2" DoubleTapped="OnMemberDoubleTapped"
-                              ToolTip.Tip="{Binding Path}">
-                          <Grid.ContextMenu>
-                            <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
-                              <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
-                              <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
-                              <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
-                                        IsEnabled="{Binding CanCompareWithWinner}"
-                                        ToolTip.Tip="Both copies side by side in the main window · the winner is A" />
-                              <Separator />
-                              <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
-                              <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
-                            </ContextMenu>
-                          </Grid.ContextMenu>
-                          <TextBlock Grid.Column="0" Text="★" Foreground="#D8B060"
-                                     VerticalAlignment="Center" IsVisible="{Binding IsWinner}"
-                                     ToolTip.Tip="The copy worth keeping" />
-                          <Ellipse Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center"
-                                   Fill="{Binding IntegrityBrush}" ToolTip.Tip="Integrity" />
-                          <TextBlock Grid.Column="2" Text="{Binding Path}" Margin="8,0,8,0"
-                                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="3" Text="{Binding Codec}" Foreground="#999999"
-                                     FontSize="12" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="4" Text="{Binding Bandwidth}" Foreground="#999999"
-                                     FontSize="12" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="5" Text="{Binding Integrity}"
-                                     Foreground="{Binding IntegrityBrush}" FontSize="12"
-                                     VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="6" Text="{Binding SizeText}" Foreground="#999999"
-                                     FontSize="12" TextAlignment="Right" Margin="0,0,16,0"
-                                     VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="7" Text="{Binding SamenessText}" Foreground="#999999"
-                                     FontSize="12" VerticalAlignment="Center" />
-                          <TextBlock Grid.Column="8" Text="found by audio" Foreground="#6FB3E8"
-                                     FontSize="12" VerticalAlignment="Center"
-                                     IsVisible="{Binding FoundByAudio}"
-                                     ToolTip.Tip="Matched by fingerprint despite an unrelated name" />
-                        </Grid>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                  <!-- Rows come from the window-level DupeMemberItem template, which the
+                       diff's weak-match list shares. -->
+                  <ItemsControl ItemsSource="{Binding Members}" />
                   <TextBlock Text="{Binding QualityLine}" Foreground="#999999" FontSize="12"
                              Margin="34,2,0,4" />
                 </StackPanel>

@@ -198,6 +198,26 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         set { if (Set(ref _hideTitleTwins, value)) ApplyGroupFilter(); }
     }
 
+    /// The weak-match list's height ceiling, dragged at its top edge and saved
+    /// like the manifest's lanes. A ceiling rather than a height, so a short
+    /// list stays short; the window clamps the top end against the space the
+    /// diff actually has, which this cannot know.
+    private const double MinWeakPanel = 60;
+    private const double MaxWeakPanel = 2000;
+    private double _weakPanelHeight =
+        settings.DuplicatesWeakPanelHeight is { } saved && double.IsFinite(saved)
+            ? Math.Clamp(saved, MinWeakPanel, MaxWeakPanel)
+            : 200;
+    public double WeakPanelHeight
+    {
+        get => _weakPanelHeight;
+        set
+        {
+            if (Set(ref _weakPanelHeight, Math.Clamp(value, MinWeakPanel, MaxWeakPanel)))
+                settings.DuplicatesWeakPanelHeight = _weakPanelHeight;
+        }
+    }
+
     /// Every group of the last completed scan; Groups is the filtered view.
     private readonly List<DupeGroupItem> _allGroups = [];
     /// The unfiltered footer line of the last scan, re-suffixed as the
@@ -224,7 +244,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     {
         var tokens = DuplicateScan.ParseFilterTokens(FilterText);
         Groups.Clear();
-        foreach (var g in _allGroups)
+        // The duplicate hunt reads biggest reclaim first, which is the order
+        // the scan hands over and the question that view asks. A diff reclaims
+        // nothing, and its weak matches sit under two alphabetical columns,
+        // where reclaim order reads as no order at all.
+        var ordered = OnlyDifferences
+            ? _allGroups.OrderBy(g => g.Report.Group.Label, StringComparer.OrdinalIgnoreCase)
+            : (IEnumerable<DupeGroupItem>)_allGroups;
+        foreach (var g in ordered)
             if ((tokens.Count == 0 || DuplicateScan.GroupMatches(g.Report, tokens))
                 && !(OnlyDifferences && g.Report.IsSameTrack))
                 Groups.Add(g);

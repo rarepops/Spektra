@@ -89,6 +89,11 @@ public sealed class AppSettings
     public List<string>? DuplicateRoots { get; set; }
     public WindowPlacement? DuplicatesWindow { get; set; }
 
+    /// The folder diff's weak-match list height in logical px, dragged at its
+    /// top edge. Layout rather than content, so ApplyStartupPolicy leaves it
+    /// alone. Null = never dragged, which the window reads as its own default.
+    public double? DuplicatesWeakPanelHeight { get; set; }
+
     // Folder Manifest window state: the last listed folder and the window
     // placement persist so the window reopens where it left off. Column widths
     // follow the FolderColumnWidths shape: keyed by header, absent key = the
