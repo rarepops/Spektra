@@ -23,6 +23,7 @@
       <Setter Property="ContextMenu">
         <ContextMenu>
           <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+          <MenuItem Header="Play in _default player" Click="OnMenuPlayClicked" />
           <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
           <Separator />
           <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />
@@ -62,6 +63,7 @@
         <StackPanel.ContextMenu>
           <ContextMenu>
             <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked" />
+            <MenuItem Header="Play in _default player" Click="OnMenuPlayClicked" />
             <MenuItem Header="Re-_analyze (ignore cache)" Click="OnMenuReanalyzeClicked" />
             <Separator />
             <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />

@@ -34,4 +34,39 @@ public static class FileActions
         if (item is null || !OperatingSystem.IsWindows()) return;
         Process.Start("explorer.exe", $"/select,\"{item.FullPath}\"");
     }
+
+    /// Hands the file to whatever the system already opens it with. Spektra
+    /// draws audio and never plays it, so this is the one verb it cannot
+    /// implement itself, and it is the one a user comparing two copies of a
+    /// track reaches for first: the spectrogram says they differ, the ears
+    /// say which one to keep.
+    ///
+    /// UseShellExecute is the whole mechanism, on every platform Spektra
+    /// ships to: Windows resolves the file association, macOS goes through
+    /// /usr/bin/open, Linux through xdg-open. Unlike Reveal there is no
+    /// platform left to no-op on.
+    ///
+    /// Returns null when the file was handed over, or the sentence to show
+    /// when it was not, which each window puts on its own status line. The
+    /// catch is deliberately wide: this runs from a click handler, where an
+    /// escaping exception takes the window down with it, and the ways a shell
+    /// hand-off can fail are the OS's to define rather than ours to enumerate.
+    public static string? Play(IFileItem? item)
+    {
+        if (item is null) return null;
+        try
+        {
+            using var started = Process.Start(
+                new ProcessStartInfo(item.FullPath) { UseShellExecute = true });
+            return null;
+        }
+        catch (Exception)
+        {
+            // Which of the two it is matters: rows outlive the files they name
+            // in a window whose whole purpose is deleting duplicates.
+            return File.Exists(item.FullPath)
+                ? $"Nothing on this system is set up to play {Path.GetFileName(item.FullPath)}."
+                : $"That file is not there any more: {item.FullPath}";
+        }
+    }
 }

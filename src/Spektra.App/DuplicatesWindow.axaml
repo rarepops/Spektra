@@ -204,6 +204,7 @@
                             <Grid.ContextMenu>
                               <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
                                 <MenuItem Header="_Open spectrogram" Click="OnOpenDiffFileClicked" />
+                                <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
                                 <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
                                 <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
                               </ContextMenu>
@@ -288,6 +289,7 @@
                           <Grid.ContextMenu>
                             <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
                               <MenuItem Header="_Open spectrogram" Click="OnOpenMemberClicked" />
+                              <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
                               <MenuItem Header="Compare with _winner" Click="OnCompareMemberClicked"
                                         IsEnabled="{Binding CanCompareWithWinner}"
                                         ToolTip.Tip="Both copies side by side in the main window · the winner is A" />

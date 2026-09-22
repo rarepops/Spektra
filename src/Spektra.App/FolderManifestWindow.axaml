@@ -137,7 +137,13 @@
                 Background="Transparent" ToolTip.Tip="{Binding Path}">
             <Grid.ContextMenu>
               <ContextMenu>
+                <!-- Both file verbs are gated on IsAudio because this window
+                     lists everything in a folder, junk included: a spectrogram
+                     of a .txt is nonsense, and Play hands the path to the
+                     shell, which would just as happily run an .exe. -->
                 <MenuItem Header="_Open spectrogram" Click="OnMenuOpenClicked"
+                          IsEnabled="{Binding IsAudio}" />
+                <MenuItem Header="Play in _default player" Click="OnMenuPlayClicked"
                           IsEnabled="{Binding IsAudio}" />
                 <Separator />
                 <MenuItem Header="Copy _path" Click="OnMenuCopyPathClicked" />

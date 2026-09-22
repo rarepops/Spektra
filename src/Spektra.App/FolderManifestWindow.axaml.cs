@@ -172,6 +172,11 @@ public partial class FolderManifestWindow : Window
     private void OnMenuRevealClicked(object? sender, RoutedEventArgs e) =>
         FileActions.Reveal(FileActions.ItemFrom(sender));
 
+    private void OnMenuPlayClicked(object? sender, RoutedEventArgs e)
+    {
+        if (FileActions.Play(FileActions.ItemFrom(sender)) is { } problem) _vm.SetError(problem);
+    }
+
     private void OnMenuOpenClicked(object? sender, RoutedEventArgs e)
     {
         if (FileActions.ItemFrom(sender) is { } item) _vm.RequestOpen(item);

@@ -163,6 +163,13 @@ public partial class DuplicatesWindow : Window
     private void OnRevealMemberClicked(object? sender, RoutedEventArgs e) =>
         FileActions.Reveal(FileActions.ItemFrom(sender));
 
+    // Shared by the member rows and the diff's one-sided rows, like Copy path
+    // and Reveal: playing a file needs nothing about it beyond IFileItem.
+    private void OnPlayMemberClicked(object? sender, RoutedEventArgs e)
+    {
+        if (FileActions.Play(FileActions.ItemFrom(sender)) is { } problem) _vm.SetError(problem);
+    }
+
     private void OnOpenMemberClicked(object? sender, RoutedEventArgs e)
     {
         if ((sender as MenuItem)?.DataContext is DupeMemberItem member)

@@ -189,6 +189,16 @@ public partial class FolderView : UserControl
     private void OnMenuRevealClicked(object? sender, RoutedEventArgs e) =>
         FileActions.Reveal(FileActions.ItemFrom(sender));
 
+    // The clicked row alone, even when several are selected, the same as
+    // Open: a player handed twenty tracks at once is not the gesture that
+    // was made. Failures land on the tab's status line, which is the only
+    // place this view has to say anything.
+    private void OnMenuPlayClicked(object? sender, RoutedEventArgs e)
+    {
+        if (FileActions.Play(FileActions.ItemFrom(sender)) is { } problem)
+            _vm?.SetErrorStatus(problem);
+    }
+
     private void OnMenuOpenClicked(object? sender, RoutedEventArgs e)
     {
         if (FileActions.ItemFrom(sender) is { } item) _vm?.RequestOpen(item.FullPath);
