@@ -90,6 +90,23 @@ public static class CutoffAnalyzer
         return peak;
     }
 
+    /// The highest bin still at or above the line, or 0 when none is.
+    private static int HighestBinAtOrAbove(float[] peak, float line)
+    {
+        for (var k = peak.Length - 1; k >= 0; k--)
+            if (peak[k] >= line) return k;
+        return 0;
+    }
+
+    /// The first bin above `from` that falls below the line, or -1 when the
+    /// band never dies.
+    private static int FirstBinBelow(float[] peak, int from, float line)
+    {
+        for (var k = from + 1; k < peak.Length; k++)
+            if (peak[k] < line) return k;
+        return -1;
+    }
+
     public static LosslessVerdict Analyze(IReadOnlyList<float[]> columns, int sampleRate)
     {
         var nyquist = sampleRate / 2.0;
@@ -106,9 +123,7 @@ public static class CutoffAnalyzer
 
         var active = Math.Max(globalPeak - ActiveSpanDb, Db.Floor + DeadMarginDb);
 
-        var cutoffBin = 0;
-        for (var k = peak.Length - 1; k >= 0; k--)
-            if (peak[k] >= active) { cutoffBin = k; break; }
+        var cutoffBin = HighestBinAtOrAbove(peak, active);
 
         var cutoffHz = cutoffBin * hzPerBin;
         var ratio = cutoffHz / nyquist;
@@ -116,9 +131,7 @@ public static class CutoffAnalyzer
         // How quickly does the top of the band collapse into dead air? A codec
         // brick wall drops within a few hundred Hz; a natural rolloff takes kHz.
         var deadLine = active - DeadDropDb;
-        var firstDeadBin = -1;
-        for (var k = cutoffBin + 1; k < peak.Length; k++)
-            if (peak[k] < deadLine) { firstDeadBin = k; break; }
+        var firstDeadBin = FirstBinBelow(peak, cutoffBin, deadLine);
 
         var transitionHz = firstDeadBin < 0 ? double.PositiveInfinity : (firstDeadBin - cutoffBin) * hzPerBin;
         var sharpWall = transitionHz <= SharpTransitionHz;
@@ -142,9 +155,7 @@ public static class CutoffAnalyzer
         if (sharpWall)
         {
             var passbandLine = globalPeak - PassbandSpanDb;
-            var passbandBin = 0;
-            for (var k = peak.Length - 1; k >= 0; k--)
-                if (peak[k] >= passbandLine) { passbandBin = k; break; }
+            var passbandBin = HighestBinAtOrAbove(peak, passbandLine);
             var passbandHz = passbandBin * hzPerBin;
 
             if (TryMatchUpsampleBase(cutoffHz, passbandHz, sampleRate, out var baseRateHz, out var edgeHz))
