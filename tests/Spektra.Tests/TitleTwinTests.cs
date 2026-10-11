@@ -126,4 +126,34 @@ public sealed class TitleTwinTests
         ];
         await Assert.That(TitleTwin.FindAcrossRoots([all[0]], all).Count).IsEqualTo(0);
     }
+
+    [Test]
+    public async Task FindAcrossRoots_prefers_the_same_words_over_a_shorter_superset()
+    {
+        // The superset's file name is the shorter of the two on purpose: if
+        // length were asked first, it would win, and it must not.
+        (string Path, string Root)[] all =
+        [
+            (@"A\Thomas Bergersen - Heart of Courage.flac", "A"),
+            (@"B\Thomas Bergersen -- Heart of Courage !!!.flac", "B"),
+            (@"B\Thomas Bergersen - Heart of Courage Z.flac", "B"),
+        ];
+        var found = TitleTwin.FindAcrossRoots([all[0]], all);
+        await Assert.That(found[all[0].Path]).IsEqualTo(@"B\Thomas Bergersen -- Heart of Courage !!!.flac");
+    }
+
+    [Test]
+    public async Task FindAcrossRoots_settles_a_dead_heat_by_path()
+    {
+        // Same words, same name length, different roots. Listed in the
+        // "wrong" order so that taking the first candidate seen would fail.
+        (string Path, string Root)[] all =
+        [
+            (@"A\Guano Apes - Open Your Eyes.flac", "A"),
+            (@"C\Guano Apes - Open Your Eyes.flac", "C"),
+            (@"B\Guano Apes - Open Your Eyes.flac", "B"),
+        ];
+        var found = TitleTwin.FindAcrossRoots([all[0]], all);
+        await Assert.That(found[all[0].Path]).IsEqualTo(@"B\Guano Apes - Open Your Eyes.flac");
+    }
 }
