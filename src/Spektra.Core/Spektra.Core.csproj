@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <!-- Pins the SQLite engine we ship ahead of Microsoft.Data.Sqlite's own
          transitive bundle, which trailed the e_sqlite3 advisory GHSA-2m69-gcr7-jv3q
          at 2.1.11. The CLI single-file publish bundles this native library: after a
