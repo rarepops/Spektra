@@ -24,12 +24,13 @@ internal static partial class Program
         }
 
         var rows = Spektra.Core.Inventory.Run(ffmpeg, paths[0], jobs);
-        if (fmt != OutFormat.Text)
-        {
-            Emit(rows, fmt);
-            return 0;
-        }
+        if (fmt != OutFormat.Text) Emit(rows, fmt);
+        else PrintInventory(rows);
+        return 0;
+    }
 
+    private static void PrintInventory(IReadOnlyList<InventoryRow> rows)
+    {
         foreach (var r in rows)
         {
             if (r.Error is { } err) { Console.WriteLine($"  [unreadable] {r.Path} - {err}"); continue; }
@@ -50,7 +51,6 @@ internal static partial class Program
             (bad > 0 ? $", {bad} unreadable" : "") + ".");
         if (audio > 0)
             Console.WriteLine($"Audio: {tagged} tagged, {withArt} with embedded art.");
-        return 0;
     }
 
     /// A file with an album and a track number but no artist is tagged; only

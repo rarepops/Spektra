@@ -119,6 +119,37 @@ internal static partial class Program
         else Console.Write(Reporting.ToCsv(rows));
     }
 
+    /// 1 when any file is judged likely lossy, upsampled or mixed: the one
+    /// exit-code rule report and scan share.
+    private static int BandwidthExitCode(IEnumerable<FileReport> reports) =>
+        reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
+
+    /// Opens the shared audit cache. When it cannot be opened the verb runs on
+    /// without it, after saying so on stderr along with what that costs.
+    private static AuditCache? OpenCache(string verb, string withoutIt)
+    {
+        var cache = AuditCache.TryOpen(out var cacheError);
+        if (cacheError is not null)
+            Console.Error.WriteLine($"spektra-cli {verb}: cache unavailable ({cacheError}); {withoutIt}.");
+        return cache;
+    }
+
+    /// Writes a verb's --html page. False, after saying why on stderr, when
+    /// the file cannot be written; every verb treats that as a setup error.
+    private static bool TryWriteHtml(string verb, string path, string html)
+    {
+        try
+        {
+            File.WriteAllText(path, html);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"spektra-cli {verb}: {ex.Message}");
+            return false;
+        }
+    }
+
     private static int Usage(int exitCode)
     {
         Console.WriteLine("""

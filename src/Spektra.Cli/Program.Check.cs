@@ -25,32 +25,32 @@ internal static partial class Program
             }
         });
 
-        var rows = new List<IntegrityRow>();
-        int ok = 0, suspect = 0, corrupt = 0;
+        var rows = files.Select((path, i) => Reporting.ToIntegrityRow(path, computed[i].ir, computed[i].err)).ToList();
+        var corrupt = computed.Count(c => c.err is not null || c.ir?.Status == IntegrityStatus.Corrupt);
+        if (fmt != OutFormat.Text) Emit(rows, fmt);
+        else PrintCheck(files, computed, corrupt);
+        return corrupt > 0 ? 1 : 0;
+    }
+
+    private static void PrintCheck(
+        IReadOnlyList<string> files, (IntegrityReport? ir, string? err)[] computed, int corrupt)
+    {
+        var suspect = 0;
         for (var i = 0; i < files.Count; i++)
         {
             var path = files[i];
             var (ir, err) = computed[i];
-            rows.Add(Reporting.ToIntegrityRow(path, ir, err));
+            if (err is null && ir?.Status == IntegrityStatus.Suspect) suspect++;
 
-            if (err is not null || ir?.Status == IntegrityStatus.Corrupt) corrupt++;
-            else if (ir?.Status == IntegrityStatus.Suspect) suspect++;
-            else ok++;
-
-            if (fmt == OutFormat.Text)
+            if (ir?.Status == IntegrityStatus.Ok)
+                Console.WriteLine($"  [OK]      {Path.GetFileName(path)}");
+            else
             {
-                if (ir?.Status == IntegrityStatus.Ok)
-                    Console.WriteLine($"  [OK]      {Path.GetFileName(path)}");
-                else
-                {
-                    var tag = err is not null ? "CORRUPT" : ir!.Status.ToString().ToUpperInvariant();
-                    Console.WriteLine($"  [{tag}] {Path.GetFileName(path)} - {err ?? ir!.Summary}");
-                }
+                var tag = err is not null ? "CORRUPT" : ir!.Status.ToString().ToUpperInvariant();
+                Console.WriteLine($"  [{tag}] {Path.GetFileName(path)} - {err ?? ir!.Summary}");
             }
         }
-        if (fmt != OutFormat.Text) Emit(rows, fmt);
-        else Console.WriteLine(
-            $"{Environment.NewLine}{files.Count} files: {ok} ok, {suspect} suspect, {corrupt} corrupt.");
-        return corrupt > 0 ? 1 : 0;
+        Console.WriteLine(
+            $"{Environment.NewLine}{files.Count} files: {files.Count - suspect - corrupt} ok, {suspect} suspect, {corrupt} corrupt.");
     }
 }

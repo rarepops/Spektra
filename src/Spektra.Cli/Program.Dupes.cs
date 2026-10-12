@@ -16,39 +16,37 @@ internal static partial class Program
             return 2;
         }
 
-        var cache = AuditCache.TryOpen(out var cacheError);
-        if (cacheError is not null)
-            Console.Error.WriteLine($"spektra-cli dupes: cache unavailable ({cacheError}); analyzing everything.");
-
+        var cache = OpenCache("dupes", "analyzing everything");
         DupesResult result;
-        try
-        {
-            var progress = new Progress<DupesProgress>(p =>
-            {
-                if (!Console.IsErrorRedirected)
-                    Console.Error.Write($"\r{p.Phase} {p.Done}/{p.Total}    ");
-            });
-            result = DuplicateScan.Run(ffmpeg, roots, jobs, cache, fresh, progress);
-            if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r");
-        }
+        try { result = ScanWithProgress(ffmpeg, roots, jobs, cache, fresh); }
         finally { cache?.Dispose(); }
 
-        if (html is not null)
-        {
-            try { File.WriteAllText(html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Console.Error.WriteLine($"spektra-cli dupes: {ex.Message}");
-                return 2;
-            }
-        }
+        if (html is not null
+            && !TryWriteHtml("dupes", html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")))
+            return 2;
 
-        if (fmt != OutFormat.Text)
-        {
-            Emit(DuplicateScan.ToRows(result), fmt);
-            return result.Groups.Count > 0 ? 1 : 0;
-        }
+        if (fmt != OutFormat.Text) Emit(DuplicateScan.ToRows(result), fmt);
+        else PrintDupes(result);
+        return result.Groups.Count > 0 ? 1 : 0;
+    }
 
+    /// Runs the scan with a one-line progress readout on stderr, shown only
+    /// when stderr is a terminal so it never lands in a redirected log.
+    private static DupesResult ScanWithProgress(
+        FfmpegPaths ffmpeg, string[] roots, int jobs, AuditCache? cache, bool fresh)
+    {
+        var progress = new Progress<DupesProgress>(p =>
+        {
+            if (!Console.IsErrorRedirected)
+                Console.Error.Write($"\r{p.Phase} {p.Done}/{p.Total}    ");
+        });
+        var result = DuplicateScan.Run(ffmpeg, roots, jobs, cache, fresh, progress);
+        if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r");
+        return result;
+    }
+
+    private static void PrintDupes(DupesResult result)
+    {
         foreach (var g in result.Groups)
         {
             Console.WriteLine(
@@ -71,6 +69,5 @@ internal static partial class Program
         Console.WriteLine(
             $"{result.Groups.Count} group(s) · {result.Groups.Sum(g => g.Group.Members.Count)} files · " +
             $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned");
-        return result.Groups.Count > 0 ? 1 : 0;
     }
 }

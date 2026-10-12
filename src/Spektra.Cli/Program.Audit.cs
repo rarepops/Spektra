@@ -11,23 +11,14 @@ internal static partial class Program
         var html = CliOptions.TakeHtml(ref paths);
         CliOptions.RejectUnknownFlags(paths);
         var folder = paths.Length == 1 && Directory.Exists(paths[0]) ? paths[0] : null;
-        var targets = folder is not null
-            ? FolderAudit.CollectTargets(folder)
-            : paths.Select(p =>
-            {
-                var info = new FileInfo(p);
-                return new AuditTarget(p, info.Exists ? info.Length : 0, info.Exists ? info.LastWriteTimeUtc.Ticks : 0);
-            }).ToArray();
+        var targets = folder is not null ? FolderAudit.CollectTargets(folder) : ExplicitTargets(paths);
         if (targets.Length == 0)
         {
             Console.Error.WriteLine("spektra-cli audit: give one or more audio files or a folder.");
             return 2;
         }
 
-        var cache = AuditCache.TryOpen(out var cacheError);
-        if (cacheError is not null)
-            Console.Error.WriteLine($"spektra-cli audit: cache unavailable ({cacheError}); analyzing everything.");
-
+        var cache = OpenCache("audit", "analyzing everything");
         AuditEntry[] results;
         try
         {
@@ -44,22 +35,24 @@ internal static partial class Program
             : r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) };
 
         var rows = results.Select(RowFor).ToList();
-        if (html is not null)
-        {
-            try { File.WriteAllText(html, HtmlReport.AuditDocument(rows, "Spektra audit")); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Console.Error.WriteLine($"spektra-cli audit: {ex.Message}");
-                return 2;
-            }
-        }
+        if (html is not null && !TryWriteHtml("audit", html, HtmlReport.AuditDocument(rows, "Spektra audit")))
+            return 2;
 
-        if (fmt != OutFormat.Text)
-        {
-            Emit(rows, fmt);
-            return results.Any(r => r.HasProblem) ? 1 : 0;
-        }
+        var problems = results.Count(r => r.HasProblem);
+        if (fmt != OutFormat.Text) Emit(rows, fmt);
+        else PrintAudit(rows, targets.Length, problems);
+        return problems > 0 ? 1 : 0;
+    }
 
+    private static AuditTarget[] ExplicitTargets(string[] paths) =>
+        paths.Select(p =>
+        {
+            var info = new FileInfo(p);
+            return new AuditTarget(p, info.Exists ? info.Length : 0, info.Exists ? info.LastWriteTimeUtc.Ticks : 0);
+        }).ToArray();
+
+    private static void PrintAudit(IReadOnlyList<AuditRow> rows, int files, int problems)
+    {
         foreach (var row in rows)
         {
             var bw = row.Error is not null ? "error"
@@ -67,7 +60,6 @@ internal static partial class Program
             var integ = row.Error is not null ? "ERROR" : row.Integrity;
             Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}");
         }
-        Console.WriteLine($"{Environment.NewLine}{targets.Length} files, {results.Count(r => r.HasProblem)} with problems.");
-        return results.Any(r => r.HasProblem) ? 1 : 0;
+        Console.WriteLine($"{Environment.NewLine}{files} files, {problems} with problems.");
     }
 }

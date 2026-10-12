@@ -24,7 +24,7 @@ internal static partial class Program
                 Console.WriteLine("  " + r.Metadata!.ToDisplayLine(Path.GetFileName(r.Path)));
                 Console.WriteLine("  " + r.Verdict!.Summary);
             }
-        return reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
+        return BandwidthExitCode(reports);
     }
 
     private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
@@ -38,17 +38,15 @@ internal static partial class Program
         var root = args[0];
         var files = BandwidthReport.FindAudioFiles(root).ToList();
         var reports = MapParallel(files, jobs, f => BandwidthReport.Analyze(ffmpeg, f));
-        // One exit-code rule for both output paths: 1 when any file is likely
-        // lossy or upsampled (computed once so the two branches can't drift).
-        var findings = reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
 
-        if (fmt != OutFormat.Text)
-        {
-            Emit(reports.Select(Reporting.ToBandwidthRow).ToList(), fmt);
-            return findings;
-        }
+        if (fmt != OutFormat.Text) Emit(reports.Select(Reporting.ToBandwidthRow).ToList(), fmt);
+        else PrintScan(root, reports);
+        return BandwidthExitCode(reports);
+    }
 
-        Console.WriteLine($"Scanning {files.Count} audio file(s) under {root} ...");
+    private static void PrintScan(string root, IReadOnlyList<FileReport> reports)
+    {
+        Console.WriteLine($"Scanning {reports.Count} audio file(s) under {root} ...");
         int lossless = 0, suspect = 0, lossy = 0, upsampled = 0, mixed = 0, unknown = 0, errors = 0;
         foreach (var r in reports)
         {
@@ -64,9 +62,8 @@ internal static partial class Program
             }
         }
         Console.WriteLine(
-            $"{Environment.NewLine}{files.Count} files: {lossless} lossless, {suspect} suspect, " +
+            $"{Environment.NewLine}{reports.Count} files: {lossless} lossless, {suspect} suspect, " +
             $"{lossy} likely lossy, {upsampled} upsampled, {mixed} mixed, {unknown} unknown, {errors} errors.");
-        return findings;
     }
 
     private static string Tag(FileReport r)

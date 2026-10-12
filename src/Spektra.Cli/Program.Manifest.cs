@@ -17,10 +17,7 @@ internal static partial class Program
             return 2;
         }
 
-        var cache = AuditCache.TryOpen(out var cacheError);
-        if (cacheError is not null)
-            Console.Error.WriteLine($"spektra-cli manifest: cache unavailable ({cacheError}); extension chips only.");
-
+        var cache = OpenCache("manifest", "extension chips only");
         ManifestFolder root;
         try { root = FolderManifest.Build(paths[0], cache); }
         finally { cache?.Dispose(); }
@@ -31,15 +28,9 @@ internal static partial class Program
             return 2;
         }
 
-        if (html is not null)
-        {
-            try { File.WriteAllText(html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Console.Error.WriteLine($"spektra-cli manifest: {ex.Message}");
-                return 2;
-            }
-        }
+        if (html is not null
+            && !TryWriteHtml("manifest", html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")))
+            return 2;
 
         var rows = FolderManifest.ToRows(root);
         if (fmt != OutFormat.Text)
