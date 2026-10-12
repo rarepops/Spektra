@@ -185,11 +185,7 @@ public sealed class DocumentViewModel : TabViewModelBase
             {
                 // Instant swap; DocumentChanged also re-schedules the sharp
                 // zoom tile via SpectrogramView.OnDocumentChanged.
-                Document = hit.Document;
-                DocumentChanged?.Invoke();
-                Verdict = hit.Verdict;
-                Loudness = hit.Loudness;
-                StatusText = $"Cached · {hit.Document.Count} columns";
+                Show(hit, CachedStatus(hit));
             }
             else if (_computingIndex == value && _computingDoc is { } doc)
             {
@@ -197,9 +193,7 @@ public sealed class DocumentViewModel : TabViewModelBase
                 // the loop publishes verdict and status when it finishes.
                 Document = doc;
                 DocumentChanged?.Invoke();
-                Verdict = null;
-                Loudness = null;
-                StatusText = "Analyzing…";
+                ShowAnalyzing();
             }
             else if (Remembered(value) is { } remembered)
             {
@@ -207,17 +201,11 @@ public sealed class DocumentViewModel : TabViewModelBase
                 // document never computed, or let go of past its three, that
                 // an earlier tab finished is still an instant swap.
                 _channelCache.Set(value, remembered);
-                Document = remembered.Document;
-                DocumentChanged?.Invoke();
-                Verdict = remembered.Verdict;
-                Loudness = remembered.Loudness;
-                StatusText = $"Cached · {remembered.Document.Count} columns";
+                Show(remembered, CachedStatus(remembered));
             }
             else
             {
-                Verdict = null;
-                Loudness = null;
-                StatusText = "Analyzing…";
+                ShowAnalyzing();
                 _ = RestartComputeLoopAsync(meta);
             }
         }
@@ -258,6 +246,39 @@ public sealed class DocumentViewModel : TabViewModelBase
         Viewport = viewport ?? new Viewport();
     }
 
+    /// Puts a finished overview on screen. The view is told the document
+    /// changed, unless this is the visible one completing where it stood, in
+    /// which case it is told the document was updated.
+    private void Show(ChannelOverview overview, string status, bool completedInPlace = false)
+    {
+        Document = overview.Document;
+        if (completedInPlace) DocumentUpdated?.Invoke();
+        else DocumentChanged?.Invoke();
+        Verdict = overview.Verdict;
+        Loudness = overview.Loudness;
+        StatusText = status;
+    }
+
+    private static string CachedStatus(ChannelOverview overview) =>
+        $"Cached · {overview.Document.Count} columns";
+
+    /// Nothing to judge yet for the channel on screen.
+    private void ShowAnalyzing()
+    {
+        Verdict = null;
+        Loudness = null;
+        StatusText = "Analyzing…";
+    }
+
+    /// A decode failure takes the picture away and puts the reason in its place.
+    private void ShowDecodeError(AudioDecodeException ex)
+    {
+        Document = null;
+        DocumentChanged?.Invoke();
+        ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
+        StatusText = "";
+    }
+
     private bool _loadStarted;
 
     /// Loads the overview once, on first need. Restored tabs are added
@@ -286,13 +307,7 @@ public sealed class DocumentViewModel : TabViewModelBase
         _tileCts?.Cancel();
         _computeCts?.Cancel();
         var cts = _loadCts = new CancellationTokenSource();
-
-        _channelCache.Clear();
-        ErrorText = null;
-        Tile = null;
-        Verdict = null;
-        Integrity = null;
-        Loudness = null;
+        ClearForLoad();
 
         try
         {
@@ -312,32 +327,10 @@ public sealed class DocumentViewModel : TabViewModelBase
                 meta = await Task.Run(() => session.ReadMetadata(FilePath, cts.Token), cts.Token);
                 if (cts.Token.IsCancellationRequested) return;
             }
-            Metadata = meta;
-            if (ChannelOptions.Count == 1 && meta.Channels > 1)
-                ChannelOptions = ChannelList.Options(meta.Channels);
-            HeaderText = meta.ToDisplayLine(TabTitle);
-
-            // max-zoom clamp: a nominal 1024-column tile never drops below 64 samples/hop
-            var totalSamples = meta.Duration.TotalSeconds * meta.SampleRate;
-            Viewport.MinTimeSpan = totalSamples > 0 ? Math.Min(1, 64.0 * 1024 / totalSamples) : 1;
-
-            if (remembered is not null)
-            {
-                // Seed the per-document cache, the shown channel last so it is
-                // the one the three-entry LRU is surest to keep; the compute
-                // loop below then has only the missing variants to prefetch.
-                foreach (var (index, overview) in remembered.Overviews.OrderBy(kv => kv.Key == SelectedChannelIndex))
-                    _channelCache.Set(index, overview);
-                if (remembered.Integrity is { } report) Integrity = report;
-            }
+            ApplyMetadata(meta);
+            if (remembered is not null) SeedFrom(remembered);
             if (_channelCache.TryGet(SelectedChannelIndex, out var shown))
-            {
-                Document = shown.Document;
-                DocumentChanged?.Invoke();
-                Verdict = shown.Verdict;
-                Loudness = shown.Loudness;
-                StatusText = $"Cached · {shown.Document.Count} columns";
-            }
+                Show(shown, CachedStatus(shown));
 
             // Every load checks integrity by itself (unless the preference
             // says otherwise, or the result is already remembered): a damaged
@@ -352,11 +345,37 @@ public sealed class DocumentViewModel : TabViewModelBase
         catch (AudioDecodeException ex)
         {
             if (cts.Token.IsCancellationRequested) return;
-            Document = null;
-            DocumentChanged?.Invoke();
-            ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
-            StatusText = "";
+            ShowDecodeError(ex);
         }
+    }
+
+    private void ClearForLoad()
+    {
+        _channelCache.Clear();
+        ErrorText = null;
+        Tile = null;
+        Verdict = null;
+        Integrity = null;
+        Loudness = null;
+    }
+
+    private void ApplyMetadata(AudioMetadata meta)
+    {
+        Metadata = meta;
+        if (ChannelOptions.Count == 1 && meta.Channels > 1)
+            ChannelOptions = ChannelList.Options(meta.Channels);
+        HeaderText = meta.ToDisplayLine(TabTitle);
+        Viewport.MinTimeSpan = TilePlan.MinTimeSpan(meta.Duration, meta.SampleRate);
+    }
+
+    private void SeedFrom(OverviewCache.Snapshot remembered)
+    {
+        // Seed the per-document cache, the shown channel last so it is
+        // the one the three-entry LRU is surest to keep; the compute
+        // loop below then has only the missing variants to prefetch.
+        foreach (var (index, overview) in remembered.Overviews.OrderBy(kv => kv.Key == SelectedChannelIndex))
+            _channelCache.Set(index, overview);
+        if (remembered.Integrity is { } report) Integrity = report;
     }
 
     /// Cancels the running compute loop, waits for it to unwind (so decodes
@@ -403,13 +422,9 @@ public sealed class DocumentViewModel : TabViewModelBase
                 // from: a finished decode is worth keeping whoever asked.
                 Cache?.Put(FilePath, entry.Document.Settings, index, entry);
                 if (index == SelectedChannelIndex)
-                {
-                    Document = entry.Document;
-                    DocumentUpdated?.Invoke();
-                    Verdict = entry.Verdict;
-                    Loudness = entry.Loudness;
-                    StatusText = $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {entry.Document.Count} columns";
-                }
+                    Show(entry,
+                        $"Done in {(DateTime.UtcNow - started).TotalSeconds:0.0}s · {entry.Document.Count} columns",
+                        completedInPlace: true);
             }
             catch (OperationCanceledException) { return; }
             catch (AudioDecodeException ex)
@@ -420,10 +435,7 @@ public sealed class DocumentViewModel : TabViewModelBase
                     // Visible failure: show the banner and stop; if one channel
                     // cannot decode the rest almost certainly cannot either.
                     // Re-selecting the channel retries with a fresh run.
-                    Document = null;
-                    DocumentChanged?.Invoke();
-                    ErrorText = ex.StderrTail is null ? ex.Message : $"{ex.Message}\n{ex.StderrTail}";
-                    StatusText = "";
+                    ShowDecodeError(ex);
                     return;
                 }
                 failed.Add(index); // silent per-channel prefetch failure
@@ -457,9 +469,7 @@ public sealed class DocumentViewModel : TabViewModelBase
     {
         var session = new AnalysisSession(_ffmpeg);
         var settings = new SpectrogramSettings(WindowSize: _windowSize, Window: _window);
-        var estSamples = (long)(meta.Duration.TotalSeconds * meta.SampleRate);
-        var estWindows = Math.Max(1, (estSamples - settings.WindowSize) / settings.Hop + 1);
-        var estColumns = (int)Math.Min(estWindows, settings.MaxColumns);
+        var estColumns = settings.EstimateColumns(meta.Duration, meta.SampleRate);
 
         var doc = new SpectrogramDocument(meta, settings, estColumns);
         _computingDoc = doc;
@@ -499,17 +509,10 @@ public sealed class DocumentViewModel : TabViewModelBase
         var (t0, t1) = (Viewport.T0, Viewport.T1);
 
         var map = TimeMap ?? new TimeMap(meta.Duration.TotalSeconds);
-        var startSec = Math.Max(0, map.StartSeconds(t0));
-        var spanSec = map.DurationSeconds(t1 - t0);
-        var spanSamples = (long)(spanSec * meta.SampleRate);
-        if (spanSamples <= 0 || targetColumns <= 0) return;
+        if (TilePlan.For(map, t0, t1, meta.SampleRate, targetColumns) is not { } plan) return;
 
-        var hop = (int)Math.Clamp(spanSamples / targetColumns, 64, 1024);
-        var settings = new SpectrogramSettings(WindowSize: _windowSize, MaxColumns: targetColumns, HopOverride: hop, Window: _window);
-        var options = new DecodeOptions(
-            Start: TimeSpan.FromSeconds(startSec),
-            Duration: TimeSpan.FromSeconds(spanSec),
-            Channel: SelectedChannel);
+        var settings = new SpectrogramSettings(WindowSize: _windowSize, MaxColumns: targetColumns, HopOverride: plan.Hop, Window: _window);
+        var options = new DecodeOptions(Start: plan.Start, Duration: plan.Duration, Channel: SelectedChannel);
 
         try
         {
