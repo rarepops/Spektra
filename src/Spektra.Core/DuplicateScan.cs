@@ -86,7 +86,7 @@ public static class DuplicateScan
     /// or the reason it has neither.
     private readonly record struct Artifact(AuditEntry? Entry, FingerprintEntry? Fp, string? Error);
 
-    /// A file that analysed and is long enough to match. Its position in the
+    /// A file that analyzed and is long enough to match. Its position in the
     /// usable list is the id every later phase speaks: candidate pairs,
     /// matched pairs and the grouper's identities all index into that list.
     private readonly record struct Usable(AuditTarget Target, AuditEntry Entry, FingerprintEntry Fp);
@@ -121,7 +121,7 @@ public static class DuplicateScan
 
     /// Every audio file under the roots, once each and in path order. A file
     /// reachable through two roots, one nested in the other, must not be
-    /// analysed twice: it would pair with itself and read as a duplicate.
+    /// analyzed twice: it would pair with itself and read as a duplicate.
     private static AuditTarget[] CollectFiles(IReadOnlyList<string> roots)
     {
         var targets = new Dictionary<string, AuditTarget>(StringComparer.OrdinalIgnoreCase);

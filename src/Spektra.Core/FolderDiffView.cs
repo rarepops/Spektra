@@ -59,7 +59,7 @@ public static class FolderDiffView
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
         // Computed over all the roots at once: a column's label is only
         // meaningful next to its neighbours, so it cannot be worked out
-        // one root at a time inside DiffColumnItem.
+        // one root at a time inside DiffColumn.
         var labels = ScopeLabel.Distinguish(roots);
         var columns = new List<DiffColumn>(roots.Count);
         for (var i = 0; i < roots.Count; i++)

@@ -9,7 +9,9 @@ public enum OutFormat { Text, Json, Csv }
 /// unrecognized flag was passed. The CLI catches this and exits 2.
 public sealed class OptionException(string message) : Exception(message);
 
-/// What `diff` was asked for: its two files and its two tuning flags.
+/// What `diff` was asked for: every positional argument, in order, and its
+/// two tuning flags. Files is not checked here: the verb needs exactly two
+/// and says so itself when it gets another number.
 public sealed record DiffArgs(IReadOnlyList<string> Files, double? OffsetMs, float ThresholdDb);
 
 /// What `image` was asked for. Options carries the render settings the flags
