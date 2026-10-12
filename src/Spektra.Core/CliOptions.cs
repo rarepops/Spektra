@@ -9,6 +9,15 @@ public enum OutFormat { Text, Json, Csv }
 /// unrecognized flag was passed. The CLI catches this and exits 2.
 public sealed class OptionException(string message) : Exception(message);
 
+/// What `diff` was asked for: its two files and its two tuning flags.
+public sealed record DiffArgs(IReadOnlyList<string> Files, double? OffsetMs, float ThresholdDb);
+
+/// What `image` was asked for. Options carries the render settings the flags
+/// set; the palette is resolved later, against the saved settings and the
+/// floor, so it travels here as a name.
+public sealed record ImageArgs(
+    IReadOnlyList<string> Files, string? OutPath, string? PaletteName, double? Gamma, ImageOptions Options);
+
 /// Argument parsing for the command-line front end. It lives in Core so it is
 /// unit-testable (the CLI project carries no tests of its own).
 public static class CliOptions
@@ -88,5 +97,48 @@ public static class CliOptions
         foreach (var a in positionals)
             if (a.StartsWith('-'))
                 throw new OptionException($"unknown option '{a}'.");
+    }
+
+    public static DiffArgs ParseDiff(string[] args)
+    {
+        double? offsetMs = null;
+        var thresholdDb = 40f;
+        var files = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a is "--offset") offsetMs = Double(a, args, ref i);
+            else if (a is "--threshold-db") thresholdDb = Float(a, args, ref i);
+            else if (a.StartsWith('-')) throw new OptionException($"unknown option '{a}'.");
+            else files.Add(a);
+        }
+        return new DiffArgs(files, offsetMs, thresholdDb);
+    }
+
+    public static ImageArgs ParseImage(string[] args)
+    {
+        string? outPath = null;
+        string? paletteName = null;
+        double? gamma = null;
+        var options = new ImageOptions();
+        var files = new List<string>();
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a is "-o" or "--out") outPath = Value(a, args, ref i);
+            else if (a is "--palette") paletteName = Value(a, args, ref i);
+            else if (a is "--gamma")
+            {
+                var g = Double(a, args, ref i);
+                gamma = g > 0 ? g : throw new OptionException($"--gamma must be greater than 0, got '{g}'.");
+            }
+            else if (a is "--floor") options = options with { FloorDb = Float(a, args, ref i) };
+            else if (a is "--fft") options = options with { WindowSize = Int(a, args, ref i, min: 16) };
+            else if (a is "--channel") options = options with { Channel = Int(a, args, ref i, min: 1) - 1 };
+            else if (a is "--columns") options = options with { MaxColumns = Int(a, args, ref i, min: 1) };
+            else if (a.StartsWith('-')) throw new OptionException($"unknown option '{a}'.");
+            else files.Add(a);
+        }
+        return new ImageArgs(files, outPath, paletteName, gamma, options);
     }
 }
