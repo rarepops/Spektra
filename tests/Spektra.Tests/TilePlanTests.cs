@@ -4,16 +4,17 @@ namespace Spektra.Tests;
 
 public sealed class TilePlanTests
 {
-    // A 211.7 s file at 44.1 kHz, asked for 613 columns: nothing here is a
+    // A 211.7 s file at 44.1 kHz, asked for 612 columns: nothing here is a
     // round multiple of anything else, so integer division shows.
     private static readonly TimeMap Whole = new(211.7);
 
     [Test]
     public async Task For_AMidZoom_SpreadsTheSpanAcrossTheColumns()
     {
-        // 0.05 of 211.7 s is 10.585 s, 466798 samples, 761 per column.
-        var plan = TilePlan.For(Whole, 0.31, 0.36, 44100, 613)!;
-        await Assert.That(plan.Hop).IsEqualTo(761);
+        // 0.05 of 211.7 s is 10.585 s, 466798 samples, 762.74 per column:
+        // the hop is cut to 762, where rounding would give 763.
+        var plan = TilePlan.For(Whole, 0.31, 0.36, 44100, 612)!;
+        await Assert.That(plan.Hop).IsEqualTo(762);
         await Assert.That(plan.Start.TotalSeconds).IsBetween(65.6269, 65.6271);
         await Assert.That(plan.Duration.TotalSeconds).IsBetween(10.5849, 10.5851);
     }
@@ -22,14 +23,14 @@ public sealed class TilePlanTests
     public async Task For_ADeepZoom_NeverHopsBelow64Samples()
     {
         // 0.10585 s is 4667 samples, 7 per column unclamped.
-        var plan = TilePlan.For(Whole, 0.5, 0.5005, 44100, 613)!;
+        var plan = TilePlan.For(Whole, 0.5, 0.5005, 44100, 612)!;
         await Assert.That(plan.Hop).IsEqualTo(64);
     }
 
     [Test]
     public async Task For_TheWholeFile_NeverHopsAbove1024Samples()
     {
-        var plan = TilePlan.For(Whole, 0, 1, 44100, 613)!;
+        var plan = TilePlan.For(Whole, 0, 1, 44100, 612)!;
         await Assert.That(plan.Hop).IsEqualTo(1024);
         await Assert.That(plan.Start).IsEqualTo(TimeSpan.Zero);
     }
@@ -39,14 +40,14 @@ public sealed class TilePlanTests
     {
         // The second file of a comparison, sitting 3.25 s earlier: the view
         // starts before its first sample.
-        var plan = TilePlan.For(new TimeMap(211.7, ShiftSeconds: -3.25), 0.01, 0.06, 44100, 613)!;
+        var plan = TilePlan.For(new TimeMap(211.7, ShiftSeconds: -3.25), 0.01, 0.06, 44100, 612)!;
         await Assert.That(plan.Start).IsEqualTo(TimeSpan.Zero);
         await Assert.That(plan.Duration.TotalSeconds).IsBetween(10.5849, 10.5851);
     }
 
     [Test]
-    [Arguments(0.4, 0.4, 613)]
-    [Arguments(0.5, 0.4, 613)]
+    [Arguments(0.4, 0.4, 612)]
+    [Arguments(0.5, 0.4, 612)]
     [Arguments(0.31, 0.36, 0)]
     public async Task For_NothingToDraw_IsNull(double t0, double t1, int columns)
     {

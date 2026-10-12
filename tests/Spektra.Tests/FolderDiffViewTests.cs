@@ -70,14 +70,17 @@ public sealed class FolderDiffViewTests
     {
         // An empty column says "this folder has no extras", which is an
         // answer. A missing column would say the folder was never compared.
-        string[] roots = [@"D:\FLAC\Album", @"D:\MP3\Album"];
+        // The roots are listed against the alphabet on purpose: columns
+        // follow the order the folders were added in, not their names.
+        string[] roots = [@"D:\MP3\Album", @"D:\FLAC\Album"];
         var columns = FolderDiffView.Columns(
             [Lone(@"D:\MP3\Album\extra.mp3", @"D:\MP3\Album")], roots, [], hideTitleTwins: true);
 
         await Assert.That(columns.Count).IsEqualTo(2);
-        await Assert.That(columns[0].Root).IsEqualTo(@"D:\FLAC\Album");
-        await Assert.That(columns[0].Files.Count).IsEqualTo(0);
-        await Assert.That(Paths(columns[1].Files)).IsEqualTo(@"D:\MP3\Album\extra.mp3");
+        await Assert.That(columns[0].Root).IsEqualTo(@"D:\MP3\Album");
+        await Assert.That(Paths(columns[0].Files)).IsEqualTo(@"D:\MP3\Album\extra.mp3");
+        await Assert.That(columns[1].Root).IsEqualTo(@"D:\FLAC\Album");
+        await Assert.That(columns[1].Files.Count).IsEqualTo(0);
         var labels = ScopeLabel.Distinguish(roots);
         await Assert.That(columns[0].Label).IsEqualTo(labels[0]);
         await Assert.That(columns[1].Label).IsEqualTo(labels[1]);
@@ -112,8 +115,22 @@ public sealed class FolderDiffViewTests
         var column = FolderDiffView.Columns(unpaired, ["A", "B"], [], hideTitleTwins: false)[0];
 
         await Assert.That(Paths(column.Files)).IsEqualTo(@"A\zzz.flac|A\aaa.flac");
+        // The size covers every file shown, the name-matched one too, while
+        // the summary's count beside it covers only the files without a twin.
+        // Pinned as the window behaves today; whether the size should follow
+        // the count is undecided.
         await Assert.That(column.Bytes).IsEqualTo(300L);
         await Assert.That(column.AlsoThere).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Columns_OrderFilesByPath_IgnoringCase()
+    {
+        // Ordinal order would put every capital ahead of every lower-case
+        // letter, and "Zebra" ahead of "apple".
+        UnpairedFile[] unpaired = [Lone(@"A\Zebra.flac", "A"), Lone(@"A\apple.flac", "A")];
+        var column = FolderDiffView.Columns(unpaired, ["A"], [], hideTitleTwins: true)[0];
+        await Assert.That(Paths(column.Files)).IsEqualTo(@"A\apple.flac|A\Zebra.flac");
     }
 
     [Test]
@@ -125,6 +142,19 @@ public sealed class FolderDiffViewTests
             Lone(@"A\Studio\two.flac", "A"),
         ];
         var column = FolderDiffView.Columns(unpaired, ["A"], ["live"], hideTitleTwins: true)[0];
+        await Assert.That(Paths(column.Files)).IsEqualTo(@"A\Live at Leeds\one.flac");
+    }
+
+    [Test]
+    public async Task Columns_AFilterOfSeveralWords_NeedsEveryOneOfThem()
+    {
+        // Both paths hold "live"; only one holds "leeds" as well.
+        UnpairedFile[] unpaired =
+        [
+            Lone(@"A\Live at Leeds\one.flac", "A"),
+            Lone(@"A\Live at Budokan\two.flac", "A"),
+        ];
+        var column = FolderDiffView.Columns(unpaired, ["A"], ["live", "leeds"], hideTitleTwins: true)[0];
         await Assert.That(Paths(column.Files)).IsEqualTo(@"A\Live at Leeds\one.flac");
     }
 
@@ -195,6 +225,24 @@ public sealed class FolderDiffViewTests
     }
 
     [Test]
+    public async Task FooterSuffix_ADiff_NamesTheNameMatchesWithoutTheNotComparable()
+    {
+        await Assert.That(FolderDiffView.FooterSuffix(
+                onlyDifferences: true, filtered: false, sameHidden: 7, nameMatched: 5,
+                inOneFolderOnly: 3, visibleGroups: 2, totalGroups: 9, notComparable: 0))
+            .IsEqualTo(" · differences: 7 same hidden · 5 same name only · 3 in one folder only · 2 weak match");
+    }
+
+    [Test]
+    public async Task FooterSuffix_ADiff_NamesTheNotComparableWithoutTheNameMatches()
+    {
+        await Assert.That(FolderDiffView.FooterSuffix(
+                onlyDifferences: true, filtered: false, sameHidden: 7, nameMatched: 0,
+                inOneFolderOnly: 3, visibleGroups: 2, totalGroups: 9, notComparable: 1))
+            .IsEqualTo(" · differences: 7 same hidden · 3 in one folder only · 2 weak match · 1 not comparable");
+    }
+
+    [Test]
     public async Task FooterSuffix_AFilterAlone_SaysHowManyGroupsItKept()
     {
         await Assert.That(FolderDiffView.FooterSuffix(
@@ -229,6 +277,7 @@ public sealed class FolderDiffViewTests
     [Arguments(@"D:\Lib\A\x.flac", @"d:\lib", @"A\x.flac")]
     [Arguments(@"D:\Lib\A\x.flac", @"E:\Other", @"D:\Lib\A\x.flac")]
     [Arguments(@"D:\Lib\A\x.flac", "", @"D:\Lib\A\x.flac")]
+    [Arguments("D:/Lib/A/x.flac", "D:/Lib", "A/x.flac")]
     public async Task RelativePath_DropsTheRootWhenTheFileIsUnderIt(string path, string root, string expected)
     {
         await Assert.That(FolderDiffView.RelativePath(Lone(path, root))).IsEqualTo(expected);

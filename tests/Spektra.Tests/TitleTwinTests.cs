@@ -143,15 +143,33 @@ public sealed class TitleTwinTests
     }
 
     [Test]
+    public async Task FindAcrossRoots_lets_the_same_words_displace_an_earlier_superset()
+    {
+        // The mirror of the test above: the superset is met first here, so
+        // this pins that an exact twin replaces it, where that test pins
+        // that it is not replaced.
+        (string Path, string Root)[] all =
+        [
+            (@"A\Thomas Bergersen - Heart of Courage.flac", "A"),
+            (@"B\Thomas Bergersen - Heart of Courage Z.flac", "B"),
+            (@"B\Thomas Bergersen -- Heart of Courage !!!.flac", "B"),
+        ];
+        var found = TitleTwin.FindAcrossRoots([all[0]], all);
+        await Assert.That(found[all[0].Path]).IsEqualTo(@"B\Thomas Bergersen -- Heart of Courage !!!.flac");
+    }
+
+    [Test]
     public async Task FindAcrossRoots_settles_a_dead_heat_by_path()
     {
-        // Same words, same name length, different roots. Listed in the
-        // "wrong" order so that taking the first candidate seen would fail.
+        // Same words, same name length, different roots. The winner sits in
+        // the middle of the candidates, so taking the first one seen fails,
+        // and so does taking the last.
         (string Path, string Root)[] all =
         [
             (@"A\Guano Apes - Open Your Eyes.flac", "A"),
             (@"C\Guano Apes - Open Your Eyes.flac", "C"),
             (@"B\Guano Apes - Open Your Eyes.flac", "B"),
+            (@"D\Guano Apes - Open Your Eyes.flac", "D"),
         ];
         var found = TitleTwin.FindAcrossRoots([all[0]], all);
         await Assert.That(found[all[0].Path]).IsEqualTo(@"B\Guano Apes - Open Your Eyes.flac");
