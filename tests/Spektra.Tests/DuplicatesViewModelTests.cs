@@ -32,7 +32,10 @@ public sealed class DuplicatesViewModelTests
     [Before(Class)]
     public static void BuildLibrary()
     {
-        _library = Directory.CreateTempSubdirectory("dupes-vm-library").FullName;
+        // Hex digits can never spell the filter words below (only, tones, zzz),
+        // and the filter reads whole paths; a random temp name could spell one.
+        _library = Directory.CreateDirectory(
+            Path.Combine(Path.GetTempPath(), "spektra-dupes-vm-" + Guid.NewGuid().ToString("N"))).FullName;
         var a = Directory.CreateDirectory(RootA).FullName;
         var b = Directory.CreateDirectory(RootB).FullName;
 
@@ -88,11 +91,18 @@ public sealed class DuplicatesViewModelTests
 
     private static string CachePath(string work) => Path.Combine(work, "audit-cache.db");
 
+    /// The size of the copy a clean-up would drop: the MP3.
+    private static string Reclaimable() => Bytes(RootB, "completely unrelated name.mp3");
+
     /// The first half of the footer, the same in every view: groups found, the
     /// files in them, what dropping the extra copies would reclaim (the MP3),
     /// and files scanned.
     private static string ScanLine() =>
-        $"1 groups · 2 duplicate files · reclaimable {Bytes(RootB, "completely unrelated name.mp3")} · 8 scanned";
+        $"1 groups · 2 duplicate files · reclaimable {Reclaimable()} · 8 scanned";
+
+    /// The one group's headline, as the ordinary view lists it.
+    private static string Headline() =>
+        $"tones song · 2 files · sameness High · reclaim {Reclaimable()}";
 
     /// The --diff launch: both roots, the diff already on, then the scan. The
     /// cache is a file in the test's own folder, never the user's.
@@ -176,6 +186,8 @@ public sealed class DuplicatesViewModelTests
         {
             var vm = await ScanTheLibrary(work);
 
+            // With the name matches showing, the filter has a visible row to take away.
+            vm.HideTitleTwins = false;
             vm.FilterText = "only";
 
             await Assert.That(vm.DiffColumns.Count).IsEqualTo(2);
@@ -205,14 +217,40 @@ public sealed class DuplicatesViewModelTests
         {
             var vm = await ScanTheLibrary(work);
 
+            // Each step builds on the one before, as in the click-through.
+            vm.HideTitleTwins = false;
+            vm.FilterText = "only";
             vm.FilterText = "";
             vm.OnlyDifferences = false;
 
             await Assert.That(vm.Groups).HasSingleItem();
-            await Assert.That(vm.Groups[0].Headline).IsEqualTo(
-                $"tones song · 2 files · sameness High · reclaim {Bytes(RootB, "completely unrelated name.mp3")}");
+            await Assert.That(vm.Groups[0].Headline).IsEqualTo(Headline());
             await Assert.That(vm.DiffColumns).IsEmpty();
             await Assert.That(vm.FooterText).IsEqualTo(ScanLine());
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task FilterText_OutsideADiff_KeepsTheMatchingGroup_AndDropsItWhenNothingMatches()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            // In a diff this group is hidden whatever the words say; outside one they decide.
+            vm.OnlyDifferences = false;
+            vm.FilterText = "tones";
+
+            await Assert.That(vm.Groups).HasSingleItem();
+            await Assert.That(vm.Groups[0].Headline).IsEqualTo(Headline());
+            await Assert.That(vm.FooterText).IsEqualTo(ScanLine() + " · filter: 1 of 1 groups");
+
+            vm.FilterText = "zzz";
+
+            await Assert.That(vm.Groups).IsEmpty();
+            await Assert.That(vm.FooterText).IsEqualTo(ScanLine() + " · filter: 0 of 1 groups");
         }
         finally { Directory.Delete(work, recursive: true); }
     }

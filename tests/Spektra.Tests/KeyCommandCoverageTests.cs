@@ -9,7 +9,8 @@ namespace Spektra.Tests;
 /// surfaces will confidently describe a key that does nothing.
 ///
 /// Reads the shell's source as text, the way InstallerAudioExtensionsSyncTests
-/// reads the .wxs, because the test project links Spektra.Core only.
+/// reads the .wxs, because it needs the source itself and a reference to
+/// Spektra.App provides compiled code, not text.
 public sealed class KeyCommandCoverageTests
 {
     private static readonly string InputPath =
