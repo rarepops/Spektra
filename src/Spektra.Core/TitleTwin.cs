@@ -100,12 +100,27 @@ public static class TitleTwin
         IEnumerable<(string Path, string Root)> needles,
         IEnumerable<(string Path, string Root)> haystack)
     {
-        var hay = haystack.Select(h => (h.Path, h.Root, Words: Words(h.Path))).ToArray();
+        var hay = haystack.Select(h => new Named(h.Path, h.Root, Words(h.Path))).ToArray();
+        var byWord = IndexByWord(hay);
 
-        // Every match shares at least one word (a subset shares all of the
-        // smaller set), so the postings of a needle's own words are a complete
-        // candidate list, and the alternative is comparing every file with
-        // every other one.
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<int>();
+        foreach (var (path, root) in needles)
+            if (ClosestTwin(new Named(path, root, Words(path)), hay, byWord, seen) is { } twin)
+                found[path] = twin;
+        return found;
+    }
+
+    /// A file name reduced to the evidence it offers, kept beside where the
+    /// file is.
+    private readonly record struct Named(string Path, string Root, IReadOnlySet<string> Words);
+
+    // Every match shares at least one word (a subset shares all of the
+    // smaller set), so the postings of a needle's own words are a complete
+    // candidate list, and the alternative is comparing every file with
+    // every other one.
+    private static Dictionary<string, List<int>> IndexByWord(Named[] hay)
+    {
         var byWord = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         for (var i = 0; i < hay.Length; i++)
             foreach (var w in hay[i].Words)
@@ -113,40 +128,44 @@ public static class TitleTwin
                 if (!byWord.TryGetValue(w, out var list)) byWord[w] = list = [];
                 list.Add(i);
             }
-
-        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var seen = new HashSet<int>();
-        foreach (var (path, root) in needles)
-        {
-            var words = Words(path);
-            seen.Clear();
-            (string Path, bool Exact, int Length)? best = null;
-            foreach (var w in words)
-            {
-                if (!byWord.TryGetValue(w, out var postings)) continue;
-                foreach (var i in postings)
-                {
-                    if (!seen.Add(i)) continue;
-                    var cand = hay[i];
-                    if (string.Equals(cand.Root, root, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (string.Equals(cand.Path, path, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (!SameTrack(words, cand.Words)) continue;
-
-                    // Closest name wins, so the answer does not depend on
-                    // directory order: an exact word set beats a subset, then
-                    // the shorter name, then the path, which settles ties for
-                    // good rather than leaving them to the file system.
-                    var exact = words.Count == cand.Words.Count && words.SetEquals(cand.Words);
-                    var length = System.IO.Path.GetFileName(cand.Path).Length;
-                    var better = best is not { } b
-                        || (exact != b.Exact ? exact
-                            : length != b.Length ? length < b.Length
-                            : string.CompareOrdinal(cand.Path, b.Path) < 0);
-                    if (better) best = (cand.Path, exact, length);
-                }
-            }
-            if (best is { } winner) found[path] = winner.Path;
-        }
-        return found;
+        return byWord;
     }
+
+    /// The path of the file under another root whose name is closest to the
+    /// needle's, or null when no name there is evidence of the same track.
+    /// `seen` is scratch space the caller owns, so one set serves every needle.
+    private static string? ClosestTwin(
+        Named needle, Named[] hay, Dictionary<string, List<int>> byWord, HashSet<int> seen)
+    {
+        seen.Clear();
+        (string Path, bool Exact, int Length)? best = null;
+        foreach (var w in needle.Words)
+        {
+            if (!byWord.TryGetValue(w, out var postings)) continue;
+            foreach (var i in postings)
+            {
+                if (!seen.Add(i)) continue;
+                var cand = hay[i];
+                if (string.Equals(cand.Root, needle.Root, StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.Equals(cand.Path, needle.Path, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!SameTrack(needle.Words, cand.Words)) continue;
+
+                var exact = needle.Words.Count == cand.Words.Count && needle.Words.SetEquals(cand.Words);
+                var rival = (cand.Path, exact, System.IO.Path.GetFileName(cand.Path).Length);
+                if (Closer(rival, best)) best = rival;
+            }
+        }
+        return best?.Path;
+    }
+
+    // Closest name wins, so the answer does not depend on
+    // directory order: an exact word set beats a subset, then
+    // the shorter name, then the path, which settles ties for
+    // good rather than leaving them to the file system.
+    private static bool Closer(
+        (string Path, bool Exact, int Length) rival, (string Path, bool Exact, int Length)? best) =>
+        best is not { } b
+        || (rival.Exact != b.Exact ? rival.Exact
+            : rival.Length != b.Length ? rival.Length < b.Length
+            : string.CompareOrdinal(rival.Path, b.Path) < 0);
 }

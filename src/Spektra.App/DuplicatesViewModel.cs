@@ -83,19 +83,11 @@ public sealed class DiffFileItem : IFileItem
     public DiffFileItem(UnpairedFile file)
     {
         Path = file.Path;
-        Relative = file.Root.Length > 0 && file.Path.StartsWith(file.Root, StringComparison.OrdinalIgnoreCase)
-            ? file.Path[file.Root.Length..].TrimStart('\\', '/')
-            : file.Path;
+        Relative = FolderDiffView.RelativePath(file);
         var cutoff = file.Row.CutoffHz is { } c ? $" {c / 1000.0:0.0}k" : "";
         Facts = $"{file.Row.Codec ?? "?"} · {file.Row.Bandwidth}{cutoff} · {Reporting.FormatBytes(file.SizeBytes)}";
         HasTwin = file.TwinPath is not null;
-        TwinNote = file.TwinPath is { } twin
-            ? string.Equals(
-                System.IO.Path.GetFileName(twin), System.IO.Path.GetFileName(file.Path),
-                StringComparison.OrdinalIgnoreCase)
-                ? "the other folder has this name too · the audio differs"
-                : $"the other folder has: {System.IO.Path.GetFileName(twin)}"
-            : null;
+        TwinNote = FolderDiffView.TwinNote(file);
     }
 
     public string Path { get; }
@@ -116,10 +108,9 @@ public sealed class DiffFileItem : IFileItem
 /// One side of the folder diff: a scan root and the files only it has. Roots
 /// with nothing unique still get a column, because "this folder has no extras"
 /// and "this folder is not in the comparison" must not look the same.
-public sealed class DiffColumnItem(
-    string root, string label, IReadOnlyList<DiffFileItem> files, long bytes, int alsoThere)
+public sealed class DiffColumnItem(DiffColumn column)
 {
-    public string Root { get; } = root;
+    public string Root { get; } = column.Root;
 
     /// Handed in rather than derived from this one root, because the shortest
     /// label that identifies a folder depends on what it is sitting next to.
@@ -127,31 +118,22 @@ public sealed class DiffColumnItem(
     /// copies of one library, whose leaves match by construction, and two
     /// columns both headed "Album" tell the reader nothing. ScopeLabel
     /// .Distinguish gives each root the shortest unique one.
-    public string Label { get; } = label;
-    public IReadOnlyList<DiffFileItem> Files { get; } = files;
+    public string Label { get; } = column.Label;
+    public IReadOnlyList<DiffFileItem> Files { get; } = [.. column.Files.Select(f => new DiffFileItem(f))];
 
-    /// Always names both numbers, and names them even when one list is
-    /// hidden. A count of what is left, on its own, cannot be told apart from
-    /// a folder that really has nothing extra, and the two mean opposite
-    /// things to someone deciding what to copy across.
-    public string Summary { get; } = Describe(files.Count(f => !f.HasTwin), alsoThere, bytes);
-    public bool HasFiles { get; } = files.Count > 0;
+    /// Worded by DiffColumn.Summary, where the rule for it is pinned.
+    public string Summary { get; } = column.Summary;
+    public bool HasFiles { get; } = column.Files.Count > 0;
 
     /// Counted whether or not they are being shown, so the footer can say so
     /// either way.
-    public int AlsoThere { get; } = alsoThere;
-
-    private static string Describe(int only, int alsoThere, long bytes)
-    {
-        var here = only == 0 ? "nothing only here" : $"{only} file(s) only here · {Reporting.FormatBytes(bytes)}";
-        return alsoThere == 0 ? here : $"{here} · {alsoThere} the other folder has under a matching name";
-    }
+    public int AlsoThere { get; } = column.AlsoThere;
 }
 
 /// The Duplicate Detective window's state: scan roots, one run at a time, groups
 /// sorted by reclaimable bytes. View and export only; nothing here can touch
 /// the files themselves.
-public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings) : ObservableObject
+public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings, string? cachePath = null) : ObservableObject
 {
     public ObservableCollection<string> Roots { get; } = [.. settings.DuplicateRoots ?? []];
     public ObservableCollection<DupeGroupItem> Groups { get; } = [];
@@ -244,79 +226,25 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     {
         var tokens = DuplicateScan.ParseFilterTokens(FilterText);
         Groups.Clear();
-        // The duplicate hunt reads biggest reclaim first, which is the order
-        // the scan hands over and the question that view asks. A diff reclaims
-        // nothing, and its weak matches sit under two alphabetical columns,
-        // where reclaim order reads as no order at all.
-        var ordered = OnlyDifferences
-            ? _allGroups.OrderBy(g => g.Report.Group.Label, StringComparer.OrdinalIgnoreCase)
-            : (IEnumerable<DupeGroupItem>)_allGroups;
-        foreach (var g in ordered)
-            if ((tokens.Count == 0 || DuplicateScan.GroupMatches(g.Report, tokens))
-                && !(OnlyDifferences && g.Report.IsSameTrack))
-                Groups.Add(g);
+        foreach (var g in FolderDiffView.VisibleGroups(_allGroups, g => g.Report, tokens, OnlyDifferences))
+            Groups.Add(g);
 
         DiffColumns.Clear();
         if (OnlyDifferences)
-        {
-            // One column per scan root, in the order they were added, including
-            // roots with nothing unique: an empty column says "this folder has
-            // no extras", which is an answer, not an absence.
-            var byRoot = _allUnpaired
-                .Where(u => tokens.Count == 0 || Matches(u, tokens))
-                .GroupBy(u => u.Root, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-            // Computed over all the roots at once: a column's label is only
-            // meaningful next to its neighbours, so it cannot be worked out
-            // one root at a time inside DiffColumnItem.
-            var labels = ScopeLabel.Distinguish(Roots);
-            for (var i = 0; i < Roots.Count; i++)
-            {
-                var root = Roots[i];
-                var files = byRoot.GetValueOrDefault(root) ?? [];
-                var alsoThere = files.Count(f => f.TwinPath is not null);
-                var shown = HideTitleTwins ? files.Where(f => f.TwinPath is null).ToList() : files;
-                DiffColumns.Add(new DiffColumnItem(
-                    root,
-                    labels[i],
-                    // Files the other folder has not got come first even when
-                    // both kinds are shown: they are the answer, the rest is
-                    // the working.
-                    [.. shown.OrderBy(f => f.TwinPath is not null)
-                             .ThenBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
-                             .Select(f => new DiffFileItem(f))],
-                    shown.Sum(f => f.SizeBytes),
-                    alsoThere));
-            }
-        }
+            foreach (var column in FolderDiffView.Columns(_allUnpaired, Roots, tokens, HideTitleTwins))
+                DiffColumns.Add(new DiffColumnItem(column));
 
         if (_baseFooter is not { } baseText) return;
-        var suffix = "";
-        if (OnlyDifferences)
-        {
-            // Say what was hidden, not only what is left. An empty diff is a
-            // real answer ("these folders hold the same music") and without a
-            // count it is indistinguishable from a scan that found nothing.
-            var hidden = _allGroups.Count(g => g.Report.IsSameTrack);
-            // Confidence, descending: proved the same, named the same, only
-            // one side has it, too weak to call either way.
-            suffix += $" · differences: {hidden} same hidden";
-            if (NameMatched > 0) suffix += $" · {NameMatched} same name only";
-            suffix += $" · {UnpairedShown} in one folder only · {Groups.Count} weak match";
-            // Never let an unanalysable file pass as agreement: a file absent
-            // from a diff reads as "these folders match", which would be a lie.
-            if (NotAnalyzed.Count > 0)
-                suffix += $" · {NotAnalyzed.Count} not comparable";
-        }
-        if (tokens.Count > 0)
-            suffix += $" · filter: {Groups.Count} of {_allGroups.Count} groups";
-        FooterText = baseText + suffix;
+        FooterText = baseText + FolderDiffView.FooterSuffix(
+            onlyDifferences: OnlyDifferences,
+            filtered: tokens.Count > 0,
+            sameHidden: _allGroups.Count(g => g.Report.IsSameTrack),
+            nameMatched: NameMatched,
+            inOneFolderOnly: UnpairedShown,
+            visibleGroups: Groups.Count,
+            totalGroups: _allGroups.Count,
+            notComparable: NotAnalyzed.Count);
     }
-
-    /// The results filter applied to an unpaired file: every word must appear
-    /// in its path, matching how GroupMatches treats a group's members.
-    private static bool Matches(UnpairedFile file, IReadOnlyCollection<string> tokens) =>
-        tokens.All(t => file.Path.Contains(t, StringComparison.OrdinalIgnoreCase));
 
     private CancellationTokenSource? _cts;
 
@@ -514,7 +442,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         var cacheNote = "";
         try
         {
-            cache = AuditCache.TryOpen(out _);
+            // Only tests pass a cachePath: their scans must not touch the
+            // user's cache.
+            cache = AuditCache.TryOpen(cachePath ?? AuditCache.DefaultPath, out _);
             if (cache is null) cacheNote = " · cache unavailable";
 
             var localCache = cache;

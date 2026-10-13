@@ -2,7 +2,7 @@ namespace Spektra.Core;
 
 /// Positional stepping through an ordered list of files: what Next and
 /// Previous mean in the spectrum view. Pure, so the arithmetic is testable
-/// without a shell (Spektra.App has no unit tests by house rule).
+/// without a shell.
 public static class FileSequence
 {
     /// The file one step from <paramref name="current"/>, or null when the

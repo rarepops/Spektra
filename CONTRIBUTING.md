@@ -32,7 +32,7 @@ Run the app or the CLI:
 - `src/Spektra.Core` — the pure analysis engine (decode options, FFT, palettes, cutoff/verdict, diff, aligner). No UI. Fully unit-tested.
 - `src/Spektra.App` — the Avalonia GUI (MVVM).
 - `src/Spektra.Cli` — the cross-platform command-line tool.
-- `tests/Spektra.Tests` — TUnit tests. **Tests target `Spektra.Core` only**; UI is verified manually.
+- `tests/Spektra.Tests` — TUnit tests. **Tests target `Spektra.Core`, and `Spektra.App` view models where that makes sense**; windows and rendering are verified manually.
 - `tools/make-fixtures.ps1` — regenerates the committed audio fixtures.
 
 ## Benchmarks

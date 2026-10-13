@@ -153,4 +153,61 @@ public sealed class DuplicateScanTests
         }
         finally { Directory.Delete(root, recursive: true); }
     }
+
+    [Test]
+    public async Task Run_NamesTheTwinOfAnUnpairedFileUnderAnotherRoot()
+    {
+        var rootA = Directory.CreateTempSubdirectory("twin-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("twin-b").FullName;
+        try
+        {
+            // Same name on both sides, different audio: neither file can pair
+            // by ear, and each must still be told the other folder has its
+            // track. A third file with a name of its own gets no twin.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(rootB, "Shared Title.wav"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Lonely.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Groups).IsEmpty();
+            await Assert.That(result.Unpaired.Count).IsEqualTo(3);
+            var inA = result.Unpaired.Single(u => u.Path == Path.Combine(rootA, "Shared Title.wav"));
+            var inB = result.Unpaired.Single(u => u.Path == Path.Combine(rootB, "Shared Title.wav"));
+            await Assert.That(inA.TwinPath).IsEqualTo(inB.Path);
+            await Assert.That(inB.TwinPath).IsEqualTo(inA.Path);
+            await Assert.That(result.Unpaired.Single(u => u.Path.EndsWith("Lonely.wav")).TwinPath).IsNull();
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_AboveTheAllPairsCutoff_StillFindsTheCopies()
+    {
+        // 66 usable files is past the 64-file cutoff below which every pair
+        // is matched directly, so candidates come from FingerprintIndex
+        // instead. Nothing else in this suite reaches that branch.
+        var root = Directory.CreateTempSubdirectory("dupes-index").FullName;
+        try
+        {
+            for (var i = 0; i < 33; i++)
+            {
+                File.Copy(P("tones-a.wav"), Path.Combine(root, $"tones-{i:00}.wav"));
+                File.Copy(P("noise.wav"), Path.Combine(root, $"noise-{i:00}.wav"));
+            }
+
+            var result = DuplicateScan.Run(Ff, [root], jobs: 4, minDurationSeconds: 0);
+
+            await Assert.That(result.FilesScanned).IsEqualTo(66);
+            await Assert.That(result.NotAnalyzed).IsEmpty();
+            await Assert.That(result.Unpaired).IsEmpty();
+            await Assert.That(result.Groups.Count).IsEqualTo(2);
+            await Assert.That(result.Groups.All(g => g.Group.Members.Count == 33)).IsTrue();
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
 }

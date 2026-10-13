@@ -165,35 +165,37 @@ public sealed class PaletteRegistry
         if (items.Count < 2) throw new FormatException("needs at least 2 anchors");
 
         if (items.All(i => i.ValueKind == JsonValueKind.String))
-        {
-            var stops = items
-                .Select((i, idx) => WithColor(i.GetString()!, (double)idx / (items.Count - 1)))
-                .ToList();
-            return (name, new CustomEntry(stops, DbPinned: false));
-        }
-
+            return (name, new CustomEntry(EvenStops(items), DbPinned: false));
         if (items.All(i => i.ValueKind == JsonValueKind.Object))
-        {
-            var atCount = items.Count(i => i.TryGetProperty("at", out _));
-            var dbCount = items.Count(i => i.TryGetProperty("db", out _));
-            var dbPinned = dbCount == items.Count && atCount == 0;
-            var atBased = atCount == items.Count && dbCount == 0;
-            if (!dbPinned && !atBased)
-                throw new FormatException("stops must all use 'at' or all use 'db'");
-            var stops = items.Select(i =>
-            {
-                if (!i.TryGetProperty("color", out var c) || c.ValueKind != JsonValueKind.String)
-                    throw new FormatException("every stop needs a 'color'");
-                var key = dbPinned ? "db" : "at";
-                var value = i.GetProperty(key);
-                if (value.ValueKind != JsonValueKind.Number)
-                    throw new FormatException($"stop '{key}' must be a number");
-                return WithColor(c.GetString()!, value.GetDouble());
-            }).ToList();
-            return (name, new CustomEntry(stops, dbPinned));
-        }
-
+            return (name, PlacedStops(items));
         throw new FormatException("anchors must be all hex strings or all stop objects");
+    }
+
+    /// Bare hex strings: the stops spread evenly from 0 to 1.
+    private static List<(double Raw, byte R, byte G, byte B)> EvenStops(List<JsonElement> items) =>
+        [.. items.Select((i, idx) => WithColor(i.GetString()!, (double)idx / (items.Count - 1)))];
+
+    /// Stop objects: each stop says where it sits, all of them as `at`
+    /// fractions or all of them as absolute `db`, never a mixture.
+    private static CustomEntry PlacedStops(List<JsonElement> items)
+    {
+        var atCount = items.Count(i => i.TryGetProperty("at", out _));
+        var dbCount = items.Count(i => i.TryGetProperty("db", out _));
+        var dbPinned = dbCount == items.Count && atCount == 0;
+        var atBased = atCount == items.Count && dbCount == 0;
+        if (!dbPinned && !atBased)
+            throw new FormatException("stops must all use 'at' or all use 'db'");
+        var stops = items.Select(i =>
+        {
+            if (!i.TryGetProperty("color", out var c) || c.ValueKind != JsonValueKind.String)
+                throw new FormatException("every stop needs a 'color'");
+            var key = dbPinned ? "db" : "at";
+            var value = i.GetProperty(key);
+            if (value.ValueKind != JsonValueKind.Number)
+                throw new FormatException($"stop '{key}' must be a number");
+            return WithColor(c.GetString()!, value.GetDouble());
+        }).ToList();
+        return new CustomEntry(stops, dbPinned);
     }
 
     private static (double Raw, byte R, byte G, byte B) WithColor(string hex, double raw)

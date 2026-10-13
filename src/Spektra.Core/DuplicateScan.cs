@@ -82,19 +82,60 @@ public static class DuplicateScan
     /// be assumed to affect the other's justification.
     private const int AllPairsBelow = 64;
 
+    /// One collected file after analysis: its audit row and its fingerprint,
+    /// or the reason it has neither.
+    private readonly record struct Artifact(AuditEntry? Entry, FingerprintEntry? Fp, string? Error);
+
+    /// A file that analyzed and is long enough to match. Its position in the
+    /// usable list is the id every later phase speaks: candidate pairs,
+    /// matched pairs and the grouper's identities all index into that list.
+    private readonly record struct Usable(AuditTarget Target, AuditEntry Entry, FingerprintEntry Fp);
+
     public static DupesResult Run(
         FfmpegPaths ffmpeg, IReadOnlyList<string> roots, int jobs,
         AuditCache? cache = null, bool fresh = false,
         IProgress<DupesProgress>? progress = null, CancellationToken ct = default,
         double minDurationSeconds = MinDurationSeconds)
     {
+        var files = CollectFiles(roots);
+        var artifacts = AnalyzeAll(ffmpeg, files, jobs, cache, fresh, progress, ct);
+        var (usable, notAnalyzed) = Partition(files, artifacts, minDurationSeconds);
+        ct.ThrowIfCancellationRequested();
+
+        var pairs = MatchPairs(usable, Candidates(usable), progress, ct);
+        var identities = usable
+            .Select(u => new DuplicateGrouper.FileIdentity(u.Target.Path, u.Fp.Artist, u.Fp.Title))
+            .ToList();
+        var groups = DuplicateGrouper.Group(identities, pairs);
+
+        var reports = BuildReports(groups, usable, pairs);
+        var unpaired = FindUnpaired(usable, groups, roots, files);
+
+        return new DupesResult(
+            [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
+            notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes))
+        {
+            Unpaired = [.. unpaired.OrderBy(u => u.Path, StringComparer.OrdinalIgnoreCase)],
+        };
+    }
+
+    /// Every audio file under the roots, once each and in path order. A file
+    /// reachable through two roots, one nested in the other, must not be
+    /// analyzed twice: it would pair with itself and read as a duplicate.
+    private static AuditTarget[] CollectFiles(IReadOnlyList<string> roots)
+    {
         var targets = new Dictionary<string, AuditTarget>(StringComparer.OrdinalIgnoreCase);
         foreach (var root in roots)
             foreach (var t in FolderAudit.CollectTargets(root, recursive: true))
                 targets.TryAdd(t.Path, t);
-        var files = targets.Values.OrderBy(t => t.Path, StringComparer.OrdinalIgnoreCase).ToArray();
+        return [.. targets.Values.OrderBy(t => t.Path, StringComparer.OrdinalIgnoreCase)];
+    }
 
-        var artifacts = new (AuditEntry? Entry, FingerprintEntry? Fp, string? Error)[files.Length];
+    private static Artifact[] AnalyzeAll(
+        FfmpegPaths ffmpeg, AuditTarget[] files, int jobs, AuditCache? cache, bool fresh,
+        IProgress<DupesProgress>? progress, CancellationToken ct)
+    {
+        var artifacts = new Artifact[files.Length];
         var done = 0;
         Parallel.ForEach(
             Partitioner.Create(Enumerable.Range(0, files.Length), EnumerablePartitionerOptions.NoBuffering),
@@ -105,8 +146,13 @@ public static class DuplicateScan
                 var n = Interlocked.Increment(ref done);
                 progress?.Report(new DupesProgress("Analyzing", (double)n / files.Length, n, files.Length));
             });
+        return artifacts;
+    }
 
-        var usable = new List<int>();
+    private static (List<Usable> Usable, List<NotAnalyzedFile> NotAnalyzed) Partition(
+        AuditTarget[] files, Artifact[] artifacts, double minDurationSeconds)
+    {
+        var usable = new List<Usable>();
         var notAnalyzed = new List<NotAnalyzedFile>();
         for (var i = 0; i < files.Length; i++)
         {
@@ -116,47 +162,48 @@ public static class DuplicateScan
             else if (fp.Fingerprint.DurationSeconds < minDurationSeconds)
                 notAnalyzed.Add(new NotAnalyzedFile(files[i].Path, $"shorter than {minDurationSeconds:0} s"));
             else
-                usable.Add(i);
+                usable.Add(new Usable(files[i], entry, fp));
         }
-        ct.ThrowIfCancellationRequested();
+        return (usable, notAnalyzed);
+    }
 
-        // The word index is a candidate-generation PRE-FILTER, not a precision
-        // gate (FingerprintMatcher's own MinVotes/MidThreshold below is that);
-        // it exists so a large library never pays an all-pairs match. Below
-        // AllPairsBelow usable files the naive pair count is small enough
-        // (<= ~2000 direct matches) that skipping the index costs nothing
-        // measurable and avoids a real failure mode: short or low-entropy
-        // recordings (brief jingles, sweeps, sub-minute clips) can have so
-        // few distinct fingerprint words that two genuine duplicates share
-        // fewer than DefaultMinSharedWords of them even though the direct
-        // matcher clears MidThreshold comfortably, so the index would silently
-        // drop a real match before the matcher ever sees the pair.
-        IReadOnlyList<(int A, int B)> candidates;
-        if (usable.Count <= AllPairsBelow)
-        {
-            candidates = AllPairs(usable.Count);
-        }
-        else
-        {
-            var index = new FingerprintIndex();
-            foreach (var i in usable)
-                index.Add(artifacts[i].Fp!.Fingerprint); // index id == position in `usable`
-            candidates = index.CandidatePairs();
-        }
+    // The word index is a candidate-generation PRE-FILTER, not a precision
+    // gate (FingerprintMatcher's own MinVotes/MidThreshold in MatchPairs is that);
+    // it exists so a large library never pays an all-pairs match. Below
+    // AllPairsBelow usable files the naive pair count is small enough
+    // (<= ~2000 direct matches) that skipping the index costs nothing
+    // measurable and avoids a real failure mode: short or low-entropy
+    // recordings (brief jingles, sweeps, sub-minute clips) can have so
+    // few distinct fingerprint words that two genuine duplicates share
+    // fewer than DefaultMinSharedWords of them even though the direct
+    // matcher clears MidThreshold comfortably, so the index would silently
+    // drop a real match before the matcher ever sees the pair.
+    private static IReadOnlyList<(int A, int B)> Candidates(List<Usable> usable)
+    {
+        if (usable.Count <= AllPairsBelow) return AllPairs(usable.Count);
+        var index = new FingerprintIndex();
+        foreach (var u in usable)
+            index.Add(u.Fp.Fingerprint); // index id == position in `usable`
+        return index.CandidatePairs();
+    }
 
+    private static List<(int A, int B, FingerprintMatcher.MatchResult Match)> MatchPairs(
+        List<Usable> usable, IReadOnlyList<(int A, int B)> candidates,
+        IProgress<DupesProgress>? progress, CancellationToken ct)
+    {
         var pairs = new List<(int A, int B, FingerprintMatcher.MatchResult Match)>();
         var checked_ = 0;
         foreach (var (a, b) in candidates)
         {
             ct.ThrowIfCancellationRequested();
-            var fa = artifacts[usable[a]].Fp!.Fingerprint;
-            var fb = artifacts[usable[b]].Fp!.Fingerprint;
+            var fa = usable[a].Fp.Fingerprint;
+            var fb = usable[b].Fp.Fingerprint;
             if (Math.Abs(fa.DurationSeconds - fb.DurationSeconds) <= MaxDurationDeltaSeconds
                 && FingerprintMatcher.Match(fa, fb) is { } m
                 && m.Similarity >= FingerprintMatcher.MidThreshold)
                 pairs.Add((a, b, m));
             checked_++;
-            // Throttled, unlike the per-file loop above: a pair is cheap, so
+            // Throttled, unlike the per-file loop in AnalyzeAll: a pair is cheap, so
             // reporting each one posts a dispatcher message (and two bound
             // property updates) per pair through the UI's Progress<T>, which
             // costs more than the matching. The last pair always reports so the
@@ -165,28 +212,26 @@ public static class DuplicateScan
                 progress?.Report(new DupesProgress(
                     "Matching", (double)checked_ / Math.Max(1, candidates.Count), checked_, candidates.Count));
         }
+        return pairs;
+    }
 
-        var identities = usable
-            .Select(i => new DuplicateGrouper.FileIdentity(
-                files[i].Path, artifacts[i].Fp!.Artist, artifacts[i].Fp!.Title))
-            .ToList();
-        var groups = DuplicateGrouper.Group(identities, pairs);
-
+    private static List<DupesGroupReport> BuildReports(
+        IReadOnlyList<DuplicateGroup> groups, List<Usable> usable,
+        List<(int A, int B, FingerprintMatcher.MatchResult Match)> pairs)
+    {
         var simByPair = new Dictionary<(string, string), double>();
         foreach (var (a, b, m) in pairs)
-            simByPair[PairKey(identities[a].Path, identities[b].Path)] = m.Similarity;
+            simByPair[PairKey(usable[a].Target.Path, usable[b].Target.Path)] = m.Similarity;
 
-        var entryByPath = new Dictionary<string, AuditEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var i in usable)
-            entryByPath[files[i].Path] = artifacts[i].Entry!;
+        var byPath = usable.ToDictionary(u => u.Target.Path, StringComparer.OrdinalIgnoreCase);
 
         var reports = new List<DupesGroupReport>();
         foreach (var g in groups)
         {
             var rows = g.Members.ToDictionary(
-                m => m.Path, m => entryByPath[m.Path].Row, StringComparer.OrdinalIgnoreCase);
+                m => m.Path, m => byPath[m.Path].Entry.Row, StringComparer.OrdinalIgnoreCase);
             var sizes = g.Members.ToDictionary(
-                m => m.Path, m => targets[m.Path].SizeBytes, StringComparer.OrdinalIgnoreCase);
+                m => m.Path, m => byPath[m.Path].Target.SizeBytes, StringComparer.OrdinalIgnoreCase);
             var ranking = QualityRanker.Rank(
                 [.. g.Members.Select(m => (m.Path, rows[m.Path]))],
                 (x, y) => simByPair.GetValueOrDefault(PairKey(x, y)));
@@ -194,7 +239,13 @@ public static class DuplicateScan
             var reclaimable = sizes.Values.Sum() - winnerSize;
             reports.Add(new DupesGroupReport(g, ranking, rows, sizes, reclaimable));
         }
+        return reports;
+    }
 
+    private static List<UnpairedFile> FindUnpaired(
+        List<Usable> usable, IReadOnlyList<DuplicateGroup> groups,
+        IReadOnlyList<string> roots, AuditTarget[] files)
+    {
         // Unpaired is a subtraction over what the scan already knows:
         // everything that fingerprinted, minus everything that matched.
         // DuplicateGrouper is deliberately not involved. Its
@@ -213,11 +264,11 @@ public static class DuplicateScan
             path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
 
         var unpaired = new List<UnpairedFile>();
-        foreach (var i in usable)
+        foreach (var u in usable)
         {
-            var path = files[i].Path;
+            var path = u.Target.Path;
             if (grouped.Contains(path)) continue;
-            unpaired.Add(new UnpairedFile(path, RootOf(path), entryByPath[path].Row, files[i].SizeBytes));
+            unpaired.Add(new UnpairedFile(path, RootOf(path), u.Entry.Row, u.Target.SizeBytes));
         }
 
         // Matching nothing by audio is not the same as being absent, and a
@@ -228,18 +279,12 @@ public static class DuplicateScan
         // short or too broken to fingerprint is still a track the other folder
         // has.
         var twins = TitleTwin.FindAcrossRoots(
-            unpaired.Select(u => (u.Path, u.Root)),
+            unpaired.Select(f => (f.Path, f.Root)),
             files.Select(f => (f.Path, Root: RootOf(f.Path))));
         for (var i = 0; i < unpaired.Count; i++)
             if (twins.TryGetValue(unpaired[i].Path, out var twin))
                 unpaired[i] = unpaired[i] with { TwinPath = twin };
-
-        return new DupesResult(
-            [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
-            notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes))
-        {
-            Unpaired = [.. unpaired.OrderBy(u => u.Path, StringComparer.OrdinalIgnoreCase)],
-        };
+        return unpaired;
     }
 
     /// Flat export rows, one per member, winners first inside each group.
@@ -281,12 +326,12 @@ public static class DuplicateScan
         return pairs;
     }
 
-    private static (AuditEntry?, FingerprintEntry?, string?) AnalyzeOne(
+    private static Artifact AnalyzeOne(
         FfmpegPaths ffmpeg, AuditTarget target, AuditCache? cache, bool fresh, CancellationToken ct)
     {
         var entry = fresh ? null : cache?.TryGet(target);
         var fp = fresh ? null : cache?.TryGetFingerprint(target);
-        if (entry is not null && fp is not null) return (entry, fp, null);
+        if (entry is not null && fp is not null) return new Artifact(entry, fp, null);
         try
         {
             // Metadata is probed here for the extractor's sample rate and the
@@ -299,7 +344,7 @@ public static class DuplicateScan
                 var extractor = new FingerprintExtractor(meta.SampleRate);
                 var result = FolderAudit.AnalyzeFile(ffmpeg, target.Path, ct, chunk => extractor.Feed(chunk));
                 if (result.Report.Error is not null)
-                    return (null, null, result.Report.Error);
+                    return new Artifact(null, null, result.Report.Error);
                 entry = new AuditEntry(target, result.ToRow(), result.HasProblem, FromCache: false);
                 if (result.IntegrityError is null)
                     cache?.Put(target, entry.Row, entry.HasProblem);
@@ -310,12 +355,12 @@ public static class DuplicateScan
                 var print = new DecodedFingerprintSource(ffmpeg).Extract(target.Path, meta, ct);
                 fp = StoreFingerprint(cache, target, print, meta);
             }
-            return (entry, fp, null);
+            return new Artifact(entry, fp, null);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) when (ex is AudioDecodeException or IOException or InvalidOperationException)
         {
-            return (null, null, ex.Message);
+            return new Artifact(null, null, ex.Message);
         }
     }
 

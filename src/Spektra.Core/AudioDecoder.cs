@@ -7,11 +7,11 @@ public sealed class AudioDecoder(string ffmpegPath)
 {
     private const int ChunkBytes = 256 * 1024; // 64k floats
 
-    public IEnumerable<float[]> DecodeMonoChunks(
-        string filePath, CancellationToken ct, DecodeOptions? options = null)
+    /// The ffmpeg command line for one decode, as a pure function of the file
+    /// and the options, so the shape of the command can be tested without
+    /// running ffmpeg.
+    public static List<string> BuildArguments(string filePath, DecodeOptions o)
     {
-        ct.ThrowIfCancellationRequested();
-        var o = options ?? new DecodeOptions();
         // -nostdin like the metering passes: stdin is not redirected, so in a
         // terminal ffmpeg would read the keyboard for its interactive commands
         // and a stray 'q' would abort the decode, which then reads as a
@@ -47,6 +47,14 @@ public sealed class AudioDecoder(string ffmpegPath)
             args.Add(rate.ToString(CultureInfo.InvariantCulture));
         }
         args.AddRange(["-f", "f32le", "-"]);
+        return args;
+    }
+
+    public IEnumerable<float[]> DecodeMonoChunks(
+        string filePath, CancellationToken ct, DecodeOptions? options = null)
+    {
+        ct.ThrowIfCancellationRequested();
+        var args = BuildArguments(filePath, options ?? new DecodeOptions());
 
         using var p = FfmpegProcess.Start(FfmpegProcess.StartInfo(ffmpegPath, args), "ffmpeg");
 
