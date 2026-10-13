@@ -4,6 +4,12 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.1] - 2026-10-13
+
+### Changed
+- Nothing you can see. The code behind the analysis engine, the command-line tool, Duplicate Detective and the spectrogram view is reorganised so it is safer to change: the most involved methods are broken into named steps, the command-line tool keeps one file per command, and the rules for what a folder diff shows and how a zoomed view is cut into tiles now sit where tests can reach them. The command-line tool prints byte for byte what 0.25.0 printed across 99 invocations, and Duplicate Detective's folder diff gains tests that drive it through its views and its filter, checked against 0.25.0's behaviour as well.
+- Dependencies brought current, none of which changes behaviour: Microsoft.Data.Sqlite 10.0.12, Tmds.DBus.Protocol 0.95.1, and TUnit 1.72.10 for the test suite. Nothing in the dependency tree carries a known advisory.
+
 ## [0.25.0] - 2026-09-22
 
 ### Added
@@ -536,7 +542,8 @@ at all; `npm install -g spektra-cli` gives you 0.24.3 or later.
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/rarepops/Spektra/releases/tag/v0.25.1
 [0.25.0]: https://github.com/rarepops/Spektra/releases/tag/v0.25.0
 [0.24.4]: https://github.com/rarepops/Spektra/releases/tag/v0.24.4
 [0.24.3]: https://github.com/rarepops/Spektra/releases/tag/v0.24.3
