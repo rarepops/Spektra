@@ -6,8 +6,8 @@ namespace Spektra.Tests;
 /// open, writing "Open at least two files to compare" to an 11px status line
 /// while the menu item stayed enabled and kept its ellipsis. It now offers a
 /// file picker instead, and a picker can come back with any number of files.
-/// The branching lives here rather than in the window because Spektra.App has
-/// no unit tests, so anything left in the click handler is verified by hand or
+/// The branching lives here rather than in the window because a window's click
+/// handler has no unit tests, so anything left there is verified by hand or
 /// not at all.
 public class ComparePickTests
 {

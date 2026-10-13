@@ -8,9 +8,9 @@ namespace Spektra.Core;
 /// Compare that quietly wrote to the status bar read as the app ignoring the
 /// click. It now opens a picker, and a picker answers with any number of files.
 ///
-/// This lives in Core rather than in the window because Spektra.App has no unit
-/// tests by house rule: branching left in a click handler is only ever checked
-/// by hand.
+/// This lives in Core rather than in the window because a window's click
+/// handler has no unit tests: branching left there is only ever checked by
+/// hand.
 public static class ComparePick
 {
     public enum Outcome
