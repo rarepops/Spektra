@@ -133,7 +133,7 @@ public sealed class DiffColumnItem(DiffColumn column)
 /// The Duplicate Detective window's state: scan roots, one run at a time, groups
 /// sorted by reclaimable bytes. View and export only; nothing here can touch
 /// the files themselves.
-public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings) : ObservableObject
+public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings, string? cachePath = null) : ObservableObject
 {
     public ObservableCollection<string> Roots { get; } = [.. settings.DuplicateRoots ?? []];
     public ObservableCollection<DupeGroupItem> Groups { get; } = [];
@@ -442,7 +442,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         var cacheNote = "";
         try
         {
-            cache = AuditCache.TryOpen(out _);
+            // Only tests pass a cachePath: their scans must not touch the
+            // user's cache.
+            cache = AuditCache.TryOpen(cachePath ?? AuditCache.DefaultPath, out _);
             if (cache is null) cacheNote = " · cache unavailable";
 
             var localCache = cache;
