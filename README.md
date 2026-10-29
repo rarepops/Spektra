@@ -241,6 +241,8 @@ Add `--json` or `--csv` to any command for a machine-readable report:
 
 Full command reference with sample output and scripting recipes: **[docs/cli.md](docs/cli.md)**.
 
+Using Claude Code? The `spektra-cli` plugin teaches it these commands and how to read their verdicts: see [Use with Claude Code](docs/cli.md#use-with-claude-code).
+
 (`--report` / `--scan` are accepted too.) Build it with `dotnet publish src/Spektra.Cli -c Release`.
 
 ## Test

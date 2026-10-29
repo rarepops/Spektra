@@ -224,3 +224,12 @@ The columns are stable, ordered rows (`file, codec, sampleRateHz, …`); the sam
 
     # spectrogram PNG next to every file in an album folder
     for f in Album/*.flac; do spektra-cli image "$f"; done
+
+## Use with Claude Code
+
+The `spektra-cli` plugin teaches Claude Code to use this tool for you: which command answers which question, how to read the verdicts and exit codes, and never to move, rename or delete a file on Spektra's say-so without asking you first. Add this repository as a plugin marketplace and install the plugin from inside Claude Code:
+
+    /plugin marketplace add rarepops/Spektra
+    /plugin install spektra-cli@spektra
+
+The plugin does not install the CLI or ffmpeg; install those as described above. Auto-update is off by default for marketplaces outside Anthropic's own, so to update, run `/plugin marketplace update spektra`, then `claude plugin update spektra-cli@spektra` and restart Claude Code, or turn on auto-update for the `spektra` marketplace in `/plugin` (Marketplaces tab).

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "spektra",
+  "description": "Claude Code plugins for Spektra, the audio bandwidth and integrity analyzer.",
+  "owner": {
+    "name": "rarepops",
+    "url": "https://github.com/rarepops"
+  },
+  "plugins": [
+    {
+      "name": "spektra-cli",
+      "source": "./plugins/spektra-cli",
+      "description": "Teaches Claude to use spektra-cli: find fake lossless files, corruption and duplicates in a music library, and read the verdicts safely."
+    }
+  ]
+}
