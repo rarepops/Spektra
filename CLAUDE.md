@@ -49,4 +49,4 @@ Run all three before calling a code change done. CI runs the same ones.
 
 - `spektra-release`: cutting, pushing, verifying or recovering a release.
 - `spektra-gui-smoke`: launching the app on a file in an isolated profile and capturing its window, to see a change in the real GUI.
-- `spektra-refactor-check`: proving a refactor left `spektra-cli`'s output unchanged between two commits.
+- `spektra-refactor-check`: proving that a change which claims no behaviour change really changed none: `spektra-cli` output compared between two commits, view-model tests run on the old and the new code, GUI captures, and a planted bug for each new test.

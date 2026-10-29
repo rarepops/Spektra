@@ -1,6 +1,6 @@
 ---
 name: spektra-release
-description: 'Cut, push and verify a Spektra release: choose the semver bump, bump Directory.Build.props and the Claude plugin version, write the CHANGELOG entry, run every pre-tag gate (build, tests, format, vulnerable packages, publish smokes that mirror release.yml, isolated CLI and GUI launch smokes, the install-first MSI check), make the signed release commit and tag, push dev, main and the tag in the only safe order, then check the GitHub release, its checksums and the npm packages. Use it whenever someone wants to release, ship, publish or tag a version of Spektra ("cut 0.26.0", "do a patch release", "push and release", "bump the version and tag it", "write the changelog for the release"), and when a release run or its npm publish failed and needs recovering. Not for ordinary commits or pushes to dev.'
+description: 'Cut, push and verify a Spektra release: choose the semver bump, bump Directory.Build.props and the Claude plugin version, write the CHANGELOG entry, run every pre-tag gate (build, tests, format, vulnerable packages, plugin validation, publish smokes that mirror release.yml, isolated CLI and GUI launch smokes, the install-first MSI check), make the signed release commit and tag, push dev, main and the tag in the only safe order, then check the GitHub release, its checksums and the npm packages. Use it whenever someone wants to release, ship, publish or tag a version of Spektra ("cut 0.26.0", "do a patch release", "push and release", "bump the version and tag it", "write the changelog for the release"), and when a release run or its npm publish failed and needs recovering. Not for ordinary commits or pushes to dev.'
 ---
 
 # Releasing Spektra
@@ -12,7 +12,7 @@ Work through the steps in order. [reference.md](reference.md) holds the rarer pa
 ## Before you start
 
 - Work from the repository root, on Windows (the GUI smoke and the installer need it). `git branch --show-current` must print `dev`, the tree must be clean, and after `git fetch origin`, `git status -sb` must not show `dev` behind `origin/dev` (if it is, `git merge --ff-only origin/dev`). If any of that does not hold, stop and ask.
-- Commands below are Git Bash. The repo's PowerShell scripts run through `powershell -NoProfile -File`, which works without PowerShell 7.
+- Commands below are Git Bash. The repo's PowerShell scripts run through `powershell -NoProfile -ExecutionPolicy Bypass -File`: Windows PowerShell is enough (PowerShell 7 need not be installed), and `Bypass` lifts the execution policy for that one process only, without which a machine on the default `Restricted` policy refuses to run the scripts.
 - Needed: the .NET SDK that `global.json` names; `ffmpeg` and `ffprobe` on PATH (the tests and both smokes decode audio); Node.js (`node` and `npm`); `gh` signed in (`gh auth status`); WiX, only for the install-first MSI. If `ffmpeg -version` fails, ask: `tools/get-ffmpeg.ps1` installs into the user's real app data and is not yours to run unasked.
 - Placeholders: `X.Y.Z` is the new version; `<prev-tag>` the last release tag, from `git describe --tags --abbrev=0` run once in step 1 (after step 6 it would print the new tag); `<release-sha>` the full id of the release commit; `<run-id>` a workflow run id; `<scratch>` a new, empty folder outside the checkout for each attempt, written as a literal path such as the output of `echo "$(cygpath -m /tmp)/spektra-release-X.Y.Z-1"` (then `-2` for a second attempt, so a re-run never meets a warm cache, an old profile or an old capture). Shell variables do not survive between tool calls, so write the values out.
 - Smoke builds go to `<scratch>`, never into the checkout: `dist/` is what the installer and the npm packaging read, and the tree should hold only what gets committed. The one exception is the install-first MSI, which WiX builds from `dist/` (see reference.md).
@@ -29,8 +29,8 @@ If a change alters how a verdict or integrity result is computed, `AuditCache.An
 ## 2. Bump the version
 
 - `Directory.Build.props`: set the one `<Version>` to `X.Y.Z`. Every project inherits it.
-- `plugins/spektra-cli/.claude-plugin/plugin.json`: set `version` to `X.Y.Z`. The Claude Code plugin follows Spektra's version and no script checks it, so `grep -n '"version"' plugins/spektra-cli/.claude-plugin/plugin.json` must show `X.Y.Z`.
-- `powershell -NoProfile -File tools/validate-release.ps1 -Version X.Y.Z` must end with `Release validation passed.` (a bare X.Y.Z, equal to the props file; its on-main check comes in step 7).
+- `plugins/spektra-cli/.claude-plugin/plugin.json`: set `version` to `X.Y.Z`. The Claude Code plugin follows Spektra's version and nothing compares the two, so `grep -n '"version"' plugins/spektra-cli/.claude-plugin/plugin.json` must show `X.Y.Z`.
+- `powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate-release.ps1 -Version X.Y.Z` must end with `Release validation passed.` (a bare X.Y.Z, equal to the props file; its on-main check comes in step 7).
 
 ## 3. Write the CHANGELOG entry
 
@@ -66,6 +66,16 @@ grep -nE '^(## \[X.Y.Z\] - |\[Unreleased\]: .*/compare/vX.Y.Z\.\.\.HEAD$|\[X.Y.Z
 for f in build publish smoke lib/registry lib/targets; do node --check "packaging/npm/$f.mjs"; done && node --test packaging/npm/test/shim.test.cjs packaging/npm/test/registry.test.mjs packaging/npm/test/targets.test.mjs
 ```
 
+**Plugin validation**, both passing. The release also ships the Claude Code plugin, and the two runs check different things: from the repository root, the first checks `.claude-plugin/marketplace.json` and each plugin it lists, but never opens a skill file; the second checks the plugin itself, including its skills' frontmatter, and `--strict` fails on warnings too. If the `claude` command is not available, say so and ask the maintainer rather than skipping this gate.
+
+```bash
+claude plugin validate .
+```
+
+```bash
+claude plugin validate plugins/spektra-cli --strict
+```
+
 **Vulnerable packages**, every project printing `has no vulnerable packages`: `dotnet list Spektra.slnx package --vulnerable --include-transitive`
 
 **Workflow and packaging changes.** If `git diff --stat <prev-tag>..HEAD -- .github/workflows packaging` lists anything, do the dry run in [reference.md](reference.md) ("A dry run that publishes nothing") before tagging: those files only ever run for real inside the release job.
@@ -97,13 +107,13 @@ find "$P" -type f
 
 It passes when `--version` prints `spektra-cli X.Y.Z`; both audits print `exit 1` (1 means findings, and the fixtures hold deliberate transcodes and corruption; 2 would be a setup error); neither `.err` file mentions `cache unavailable`; both runs print the same rows; the second run is clearly faster, because it decodes nothing; and the listing shows `AppData/Roaming/Spektra/audit-cache.db` inside the scratch profile, which also proves the run stayed out of the real one.
 
-**The published GUI.** First, `tasklist //FI "IMAGENAME eq spektra.exe" //NH` must answer `INFO: No tasks are running which match the specified criteria.` Spektra keeps one instance per signed-in user, and the isolated profile does not change who that is: with any Spektra window open, the launch hands the fixture to that window, in the maintainer's real session, and exits. If one is running, ask the maintainer to close it; never close or kill it yourself. Then open a fixture in the published app under its own isolated profile and capture its window; the `spektra-gui-smoke` skill explains the script and what a good capture looks like.
+**The published GUI.** First, `tasklist //FI "IMAGENAME eq spektra.exe" //NH` must answer `INFO: No tasks are running which match the specified criteria.` Spektra keeps one instance per signed-in user, and the isolated profile does not change who that is: with any Spektra window open, the launch would hand the fixture to that window, in the maintainer's real session. The smoke script refuses to start in that case too; this check only stops earlier. If one is running, ask the maintainer to close it; never close or kill it yourself. Then open a fixture in the published app and capture its window. `-Profile` must be a new, empty folder: the script refuses one that holds files, because a reused profile restores the last run's window. The `spektra-gui-smoke` skill explains the script in full.
 
 ```bash
-powershell -NoProfile -File tools/gui-smoke.ps1 -Exe <scratch>/gui-win-x64/spektra.exe -AudioFile "$(cygpath -m "$PWD")/tests/fixtures/chirp.wav" -Profile <scratch>/profile-gui -OutPng <scratch>/gui-smoke.png
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/gui-smoke.ps1 -Exe <scratch>/gui-win-x64/spektra.exe -AudioFile tests/fixtures/chirp.wav -Profile <scratch>/profile-gui -OutPng <scratch>/gui-smoke.png
 ```
 
-Open the PNG: it must show the launched app's window with that file's spectrogram, not an error, a blank window or an ffmpeg prompt.
+It passes when the script exits 0 (the PNG is written and the app closed normally), prints its `capture:` line and lists the files the run wrote into the profile (a warning that nothing landed there means isolation was not proven), and the PNG shows the app's window with that file's spectrogram, not an error, a blank window or an ffmpeg prompt. The script waits 8 seconds after the window appears; on a slow machine raise that with `-SettleSeconds`. The status bar may end on either `Done in ... · N columns` or `No integrity problems detected.`: two background jobs write it and the later one wins, so neither ending is a failure.
 
 **Install first.** If the release changes anything that only exists once Spektra is installed (`packaging/spektra.wxs`, registry entries, the PATH entry, the Explorer verbs and the command lines they pass to the app, installed files), the maintainer installs a locally built MSI over their current install and checks it before the tag. Start from `git diff --stat <prev-tag>..HEAD -- packaging/spektra.wxs src/Spektra.Core/LaunchArgs.cs src/Spektra.App/SingleInstance.cs` (the installer, the parsing of the verbs' command lines, and the handoff to a running window) and the change list. No test reaches what Windows Installer and the shell do: an Explorer verb that never opened a single file once shipped with a fully green suite behind it, and cost a follow-up release. Build the MSI and hand over the checks as in [reference.md](reference.md) ("Install first: build the MSI"), then wait for the maintainer's report before tagging. Never install it yourself: it changes the machine and the maintainer's real profile. When nothing installed changed, say so in one line and move on.
 
@@ -146,7 +156,7 @@ git push --no-follow-tags origin dev &&
 Then the validation `release.yml` will run, which must end with `Release validation passed.`:
 
 ```bash
-powershell -NoProfile -File tools/validate-release.ps1 -Version X.Y.Z -Sha <release-sha>
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/validate-release.ps1 -Version X.Y.Z -Sha <release-sha>
 ```
 
 Only then the tag, which starts the release:
