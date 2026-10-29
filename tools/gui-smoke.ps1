@@ -6,10 +6,12 @@
 .DESCRIPTION
     A launch check that needs nobody at the keyboard. It answers "does this
     build start, open a file and draw it?", and because two captures of the
-    same first load match pixel for pixel, it also answers "did this change
-    alter what the first load shows?": capture both builds and compare the two
-    PNG hashes. The one figure that can differ is the status bar's "Done in
-    0.2s", which is wall-clock time.
+    same first load match pixel for pixel outside the status bar, it also
+    answers "did this change alter what the first load shows?": capture both
+    builds and compare the two PNG hashes. The status bar's text can differ:
+    the analysis ("Done in 0.2s", a wall-clock time) and the automatic
+    integrity check ("No integrity problems detected.") each write it when
+    they finish, and whichever finishes last wins, which varies run to run.
 
     The safety rules, each the reason a hand-rolled launch is not good enough:
       - The app runs with USERPROFILE, APPDATA and LOCALAPPDATA pointed into

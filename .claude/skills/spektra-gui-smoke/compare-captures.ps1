@@ -5,11 +5,12 @@
 
 .DESCRIPTION
     Equal file hashes need no help. Two captures of the same first load can
-    still differ in one place: the status bar's "Done in 0.2s" is wall-clock
-    time, so it changes whenever the analysis time rounds differently.
-    Differences confined to that figure leave the first load unchanged; a box
-    anywhere else is a finding. Exits 0 when the pixels are identical, 1 when
-    they differ.
+    still differ in the status bar: the analysis ("Done in 0.2s", a wall-clock
+    time) and the automatic integrity check ("No integrity problems
+    detected.") each write it when they finish, and whichever finishes last
+    wins. A box confined to the status bar's text is that race or the clock,
+    not a change; a box anywhere else is a finding. Exits 0 when the pixels
+    are identical, 1 when they differ.
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File .claude\skills\spektra-gui-smoke\compare-captures.ps1 -First <first.png> -Second <second.png>

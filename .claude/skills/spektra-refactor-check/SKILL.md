@@ -29,7 +29,7 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools\compare-cli.ps1 -
 
 ## 3. The GUI: byte-identical captures
 
-If the change can reach what the app draws, build both commits and capture the same file from each with the spektra-gui-smoke skill, then compare the PNG hashes. Equal hashes prove the first load is unchanged. Unequal ones get the skill's pixel comparison: a difference confined to the status bar's elapsed time is the clock, not the change. Anything behind input goes to the maintainer as a few named checks.
+If the change can reach what the app draws, build both commits and capture the same file from each with the spektra-gui-smoke skill, then compare the PNG hashes. Equal hashes prove the first load is unchanged. Unequal ones get the skill's pixel comparison: a difference confined to the status bar's text is a race between two background jobs or the clock, not the change. Anything behind input goes to the maintainer as a few named checks.
 
 ## 4. Prove every new test can fail
 
