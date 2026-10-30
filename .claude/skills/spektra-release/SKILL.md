@@ -18,7 +18,7 @@ The maintainer's verb decides where you stop and report, so settle it before ste
 - "cut", "release" or "tag" a version: steps 1 to 6, then stop before any push and show the version and its reason, the gate results, and the tag's subject and body.
 - "push", "publish" or "ship" a version: steps 1 to 8. This covers the whole release even when the request also says "release" or "cut", so "push and release" goes through in one go. The stops written into the steps (a failed gate, the dry run's go-ahead, the install-first report, a number that is not next in sequence) still apply in every tier.
 - If the verbs disagree, or it is unclear how far the maintainer meant, take the nearer stop and ask: a stop costs one sentence to lift, a push cannot be taken back.
-- A later request continues where the last one stopped and does not redo finished steps, except that the step 4 gates run again after a check or a prepare (the tree has changed, or may have been edited, since), and that after a cut you first confirm the release commit and the tag still exist locally and `git tag -v vX.Y.Z` still verifies.
+- A later request continues where the last one stopped and does not redo finished steps, except that the step 4 gates run again after a check or a prepare (the tree has changed, or may have been edited, since), and that after a cut you first confirm the release commit and the tag still exist locally and `git tag -v vX.Y.Z` still verifies. An install-first report the maintainer already gave stands unless something besides the three files of a prepare has changed since: repeating it would test nothing new, and the maintainer's time is the scarce resource.
 - A go-ahead given for an earlier release never carries over to this one.
 
 Then the setup:
