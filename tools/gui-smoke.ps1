@@ -47,10 +47,11 @@
 .PARAMETER Profile
     A folder for this run only: created when missing, and refused when it
     already holds files. A reused profile restores the last run's window and
-    Recent list, so the capture would no longer show a first launch.
+    Recent list, so the capture would no longer show a first launch. Also
+    refused inside the repository this script belongs to.
 
 .PARAMETER OutPng
-    Where the capture is written.
+    Where the capture is written. Refused inside the repository, like -Profile.
 
 .PARAMETER SettleSeconds
     How long to wait after the window appears before capturing, so the
@@ -83,6 +84,19 @@ $Exe = Resolve-FullPath $Exe
 $AudioFile = Resolve-FullPath $AudioFile
 $Profile = (Resolve-FullPath $Profile).TrimEnd('\')
 $OutPng = Resolve-FullPath $OutPng
+
+# Scratch output never belongs in a checkout: a profile there fills it with the
+# app's settings and a GPU shader cache, and a capture is one careless add away
+# from being committed. The same test compare-cli.ps1 applies to -WorkDir, and
+# it runs before anything is created or launched.
+$repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path.TrimEnd('\')
+foreach ($name in 'Profile', 'OutPng') {
+    $value = Get-Variable -Name $name -ValueOnly
+    if (($value + '\').StartsWith($repo + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw "-$name must be outside the repository (scratch output never belongs in a checkout): $value"
+    }
+}
+
 if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) { throw "no such exe: $Exe" }
 if (-not (Test-Path -LiteralPath $AudioFile -PathType Leaf)) { throw "no such audio file: $AudioFile" }
 if ((Test-Path -LiteralPath $Profile) -and (Get-ChildItem -LiteralPath $Profile -Recurse -Force -File | Select-Object -First 1)) {

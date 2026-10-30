@@ -12,7 +12,7 @@ description: Launch a Spektra desktop build on one audio file inside a throwaway
 - Never synthesise input: no SendKeys, no mouse events, no injected keystrokes, not even once. Synthetic input lands in whatever window has focus, and on a shared desktop that can be someone else's meeting or document.
 - Capture only the app's own window, which is what the script does with PrintWindow. Never grab the screen (CopyFromScreen or any screenshot tool): it photographs whatever is on the display, other people's windows included. There is no fallback to a screen grab.
 - Menus, popups and dialogs are separate windows, so they are never in the capture. A check that needs one goes to the maintainer (see Limits).
-- Give every run a fresh, empty profile folder in the scratch area (under `$env:TEMP`), never inside a checkout. The script refuses a profile that already holds files: a reused profile restores the last window and Recent list, so the capture would no longer show a first launch.
+- Give every run a fresh, empty profile folder in the scratch area (under `$env:TEMP`), never inside a checkout: the script refuses a `-Profile` or `-OutPng` inside the repository. It also refuses a profile that already holds files: a reused profile restores the last window and Recent list, so the capture would no longer show a first launch.
 - Close every Spektra window first. The script refuses while Spektra runs, because a second launch hands its file to the running window, which would open the scratch file and add it to the real Recent list.
 - Report what the run wrote into the profile: that list is the proof the run was isolated. Expect `AppData\Roaming\Spektra\settings.json` there; nothing may ever land in the real `%APPDATA%\Spektra` or `%LOCALAPPDATA%\Spektra`.
 
