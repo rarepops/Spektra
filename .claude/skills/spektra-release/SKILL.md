@@ -16,10 +16,10 @@ The maintainer's verb decides where you stop and report, so settle it before ste
 - "check" a version, or whether one can ship: steps 1 and 4 only, and no tracked file is edited. Step 2 is skipped (its validation needs the bumped props file), and the publish smokes pass the version themselves with `-p:Version`.
 - "prepare" a version: steps 1 to 4, leaving exactly three files modified and uncommitted: `Directory.Build.props`, `CHANGELOG.md` and `plugins/spektra-cli/.claude-plugin/plugin.json`.
 - "cut", "release" or "tag" a version: steps 1 to 6, then stop before any push and show the version and its reason, the gate results, and the tag's subject and body.
-- "push", "publish" or "ship" a version: steps 1 to 8. This covers the whole release even when the request also says "release" or "cut", so "push and release" goes through in one go. The stops written into the steps (a failed gate, the dry run's go-ahead, the install-first report, a number that is not next in sequence) still apply in every tier.
+- "push", "publish" or "ship" a version: steps 1 to 8. This covers the whole release even when the request also says "release", "cut" or "tag", so "push and release" goes through in one go. The stops written into the steps (a failed gate, the dry run's go-ahead, the install-first report, a number that is not next in sequence, a number you raised above what was asked) still apply in every tier.
 - If the verbs disagree, or it is unclear how far the maintainer meant, take the nearer stop and ask: a stop costs one sentence to lift, a push cannot be taken back.
-- A later request continues where the last one stopped and does not redo finished steps, except that the step 4 gates run again after a check or a prepare (the tree has changed, or may have been edited, since), and that after a cut you first confirm the release commit and the tag still exist locally and `git tag -v vX.Y.Z` still verifies. An install-first report the maintainer already gave stands unless something besides the three files of a prepare has changed since: repeating it would test nothing new, and the maintainer's time is the scarce resource.
-- A go-ahead given for an earlier release never carries over to this one.
+- A later request continues where the last one stopped and does not redo finished steps, except that the step 4 gates run again after a check or a prepare (the tree has changed, or may have been edited, since), and that after a cut you first confirm the release commit and the tag still exist locally and `git tag -v vX.Y.Z` still verifies. A prepared CHANGELOG entry takes the date of the day it is committed, so re-date it if that day has moved on. An install-first report the maintainer already gave and a dry run that passed both stand unless something besides the three files of a prepare has changed since: repeating them would test nothing new, and the maintainer's time is the scarce resource.
+- A go-ahead counts only when given in the current conversation and for this version; one given for an earlier release never carries over.
 
 Then the setup:
 
@@ -32,7 +32,7 @@ Then the setup:
 
 ## 1. Choose the version
 
-Note `<prev-tag>` now, then read what the release contains: `git log --oneline <prev-tag>..HEAD`. A new user-visible feature means a minor bump (`0.25.1` to `0.26.0`); only fixes, or nothing a user can see (refactors, tests, CI, dependency updates), mean a patch (`0.25.1` to `0.25.2`). A number the maintainer named stands, unless the content needs a bigger bump: a "patch" that carries a feature ships as a minor. Say which and why in one line, then carry on without waiting for an answer. If a named number is not the next one in sequence, stop and ask.
+Note `<prev-tag>` now, then read what the release contains: `git log --oneline <prev-tag>..HEAD`. A new user-visible feature means a minor bump (`0.25.1` to `0.26.0`); only fixes, or nothing a user can see (refactors, tests, CI, dependency updates), mean a patch (`0.25.1` to `0.25.2`). A number the maintainer named stands, unless the content needs a bigger bump: a "patch" that carries a feature ships as a minor. Say which and why in one line, then carry on through the local steps without waiting for an answer. A number you raised above what was asked needs the maintainer's yes before step 7 on any request, because a version number can never be reused. If a named number is not the next one in sequence, stop and ask.
 
 Check that the number was never used, because neither a pushed tag nor an npm version can be taken back: `git ls-remote --tags origin vX.Y.Z` must print nothing, and `npm view spektra-cli@X.Y.Z version` must fail with `E404`.
 
@@ -75,7 +75,7 @@ grep -nE '^(## \[X.Y.Z\] - |\[Unreleased\]: .*/compare/vX.Y.Z\.\.\.HEAD$|\[X.Y.Z
 **npm packaging tests**, all passing. These are `ci.yml`'s `Test npm packaging` commands (copy them from there if they have changed). `release.yml` only runs these scripts after the GitHub release exists, so a broken one would leave a release without its npm packages.
 
 ```bash
-for f in build publish smoke lib/registry lib/targets; do node --check "packaging/npm/$f.mjs"; done && node --test packaging/npm/test/shim.test.cjs packaging/npm/test/registry.test.mjs packaging/npm/test/targets.test.mjs
+for f in build publish smoke lib/registry lib/targets; do node --check "packaging/npm/$f.mjs" || { echo "check failed for $f"; exit 1; }; done && node --test packaging/npm/test/shim.test.cjs packaging/npm/test/registry.test.mjs packaging/npm/test/targets.test.mjs
 ```
 
 **Plugin validation**, both passing. The release also ships the Claude Code plugin, and the two runs check different things: from the repository root, the first checks `.claude-plugin/marketplace.json` and each plugin it lists, but never opens a skill file; the second checks the plugin itself, including its skills' frontmatter, and `--strict` fails on warnings too. If the `claude` command is not available, say so and ask the maintainer rather than skipping this gate.
@@ -153,7 +153,7 @@ git tag -l --format='%(contents:body)' vX.Y.Z
 
 ## 7. Push, only with the go-ahead
 
-Everything so far is local. From here every step is public and permanent: the tag starts the release, and an npm version can never be reused. Go on only when the maintainer's request for this version is a push, publish or ship request, as "Before you start" defines it (where each request stops, and that a go-ahead for an earlier release never carries over). On any other request you stopped after step 6 at the latest.
+Everything so far is local. From here every step is public and permanent: the tag starts the release, and an npm version can never be reused. Go on only on a push, publish or ship request for this version, given in this conversation, as "Before you start" defines it. On any other request you stopped after step 6 at the latest.
 
 `git rev-list --count <release-sha>..dev` decides the form: 0 means the release commit is `dev`'s tip, so use the commands below; anything else means unreleased commits sit above it, so use the stacked form further down. Run the commands one at a time, each only after the one before succeeded. First `dev`, then `main` (the chain stops at the first failure and prints its last line only when every step passed):
 
