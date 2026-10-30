@@ -1,17 +1,29 @@
 ---
 name: spektra-release
-description: 'Cut, push and verify a Spektra release: choose the semver bump, bump Directory.Build.props and the Claude plugin version, write the CHANGELOG entry, run every pre-tag gate (build, tests, format, vulnerable packages, plugin validation, publish smokes that mirror release.yml, isolated CLI and GUI launch smokes, the install-first MSI check), make the signed release commit and tag, push dev, main and the tag in the only safe order, then check the GitHub release, its checksums and the npm packages. Use it whenever someone wants to release, ship, publish or tag a version of Spektra ("cut 0.26.0", "do a patch release", "push and release", "bump the version and tag it", "write the changelog for the release"), and when a release run or its npm publish failed and needs recovering. Not for ordinary commits or pushes to dev.'
+description: 'Check, prepare, cut, push and verify a Spektra release: choose the semver bump, bump Directory.Build.props and the Claude plugin version, write the CHANGELOG entry, run every pre-tag gate (build, tests, format, vulnerable packages, plugin validation, publish smokes that mirror release.yml, isolated CLI and GUI launch smokes, the install-first MSI check), make the signed release commit and tag, push dev, main and the tag in the only safe order, then check the GitHub release, its checksums and the npm packages, stopping where the request does. Use it whenever someone wants to check, prepare, cut, release, ship, publish or tag a version of Spektra ("check whether we can release", "prepare the 0.26.0 release", "cut 0.26.0", "do a patch release", "push and release", "bump the version and tag it", "write the changelog for the release"), and when a release run or its npm publish failed and needs recovering. Not for ordinary commits or pushes to dev.'
 ---
 
 # Releasing Spektra
 
 Pushing a `vX.Y.Z` tag makes `.github/workflows/release.yml` build the installer, the archives and the CLI for four platforms, create the GitHub release and publish five npm packages. None of that can be taken back: the release page is public at once, and an npm version number can never be used again. So every check runs before the tag, the pushes go in one fixed order, and nothing public happens without the maintainer's go-ahead.
 
-Work through the steps in order. [reference.md](reference.md) holds the rarer paths: building the MSI for the install-first check, two releases at once, a dry run that publishes nothing, and recovering a failed run or npm publish.
+Work through the steps in order, as far as the request goes (see "Before you start"). [reference.md](reference.md) holds the rarer paths: building the MSI for the install-first check, two releases at once, a dry run that publishes nothing, and recovering a failed run or npm publish.
 
 ## Before you start
 
-- Work from the repository root, on Windows (the GUI smoke and the installer need it). `git branch --show-current` must print `dev`, the tree must be clean, and after `git fetch origin`, `git status -sb` must not show `dev` behind `origin/dev` (if it is, `git merge --ff-only origin/dev`). If any of that does not hold, stop and ask.
+The maintainer's verb decides where you stop and report, so settle it before step 1:
+
+- "check" a version, or whether one can ship: steps 1 and 4 only, and no tracked file is edited. Step 2 is skipped (its validation needs the bumped props file), and the publish smokes pass the version themselves with `-p:Version`.
+- "prepare" a version: steps 1 to 4, leaving exactly three files modified and uncommitted: `Directory.Build.props`, `CHANGELOG.md` and `plugins/spektra-cli/.claude-plugin/plugin.json`.
+- "cut", "release" or "tag" a version: steps 1 to 6, then stop before any push and show the version and its reason, the gate results, and the tag's subject and body.
+- "push", "publish" or "ship" a version: steps 1 to 8. This covers the whole release even when the request also says "release" or "cut", so "push and release" goes through in one go. The stops written into the steps (a failed gate, the dry run's go-ahead, the install-first report, a number that is not next in sequence) still apply in every tier.
+- If the verbs disagree, or it is unclear how far the maintainer meant, take the nearer stop and ask: a stop costs one sentence to lift, a push cannot be taken back.
+- A later request continues where the last one stopped and does not redo finished steps, except that the step 4 gates run again after a check or a prepare (the tree has changed, or may have been edited, since), and that after a cut you first confirm the release commit and the tag still exist locally and `git tag -v vX.Y.Z` still verifies.
+- A go-ahead given for an earlier release never carries over to this one.
+
+Then the setup:
+
+- Work from the repository root, on Windows (the GUI smoke and the installer need it). `git branch --show-current` must print `dev`, the tree must be clean or hold only the three files of a prepare for this same version (all three at that version), and after `git fetch origin`, `git status -sb` must not show `dev` behind `origin/dev` (if it is, `git merge --ff-only origin/dev`). If any of that does not hold, stop and ask.
 - Commands below are Git Bash. The repo's PowerShell scripts run through `powershell -NoProfile -ExecutionPolicy Bypass -File`: Windows PowerShell is enough (PowerShell 7 need not be installed), and `Bypass` lifts the execution policy for that one process only, without which a machine on the default `Restricted` policy refuses to run the scripts.
 - Needed: the .NET SDK that `global.json` names; `ffmpeg` and `ffprobe` on PATH (the tests and both smokes decode audio); Node.js (`node` and `npm`); `gh` signed in (`gh auth status`); WiX, only for the install-first MSI. If `ffmpeg -version` fails, ask: `tools/get-ffmpeg.ps1` installs into the user's real app data and is not yours to run unasked.
 - Placeholders: `X.Y.Z` is the new version; `<prev-tag>` the last release tag, from `git describe --tags --abbrev=0` run once in step 1 (after step 6 it would print the new tag); `<release-sha>` the full id of the release commit; `<run-id>` a workflow run id; `<scratch>` a new, empty folder outside the checkout for each attempt, written as a literal path such as the output of `echo "$(cygpath -m /tmp)/spektra-release-X.Y.Z-1"` (then `-2` for a second attempt, so a re-run never meets a warm cache, an old profile or an old capture). Shell variables do not survive between tool calls, so write the values out.
@@ -141,7 +153,7 @@ git tag -l --format='%(contents:body)' vX.Y.Z
 
 ## 7. Push, only with the go-ahead
 
-Everything so far is local. From here every step is public and permanent: the tag starts the release, and an npm version can never be reused. Push only when the maintainer has said, in this conversation, to push, publish or ship this version. A request to cut, release, prepare, check or tag a version covers steps 1 to 6 only: stop there, show them the version and its reason, the gate results, and the tag's subject and body, and ask. A go-ahead given for an earlier release does not carry over.
+Everything so far is local. From here every step is public and permanent: the tag starts the release, and an npm version can never be reused. Go on only when the maintainer's request for this version is a push, publish or ship request, as "Before you start" defines it (where each request stops, and that a go-ahead for an earlier release never carries over). On any other request you stopped after step 6 at the latest.
 
 `git rev-list --count <release-sha>..dev` decides the form: 0 means the release commit is `dev`'s tip, so use the commands below; anything else means unreleased commits sit above it, so use the stacked form further down. Run the commands one at a time, each only after the one before succeeded. First `dev`, then `main` (the chain stops at the first failure and prints its last line only when every step passed):
 
