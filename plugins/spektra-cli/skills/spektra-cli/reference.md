@@ -21,7 +21,7 @@ Contents: common options and exit codes · audit · report and scan · check · 
 | `loudness` | a file could not be measured |
 | `manifest`, `inventory`, `image` | never: they exit 0, or 2 on an error |
 
-Exit 2 always means the run itself failed: a bad option, a missing folder, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written.
+Exit 2 always means the run itself failed: a bad option, a missing folder for `scan`, `dupes`, `manifest` or `inventory`, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written. For `audit`, `report`, `check` and `loudness` a missing path is not exit 2: it comes back as a row with `error` set, exit 1 (exit 0 for `report`).
 
 ## audit
 

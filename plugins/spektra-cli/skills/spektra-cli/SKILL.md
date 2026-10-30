@@ -19,7 +19,7 @@ Read `reference.md` (beside this file) for each command's flags, JSON fields, sa
 
 - **Inside the Spektra source repository, this skill does not apply.** It runs the installed `spektra-cli` in the user's real profile, which can write the real audit cache; that repository's `CLAUDE.md` forbids running the app or the CLI against the user's real data and requires an isolated profile for every hand run, so follow it and its project skills instead.
 - **Never act on a verdict by yourself.** Do not delete, move, copy, rename, overwrite, re-tag or re-encode anything in the user's library because a report, a verdict or a duplicate group suggests it. Present the findings, let the user decide, and act only on an explicit confirmation of that action on those files. Verdicts are evidence, not proof (that is why `Suspicious`, `Medium` and `Low` exist), and a deleted original rarely comes back.
-- **Write outputs to a scratch folder, never into the library.** That covers JSON, CSV, HTML and PNG files. `image` without `-o` writes `<input>.png` beside the audio file and silently replaces any file of that name.
+- **Write outputs to a scratch folder, never into the library.** That covers JSON, CSV, HTML and PNG files. `image` without `-o` writes the PNG beside the audio file, named after it with `.png` in place of its extension (`song.flac` gives `song.png`), and silently replaces any file of that name.
 - **Keep library data out of the conversation.** Redirect folder-sized output to a file and read it with a short script that prints counts and a few examples. Summarise (counts, the folders where problems cluster, two or three examples) instead of pasting path lists: `dupes` and `manifest` print absolute paths, which often contain the user's name.
 - **Leave `--fresh` alone unless the user asks** for a re-analysis from scratch: it ignores the cache and decodes every file again.
 
@@ -35,7 +35,7 @@ Quote paths that contain spaces. `<scratch>` is a folder outside the library, su
 | What does folder A have that folder B lacks? | `spektra-cli dupes <folder-a> <folder-b> --json > <scratch>/pairs.json`, then subtract (recipe in reference.md) |
 | Are these two files the same master? | `spektra-cli diff <file-a> <file-b> --json` |
 | How loud is it? | `spektra-cli loudness <file> --json` (a folder works too; redirect it) |
-| What is in this folder: tags, cover art, file types? | `spektra-cli inventory <folder> --json > <scratch>/inventory.json`, or `spektra-cli manifest <folder> --json > <scratch>/manifest.json` for every file including non-audio |
+| What is in this folder: tags, cover art, file types? | `spektra-cli inventory <folder> --json > <scratch>/inventory.json` for tags and cover art, or `spektra-cli manifest <folder> --json > <scratch>/manifest.json` for each file's type and, where an earlier `audit` or `dupes` analysed it, its verdict (`manifest` also runs without ffmpeg) |
 | Show me | `spektra-cli image <file> -o <scratch>/spectrogram.png`, then open the PNG and look at it |
 
 Prefer `audit` for any question about a folder's quality. It runs the bandwidth and integrity checks together, caches each file's result so a repeat run only analyses new or changed files, counts only real problems, and keeps folder-relative paths. `report` and `scan` give the bandwidth half alone, count every lossy file (an honest MP3 included) as a finding, and their JSON keeps only bare file names.
@@ -44,7 +44,7 @@ Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recur
 
 ## Reading the results
 
-**Exit codes:** `0` clean, `1` findings, `2` usage or setup error (a bad option, a missing folder, no ffmpeg). Exit 1 is a result, not a failure, so read the output. What counts as a finding differs per command (see reference.md); `manifest` and `inventory` always exit 0 when they run.
+**Exit codes:** `0` clean, `1` findings, `2` usage or setup error (a bad option, no ffmpeg, a missing folder for `scan`, `dupes`, `manifest` or `inventory`). `audit`, `report`, `check` and `loudness` treat a missing or mistyped path as an unreadable file: one row with `error` set, exit 1 (exit 0 for `report`), so look for those rows before calling a folder clean. Exit 1 is a result, not a failure, so read the output. What counts as a finding differs per command (see reference.md); `manifest` and `inventory` always exit 0 when they run.
 
 **Bandwidth verdicts** (`bandwidth` in `audit` JSON, `verdict` in `report` and `scan`):
 
@@ -81,6 +81,6 @@ Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recur
 
 1. `spektra-cli --version`, to confirm the CLI is installed. A missing ffmpeg shows up in the next step as exit 2.
 2. `spektra-cli audit <folder> --json > <scratch>/audit.json`, with `<folder>` the user's Music folder. Expect exit 1 when anything is found, and a long first run on a big library.
-3. Sort the rows with a short script, never by printing them all. Likely fakes: a lossless `codec` (`flac`, `alac`, `ape`, `wavpack`, `pcm_s16le` and other `pcm_*`) with `bandwidth` `Lossy` or `Upsampled`, plus any file with a lossless extension whose `codec` is lossy (the renamed-file trap). Name apart: `Mixed` (part of the file), `Suspicious` inside a lossless file (worth a look, not proof), and `Corrupt` integrity (damaged, a different finding).
+3. First look for rows with `error` set: a mistyped folder comes back as one such row, and a filter on `codec` would drop it silently. Sort the rows with a short script, never by printing them all. Likely fakes: a lossless `codec` (`flac`, `alac`, `ape`, `wavpack`, `pcm_s16le` and other `pcm_*`) with `bandwidth` `Lossy` or `Upsampled`, plus any file with a lossless extension whose `codec` is lossy (the renamed-file trap). Name apart: `Mixed` (part of the file), `Suspicious` inside a lossless file (worth a look, not proof), and `Corrupt` integrity (damaged, a different finding).
 4. Report counts, where the likely fakes cluster (often whole albums from one source) and their cutoffs. Offer a spectrogram of one example as evidence, or `--html` for a page the user can browse.
 5. Stop there. If the user wants to replace or remove files, confirm exactly which files and which action first.
