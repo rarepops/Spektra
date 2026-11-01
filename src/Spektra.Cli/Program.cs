@@ -189,6 +189,8 @@ internal static partial class Program
             marks each group's best copy; give two or more folders to also find
             duplicates that live in different libraries. --fresh re-analyzes.
             Add --html out.html to also write the groups as a self-contained HTML page.
+            With --json or --csv the rows are the grouped files only; the files it
+            could not analyze are counted on stderr, and the text output lists them.
 
             manifest lists every file, audio or not, with a type chip per file;
             files the audit has seen before get their real codec and verdict

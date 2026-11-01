@@ -25,8 +25,19 @@ internal static partial class Program
             && !TryWriteHtml("dupes", html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")))
             return 2;
 
-        if (fmt != OutFormat.Text) Emit(DuplicateScan.ToRows(result), fmt);
-        else PrintDupes(result);
+        if (fmt == OutFormat.Text) PrintDupes(result);
+        else
+        {
+            Emit(DuplicateScan.ToRows(result), fmt);
+            // The rows are group members only, so a file the scan could not
+            // analyze leaves no trace in them and an empty list would read as
+            // "no duplicates". Counted on stderr, which keeps stdout pure.
+            if (result.NotAnalyzed.Count > 0)
+                Console.Error.WriteLine(
+                    $"spektra-cli dupes: {result.NotAnalyzed.Count} file(s) were not analyzed and could not be " +
+                    $"matched (shorter than {DuplicateScan.MinDurationSeconds:0} s, or unreadable); " +
+                    "run without --json or --csv to list them.");
+        }
         return result.Groups.Count > 0 ? 1 : 0;
     }
 
