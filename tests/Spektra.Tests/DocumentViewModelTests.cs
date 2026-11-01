@@ -78,4 +78,30 @@ public sealed class DocumentViewModelTests
         await Assert.That(string.Join(" | ", statuses)).IsEqualTo($"Checking integrity… | {summary}");
         await Assert.That(vm.StatusText).IsEqualTo(summary);
     }
+
+    [Test]
+    public async Task UserStartedCheck_DuringDecode_StillAnnounces()
+    {
+        var vm = new DocumentViewModel(Ff, Sine) { PrefetchChannels = false, AutoIntegrityCheck = false };
+        var statuses = StatusHistory(vm);
+
+        // LoadOverviewAsync returns once the decode has started, and the
+        // decode's continuation queues behind this test on its thread, so
+        // until this test awaits again the overview is still decoding. Ctrl+I
+        // comes in before that await.
+        await vm.LoadOverviewAsync();
+        var duringDecode = vm.StatusText;
+        var check = vm.ToggleIntegrityAsync();
+        await Assert.That(duringDecode).IsEqualTo("Analyzing…");
+
+        await check;
+        await Until(() => OverviewDone(statuses));
+
+        // Ctrl+I announced itself, then gave its result, whenever the
+        // overview finished around it.
+        var summary = vm.Integrity?.Summary;
+        await Assert.That(summary).IsNotNull();
+        await Assert.That(string.Join(" | ", statuses.Where(s => s == "Checking integrity…" || s == summary)))
+            .IsEqualTo($"Checking integrity… | {summary}");
+    }
 }
