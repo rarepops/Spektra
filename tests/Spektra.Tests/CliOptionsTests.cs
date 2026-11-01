@@ -270,18 +270,79 @@ public class CliOptionsTests
         await Assert.That(ex.Message).IsEqualTo("unknown option '--pallete'.");
     }
 
-    // A throwaway folder for the Inputs tests, which need paths that exist (or
-    // visibly do not). Everything under it is removed on dispose.
+    [Test]
+    public async Task ImageOutPath_Explicit_IsReturnedEvenWhenItExists()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var existing = scratch.NewFile("out.png");
+
+        // -o names the file, so replacing it is what was asked for.
+        await Assert.That(CliOptions.ImageOutPath(input, existing)).IsEqualTo(existing);
+    }
+
+    [Test]
+    public async Task ImageOutPath_Default_IsBesideTheInput()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+
+        await Assert.That(CliOptions.ImageOutPath(input, null)).IsEqualTo(scratch.Missing("song.png"));
+    }
+
+    [Test]
+    public async Task ImageOutPath_DefaultExists_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var png = scratch.NewFile("song.png", "keep me");
+
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+
+        // The message names what is in the way and the way out. The spaces keep
+        // a path that happens to contain "-o" from satisfying the second check.
+        await Assert.That(ex.Message).Contains(png);
+        await Assert.That(ex.Message).Contains(" -o ");
+        // Refusing leaves the file exactly as it was.
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
+    }
+
+    [Test]
+    public async Task ImageOutPath_InputIsAPng_Throws()
+    {
+        using var scratch = new Scratch();
+        var cover = scratch.NewFile("cover.png");
+
+        // Without -o the default output is the input itself, so rendering it
+        // would overwrite the only copy.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(cover, null); });
+        await Assert.That(ex.Message).Contains(cover);
+    }
+
+    [Test]
+    public async Task ImageOutPath_DefaultIsAFolder_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var folder = scratch.NewFolder("song.png");
+
+        // A folder in the way is as unwritable as a file the caller never offered.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+        await Assert.That(ex.Message).Contains(folder);
+    }
+
+    // A throwaway folder for the tests that need paths that exist (or visibly
+    // do not). Everything under it is removed on dispose.
     private sealed class Scratch : IDisposable
     {
         private readonly string root = Directory.CreateTempSubdirectory("spektra-inputs").FullName;
 
         public string NewFolder(string name) => Directory.CreateDirectory(Path.Combine(root, name)).FullName;
 
-        public string NewFile(string name)
+        public string NewFile(string name, string content = "")
         {
             var path = Path.Combine(root, name);
-            File.WriteAllBytes(path, []);
+            File.WriteAllText(path, content);
             return path;
         }
 

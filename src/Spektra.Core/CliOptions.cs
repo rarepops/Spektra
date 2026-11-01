@@ -5,8 +5,10 @@ namespace Spektra.Core;
 /// The output format a machine-readable CLI verb emits.
 public enum OutFormat { Text, Json, Csv }
 
-/// A recognized option flag was given a missing or invalid value, or an
-/// unrecognized flag was passed. The CLI catches this and exits 2.
+/// The command line cannot be run and nothing was done: a flag with a missing
+/// or invalid value, an unrecognized flag, a path that does not exist, a folder
+/// among other paths, or an image output that already exists. The CLI catches
+/// this and exits 2.
 public sealed class OptionException(string message) : Exception(message);
 
 /// What `diff` was asked for: every positional argument, in order, and its
@@ -169,5 +171,21 @@ public static class CliOptions
             else files.Add(a);
         }
         return new ImageArgs(files, outPath, paletteName, gamma, options);
+    }
+
+    /// Where `image` writes. An explicit -o names the file, so it is used as
+    /// given and may replace what is there. Without it the PNG goes beside the
+    /// input under the same name, and a file or folder already sitting there
+    /// is refused rather than replaced: it was never offered up (a cover, last
+    /// week's render), and for a .png input it is the input itself. Checked
+    /// before the render, so a refusal costs no decode.
+    public static string ImageOutPath(string input, string? outPath)
+    {
+        if (outPath is not null) return outPath;
+        var path = Path.ChangeExtension(input, ".png");
+        return Path.Exists(path)
+            ? throw new OptionException(
+                $"'{path}' already exists; pass -o <out.png> to write somewhere else, or -o '{path}' to replace it.")
+            : path;
     }
 }

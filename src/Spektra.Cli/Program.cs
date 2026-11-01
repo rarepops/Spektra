@@ -204,15 +204,19 @@ internal static partial class Program
             width>. Palette and gamma default to your app settings; the rest to
             -120, 2048, mix, 2048. --palette also accepts custom palettes: JSON
             files dropped in %APPDATA%\Spektra\palettes or a palettes folder next
-            to the app (see docs/cli.md for the format).
+            to the app (see docs/cli.md for the format). Without -o the PNG goes
+            beside the input, named like it with .png; image never replaces a file
+            it was not given, so if one is already there it exits 2: give -o to
+            pick a name, or to replace that file on purpose.
 
             Exit code is 1 on findings (report/scan: lossy, upsampled, mixed, or
             unreadable; check: corrupt files; audit: a transcode (including a lossy
             file under a lossless name such as .flac), an upsample, corruption, or an
             unreadable file - an honest lossy file is not a problem; dupes: one or more
             duplicate groups found; loudness: a file could not be measured; diff: the
-            files differ), 2 on setup errors (an unknown or malformed option, a path
-            that does not exist, or a folder given together with other paths).
+            files differ), 2 on setup errors (an unknown or malformed option, no file
+            or folder given, a path that does not exist, a folder given together with
+            other paths, or image: the default output file already exists).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
