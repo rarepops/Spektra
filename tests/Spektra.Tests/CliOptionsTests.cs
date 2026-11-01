@@ -331,6 +331,46 @@ public class CliOptionsTests
         await Assert.That(ex.Message).Contains(folder);
     }
 
+    [Test]
+    public async Task ImageOutPath_ExplicitIsTheInput_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.wav", "audio");
+
+        // The audio would be decoded and then replaced by its own spectrogram,
+        // so -o may not name it. By the same spelling (the message says why):
+        var same = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, input); });
+        await Assert.That(same.Message).StartsWith("-o ");
+        await Assert.That(same.Message).Contains("is the input file");
+
+        // in another case (ignored on every platform: a false refusal on a
+        // case-sensitive file system only costs another name, a missed one the audio):
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, input.ToUpperInvariant()); });
+
+        // through a detour that lands on the same file:
+        var detour = Path.Combine(Path.GetDirectoryName(input)!, "elsewhere", "..", "song.wav");
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, detour); });
+
+        // and as relative names, which both resolve against the working directory:
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("track.flac", Path.Combine(".", "track.flac")); });
+    }
+
+    [Test]
+    public async Task ImageOutPath_EmptyExplicit_Throws()
+    {
+        // An empty -o used to reach File.Create("") after the whole render, and crash.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("song.flac", ""); });
+        await Assert.That(ex.Message).IsEqualTo("-o needs a file path.");
+    }
+
+    [Test]
+    public async Task ImageOutPath_EmptyInput_ReturnsTheExplicitPath()
+    {
+        // `image "" -o out.png` is the render's to refuse (exit 2, "File not found:"):
+        // the same-file comparison must not turn it into a crash on GetFullPath("").
+        await Assert.That(CliOptions.ImageOutPath("", "out.png")).IsEqualTo("out.png");
+    }
+
     // A throwaway folder for the tests that need paths that exist (or visibly
     // do not). Everything under it is removed on dispose.
     private sealed class Scratch : IDisposable

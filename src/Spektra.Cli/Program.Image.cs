@@ -27,7 +27,7 @@ internal static partial class Program
         try
         {
             var (w, h, rgb) = new SpectrogramImage(ffmpeg).Render(input, options);
-            using var stream = File.Create(outPath);
+            using var stream = CreateOutput(outPath, replace: parsed.OutPath is not null);
             PngWriter.Write(stream, w, h, rgb);
             Console.WriteLine($"Wrote {outPath} ({w}x{h})");
             return 0;
@@ -38,6 +38,17 @@ internal static partial class Program
             Console.Error.WriteLine($"spektra-cli image: {ex.Message}");
             return 2;
         }
+    }
+
+    // ImageOutPath saw the default name free, but the decode since took seconds.
+    // CreateNew turns a file that appeared meanwhile into the same refusal (exit
+    // 2, nothing written) instead of truncating it; an explicit -o keeps
+    // create-or-replace. The translation covers the open only: a failure while
+    // writing the file just created must not read as "already exists".
+    private static FileStream CreateOutput(string path, bool replace)
+    {
+        try { return File.Open(path, replace ? FileMode.Create : FileMode.CreateNew); }
+        catch (IOException) when (!replace && Path.Exists(path)) { throw CliOptions.ImageOutExists(path); }
     }
 
     // The render follows the app's saved theme (palette + tightness);

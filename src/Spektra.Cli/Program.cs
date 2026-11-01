@@ -210,7 +210,8 @@ internal static partial class Program
             to the app (see docs/cli.md for the format). Without -o the PNG goes
             beside the input, named like it with .png; image never replaces a file
             it was not given, so if one is already there it exits 2: give -o to
-            pick a name, or to replace that file on purpose.
+            pick a name, or to replace that file on purpose. -o may not name the
+            input file itself.
 
             Exit code is 1 on findings (report/scan: lossy, upsampled, mixed, or
             unreadable; check: corrupt files; audit: a transcode (including a lossy

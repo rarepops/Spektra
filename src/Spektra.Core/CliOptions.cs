@@ -7,8 +7,8 @@ public enum OutFormat { Text, Json, Csv }
 
 /// The command line cannot be run and nothing was done: a flag with a missing
 /// or invalid value, an unrecognized flag, a path that does not exist, a folder
-/// among other paths, or an image output that already exists. The CLI catches
-/// this and exits 2.
+/// among other paths, or an image output that already exists or is the input
+/// itself. The CLI catches this and exits 2.
 public sealed class OptionException(string message) : Exception(message);
 
 /// What `diff` was asked for: every positional argument, in order, and its
@@ -174,18 +174,33 @@ public static class CliOptions
     }
 
     /// Where `image` writes. An explicit -o names the file, so it is used as
-    /// given and may replace what is there. Without it the PNG goes beside the
+    /// given and may replace what is there, except that it may not be empty or
+    /// be the input itself (full paths are compared, ignoring case on every
+    /// platform: a false refusal on a case-sensitive file system costs another
+    /// name, a missed one costs the audio). Without it the PNG goes beside the
     /// input under the same name, and a file or folder already sitting there
     /// is refused rather than replaced: it was never offered up (a cover, last
     /// week's render), and for a .png input it is the input itself. Checked
     /// before the render, so a refusal costs no decode.
     public static string ImageOutPath(string input, string? outPath)
     {
-        if (outPath is not null) return outPath;
+        if (outPath is not null)
+        {
+            if (outPath.Length == 0) throw new OptionException("-o needs a file path.");
+            // An empty input is the render's to refuse ("File not found"); GetFullPath
+            // would throw on it, so it must not reach the comparison.
+            if (input.Length > 0
+                && string.Equals(Path.GetFullPath(outPath), Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase))
+                throw new OptionException($"-o '{outPath}' is the input file itself; pass another output file.");
+            return outPath;
+        }
         var path = Path.ChangeExtension(input, ".png");
-        return Path.Exists(path)
-            ? throw new OptionException(
-                $"'{path}' already exists; pass -o <out.png> to write somewhere else, or -o '{path}' to replace it.")
-            : path;
+        return Path.Exists(path) ? throw ImageOutExists(path) : path;
     }
+
+    /// The refusal for a default image output that is taken. ImageOutPath raises
+    /// it up front, and the CLI raises it again if the name is taken while the
+    /// render runs, so both say the same thing.
+    public static OptionException ImageOutExists(string path) => new(
+        $"'{path}' already exists; pass -o <out.png> to write somewhere else, or -o '{path}' to replace it.");
 }
