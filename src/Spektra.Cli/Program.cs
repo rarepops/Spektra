@@ -5,7 +5,8 @@ namespace Spektra.Cli;
 
 /// Cross-platform command-line front end for Spektra's analysis engine. Writes
 /// to stdout like a normal console program, so output pipes and redirects
-/// cleanly. Exit code 1 when anything is judged likely lossy, 2 on setup errors.
+/// cleanly. Exit code 0 is a clean run, 1 a finding, 2 a setup error; Usage
+/// says what counts as a finding for each verb.
 internal static partial class Program
 {
     public static int Main(string[] args)
