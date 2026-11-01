@@ -65,10 +65,18 @@ jobs:
           # Re-pinning edits that script, which retires the cache entry.
           key: ffmpeg-${{ runner.os }}-${{ hashFiles('tools/get-ffmpeg.ps1') }}
 
+      # -RequirePinned makes CI refuse the script's fallback to the unpinned
+      # latest build when the pinned one is gone or fails its hash. The cache
+      # above is keyed on the script, not on what it installed, so a fallback
+      # build would sit under the pinned key until the script next changes: the
+      # step fails with the reason and the re-pin hint instead, and the cache can
+      # only ever hold the pinned build. A brief outage is not that case: the
+      # script retries each download (3 tries, 10 s and then 30 s apart) before
+      # it gives up.
       - name: Install ffmpeg
         if: steps.ffmpeg.outputs.cache-hit != 'true'
         shell: pwsh
-        run: ./tools/get-ffmpeg.ps1
+        run: ./tools/get-ffmpeg.ps1 -RequirePinned
 
       - name: Put ffmpeg on PATH
         shell: pwsh
