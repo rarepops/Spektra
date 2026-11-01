@@ -49,14 +49,14 @@ public static class TranscodeCheck
     /// True when a lossy codec sits under a file name that promises lossless
     /// audio: an mp3 renamed .flac, an aac saved as .wav. The codec alone
     /// calls such a file honest lossy, so the name has to be read as well.
-    /// Only the six extensions whose files are expected to be lossless count:
-    /// .m4a, .ogg and .wma hold both kinds (alac, flac, wmalossless), so they
-    /// claim nothing. A missing codec or name never accuses: absent data is no
-    /// evidence of a mislabel.
+    /// Only extensions whose files are expected to be lossless count (AIFF
+    /// under both its spellings): .m4a, .ogg and .wma hold both kinds (alac,
+    /// flac, wmalossless), so they claim nothing. A missing codec or name never
+    /// accuses: absent data is no evidence of a mislabel.
     public static bool IsLossyUnderLosslessName(string? fileName, string? codec) =>
         codec is not null && !IsLosslessCodec(codec)
         && Path.GetExtension(fileName)?.ToLowerInvariant()
-            is ".flac" or ".wav" or ".aiff" or ".ape" or ".wv" or ".alac";
+            is ".flac" or ".wav" or ".aiff" or ".aif" or ".ape" or ".wv" or ".alac";
 
     /// True when a Lossy verdict on this file is a problem: any lossy wall in
     /// a lossless container, or an mp3/aac cutoff below the floor for its

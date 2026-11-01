@@ -73,6 +73,7 @@ public sealed class TranscodeCheckTests
     [Arguments("SONG.FLAC", "mp3")]
     [Arguments("Album.v2/track.wav", "mp3")]
     [Arguments("a.aiff", "aac")]
+    [Arguments("a.aif", "mp3")]
     [Arguments("a.ape", "vorbis")]
     [Arguments("a.wv", "opus")]
     [Arguments("a.alac", "aac")]
