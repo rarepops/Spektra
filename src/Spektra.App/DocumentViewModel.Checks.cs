@@ -17,13 +17,18 @@ public sealed partial class DocumentViewModel
     }
 
     /// Runs the integrity check (corrupt frames, missing data, truncation) on a
-    /// background thread and publishes the result to the Integrity banner.
-    public async Task RunIntegrityCheckAsync()
+    /// background thread and publishes the result to the Integrity banner. A
+    /// check someone asked for also announces itself on the status bar, at the
+    /// start and with the result. The automatic one at load does not
+    /// (announce: false): the status bar belongs to the overview then, two jobs
+    /// writing it left it on whichever finished last, and the banner already
+    /// shows this result.
+    public async Task RunIntegrityCheckAsync(bool announce = true)
     {
         if (Metadata is not { } meta) return;
         _integrityCts?.Cancel();
         var cts = _integrityCts = new CancellationTokenSource();
-        StatusText = "Checking integrity…";
+        if (announce) StatusText = "Checking integrity…";
         try
         {
             var report = await Task.Run(
@@ -31,7 +36,7 @@ public sealed partial class DocumentViewModel
             if (cts.Token.IsCancellationRequested) return;
             Integrity = report;
             Cache?.PutIntegrity(FilePath, report);
-            StatusText = report.Summary;
+            if (announce) StatusText = report.Summary;
         }
         catch (OperationCanceledException) { }
         catch (AudioDecodeException ex)

@@ -164,6 +164,31 @@ public sealed class FolderManifestTests
     }
 
     [Test]
+    public async Task Build_CachedLossyUnderLosslessName_ReadsProblem()
+    {
+        var d = NewDir();
+        var dbPath = Path.Combine(d, "cache.db");
+        try
+        {
+            var audio = Path.Combine(d, "renamed.flac");
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "fixtures", "sine-1khz.mp3"), audio);
+            var info = new FileInfo(audio);
+            using (var cache = AuditCache.Open(dbPath))
+            {
+                // Cached clean, as a build before the renamed-file rule stored it:
+                // the manifest still reads the problem off the row's name and codec.
+                cache.Put(new AuditTarget(audio, info.Length, info.LastWriteTimeUtc.Ticks),
+                    Row("renamed.flac", codec: "mp3"), hasProblem: false);
+                var root = FolderManifest.Build(d, cache);
+                var file = root.Files.Single(f => f.Name == "renamed.flac");
+                await Assert.That(file.Severity).IsEqualTo(RowSeverity.Problem);
+                await Assert.That(file.Kind).IsEqualTo("mp3");
+            }
+        }
+        finally { Directory.Delete(d, recursive: true); }
+    }
+
+    [Test]
     public async Task StaleCacheEntry_FallsBackToExtensionChip()
     {
         var d = NewDir();

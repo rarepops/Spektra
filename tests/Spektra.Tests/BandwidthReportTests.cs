@@ -34,6 +34,27 @@ public class BandwidthReportTests
     }
 
     [Test]
+    public async Task IsFinding_LossyUpsampledMixedOrUnreadable_IsTrue()
+    {
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Lossy))).IsTrue();
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Upsampled))).IsTrue();
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Mixed))).IsTrue();
+        // A file that could not be read has no verdict, and must not read as a pass.
+        await Assert.That(BandwidthReport.IsFinding(new FileReport("a.flac", null, null, "boom"))).IsTrue();
+    }
+
+    [Test]
+    public async Task IsFinding_LosslessSuspiciousUnknown_IsFalse()
+    {
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Lossless))).IsFalse();
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Suspicious))).IsFalse();
+        await Assert.That(BandwidthReport.IsFinding(WithVerdict(VerdictKind.Unknown))).IsFalse();
+    }
+
+    private static FileReport WithVerdict(VerdictKind kind) =>
+        new("a.flac", null, new LosslessVerdict(kind, null, kind.ToString(), null), null);
+
+    [Test]
     public async Task FindAudioFiles_FindsFixtures_SkipsNonAudio()
     {
         var files = BandwidthReport.FindAudioFiles(Fixtures, recursive: false).ToList();

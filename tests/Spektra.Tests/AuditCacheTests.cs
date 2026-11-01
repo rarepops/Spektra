@@ -50,7 +50,8 @@ public sealed class AuditCacheTests : IDisposable
     public async Task Put_TryGet_RoundTrips()
     {
         using var cache = AuditCache.Open(DbPath);
-        cache.Put(Target(), Row(), hasProblem: true);
+        var upsampled = Row() with { Bandwidth = "Upsampled" }; // a problem by the rule
+        cache.Put(Target(), upsampled, hasProblem: true);
 
         var entry = cache.TryGet(Target());
 
@@ -58,7 +59,23 @@ public sealed class AuditCacheTests : IDisposable
         await Assert.That(entry!.FromCache).IsTrue();
         await Assert.That(entry.HasProblem).IsTrue();
         await Assert.That(entry.Target).IsEqualTo(Target());
-        await Assert.That(entry.Row).IsEqualTo(Row());
+        await Assert.That(entry.Row).IsEqualTo(upsampled);
+    }
+
+    [Test]
+    public async Task TryGet_DerivesHasProblem_FromTheRow()
+    {
+        // The stored flag is what the build that analyzed the file thought. The
+        // rule is applied to the row on read instead, so a rule change reaches
+        // cached rows without re-analysis.
+        using var cache = AuditCache.Open(DbPath);
+        var renamed = Target(@"C:\music\renamed.flac");
+        // What a build before the renamed-file rule wrote: an mp3 under a .flac name, stored clean.
+        cache.Put(renamed, Row() with { File = "renamed.flac", Codec = "mp3" }, hasProblem: false);
+        cache.Put(Target(), Row(), hasProblem: true);
+
+        await Assert.That(cache.TryGet(renamed)!.HasProblem).IsTrue();
+        await Assert.That(cache.TryGet(Target())!.HasProblem).IsFalse();
     }
 
     [Test]

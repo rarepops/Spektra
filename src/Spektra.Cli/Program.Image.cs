@@ -19,13 +19,15 @@ internal static partial class Program
             return 2;
         }
 
-        var options = WithPalette(parsed);
+        // Before the palette load and the decode: a refusal to replace a file
+        // costs neither, and reaches Main as an OptionException (exit 2).
         var input = parsed.Files[0];
-        var outPath = parsed.OutPath ?? Path.ChangeExtension(input, ".png");
+        var outPath = CliOptions.ImageOutPath(input, parsed.OutPath);
+        var options = WithPalette(parsed);
         try
         {
             var (w, h, rgb) = new SpectrogramImage(ffmpeg).Render(input, options);
-            using var stream = File.Create(outPath);
+            using var stream = CliOptions.OpenImageOutput(outPath, replace: parsed.OutPath is not null);
             PngWriter.Write(stream, w, h, rgb);
             Console.WriteLine($"Wrote {outPath} ({w}x{h})");
             return 0;

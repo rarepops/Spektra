@@ -9,9 +9,9 @@ internal static partial class Program
         var fresh = paths.Contains("--fresh");
         paths = paths.Where(p => p != "--fresh").ToArray();
         var html = CliOptions.TakeHtml(ref paths);
-        CliOptions.RejectUnknownFlags(paths);
-        var folder = paths.Length == 1 && Directory.Exists(paths[0]) ? paths[0] : null;
-        var targets = folder is not null ? FolderAudit.CollectTargets(folder) : ExplicitTargets(paths);
+        var inputs = CliOptions.Inputs(paths);
+        var folder = inputs.Folder;
+        var targets = folder is not null ? FolderAudit.CollectTargets(folder) : ExplicitTargets(inputs.Files);
         if (targets.Length == 0)
         {
             Console.Error.WriteLine("spektra-cli audit: give one or more audio files or a folder.");
@@ -44,7 +44,7 @@ internal static partial class Program
         return problems > 0 ? 1 : 0;
     }
 
-    private static AuditTarget[] ExplicitTargets(string[] paths) =>
+    private static AuditTarget[] ExplicitTargets(IReadOnlyList<string> paths) =>
         paths.Select(p =>
         {
             var info = new FileInfo(p);
@@ -58,7 +58,10 @@ internal static partial class Program
             var bw = row.Error is not null ? "error"
                 : $"{row.Bandwidth}{(row.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
             var integ = row.Error is not null ? "ERROR" : row.Integrity;
-            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}");
+            // A renamed lossy file can read clean on both columns, so the line
+            // itself has to say why it counts as a problem.
+            var holds = TranscodeCheck.IsLossyUnderLosslessName(row.File, row.Codec) ? $" · holds {row.Codec}" : "";
+            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}{holds}");
         }
         Console.WriteLine($"{Environment.NewLine}{files} files, {problems} with problems.");
     }

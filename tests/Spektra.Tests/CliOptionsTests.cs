@@ -47,6 +47,100 @@ public class CliOptionsTests
     }
 
     [Test]
+    public async Task Inputs_OneFolder_IsFolderMode()
+    {
+        using var scratch = new Scratch();
+        var dir = scratch.NewFolder("album");
+
+        var inputs = CliOptions.Inputs([dir]);
+
+        await Assert.That(inputs.Folder).IsEqualTo(dir);
+        await Assert.That(inputs.Files.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Inputs_OneFolderWithTrailingSeparator_IsFolderMode()
+    {
+        using var scratch = new Scratch();
+        var dir = scratch.NewFolder("album");
+
+        var inputs = CliOptions.Inputs([dir + Path.DirectorySeparatorChar]);
+
+        await Assert.That(inputs.Folder).IsNotNull();
+    }
+
+    [Test]
+    public async Task Inputs_Files_AreFiles()
+    {
+        using var scratch = new Scratch();
+        var a = scratch.NewFile("a.flac");
+        var b = scratch.NewFile("b.wav");
+
+        var inputs = CliOptions.Inputs([a, b]);
+
+        await Assert.That(inputs.Folder).IsNull();
+        await Assert.That(string.Join("|", inputs.Files)).IsEqualTo($"{a}|{b}");
+    }
+
+    [Test]
+    public async Task Inputs_MissingPath_Throws_NamingIt()
+    {
+        using var scratch = new Scratch();
+        var file = scratch.NewFile("a.flac");
+        var missing = scratch.Missing("missing.flac");
+
+        var amongFiles = Assert.Throws<OptionException>(() => { CliOptions.Inputs([file, missing]); });
+        await Assert.That(amongFiles.Message).Contains(missing);
+
+        // A mistyped folder, trailing separator and all, is named as typed.
+        var typed = missing + Path.DirectorySeparatorChar;
+        var alone = Assert.Throws<OptionException>(() => { CliOptions.Inputs([typed]); });
+        await Assert.That(alone.Message).Contains(typed);
+    }
+
+    [Test]
+    public async Task Inputs_FolderAmongOthers_Throws()
+    {
+        using var scratch = new Scratch();
+        var dirA = scratch.NewFolder("a");
+        var dirB = scratch.NewFolder("b");
+        var file = scratch.NewFile("song.flac");
+
+        var twoFolders = Assert.Throws<OptionException>(() => { CliOptions.Inputs([dirA, dirB]); });
+        await Assert.That(twoFolders.Message).Contains("is a folder");
+
+        var folderFirst = Assert.Throws<OptionException>(() => { CliOptions.Inputs([dirA, file]); });
+        await Assert.That(folderFirst.Message).Contains("is a folder");
+
+        // Position does not matter, and the message names the folder, not the file.
+        var folderLast = Assert.Throws<OptionException>(() => { CliOptions.Inputs([file, dirA]); });
+        await Assert.That(folderLast.Message).Contains("is a folder");
+        await Assert.That(folderLast.Message).Contains(dirA);
+    }
+
+    [Test]
+    public async Task Inputs_Empty_IsEmpty()
+    {
+        // No paths is the verb's own "give one or more audio files or a folder."
+        // exit 2, not a complaint from here.
+        var inputs = CliOptions.Inputs([]);
+
+        await Assert.That(inputs.Folder).IsNull();
+        await Assert.That(inputs.Files.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Inputs_UnknownFlag_StillRejectedFirst()
+    {
+        using var scratch = new Scratch();
+        var missing = scratch.Missing("missing.flac");
+
+        // The mistyped flag is named even when a path is also wrong.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.Inputs([missing, "--jso"]); });
+        await Assert.That(ex.Message).IsEqualTo("unknown option '--jso'.");
+    }
+
+    [Test]
     public async Task Value_NextTokenIsAnotherFlag_Throws()
     {
         // "--palette --gamma x" must not consume "--gamma" as the palette value
@@ -174,5 +268,193 @@ public class CliOptionsTests
     {
         var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseImage(["a.flac", "--pallete", "magma"]); });
         await Assert.That(ex.Message).IsEqualTo("unknown option '--pallete'.");
+    }
+
+    [Test]
+    public async Task ImageOutPath_Explicit_IsReturnedEvenWhenItExists()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var existing = scratch.NewFile("out.png");
+
+        // -o names the file, so replacing it is what was asked for.
+        await Assert.That(CliOptions.ImageOutPath(input, existing)).IsEqualTo(existing);
+    }
+
+    [Test]
+    public async Task ImageOutPath_Default_IsBesideTheInput()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+
+        await Assert.That(CliOptions.ImageOutPath(input, null)).IsEqualTo(scratch.Missing("song.png"));
+    }
+
+    [Test]
+    public async Task ImageOutPath_DefaultExists_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var png = scratch.NewFile("song.png", "keep me");
+
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+
+        // The message names what is in the way and both ways out. The replace hint says
+        // "with that same path" and does not quote it a second time: a quoted copy would
+        // not paste into cmd.exe (the quotes stay literal) and breaks on an apostrophe.
+        await Assert.That(ex.Message).IsEqualTo(
+            $"'{png}' already exists; pass -o <out.png> to write somewhere else, or -o with that same path to replace it.");
+        // Refusing leaves the file exactly as it was.
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
+    }
+
+    [Test]
+    public async Task ImageOutPath_InputIsAPng_Throws()
+    {
+        using var scratch = new Scratch();
+        var cover = scratch.NewFile("cover.png");
+
+        // Without -o the default output is the input itself, so rendering it
+        // would overwrite the only copy. The replace hint is left out: -o with
+        // that path would be refused too, because it names the input.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(cover, null); });
+        await Assert.That(ex.Message).IsEqualTo($"'{cover}' already exists; pass -o <out.png> to write somewhere else.");
+    }
+
+    [Test]
+    public async Task ImageOutPath_DefaultIsAFolder_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var folder = scratch.NewFolder("song.png");
+
+        // A folder in the way is as unwritable as a file the caller never offered.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+        await Assert.That(ex.Message).Contains(folder);
+    }
+
+    [Test]
+    public async Task ImageOutPath_ExplicitIsTheInput_Throws()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.wav", "audio");
+
+        // The audio would be decoded and then replaced by its own spectrogram,
+        // so -o may not name it. By the same spelling (the message says why):
+        var same = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, input); });
+        await Assert.That(same.Message).StartsWith("-o ");
+        await Assert.That(same.Message).Contains("is the input file");
+
+        // in another case (ignored on every platform: a false refusal on a
+        // case-sensitive file system only costs another name, a missed one the audio):
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, input.ToUpperInvariant()); });
+
+        // through a detour that lands on the same file:
+        var detour = Path.Combine(Path.GetDirectoryName(input)!, "elsewhere", "..", "song.wav");
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, detour); });
+
+        // and as relative names, which both resolve against the working directory:
+        Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("track.flac", Path.Combine(".", "track.flac")); });
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments(" ")]
+    [Arguments("   ")]
+    [Arguments("\t")]
+    public async Task ImageOutPath_EmptyExplicit_Throws(string blank)
+    {
+        // An empty -o used to reach File.Create("") after the whole render, and crash.
+        // Spaces only are as unusable, and Path.GetFullPath throws on them on Windows.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("song.flac", blank); });
+        await Assert.That(ex.Message).IsEqualTo("-o needs a file path.");
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments(" ")]
+    [Arguments("   ")]
+    public async Task ImageOutPath_EmptyInput_ReturnsTheExplicitPath(string blank)
+    {
+        // `image "" -o out.png` is the render's to refuse (exit 2, "File not found:"):
+        // the same-file comparison must not turn it into a crash. Path.GetFullPath
+        // throws on an empty or all-spaces path (on Windows).
+        await Assert.That(CliOptions.ImageOutPath(blank, "out.png")).IsEqualTo("out.png");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_RefusesAFileThatAppeared()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var png = scratch.NewFile("song.png", "keep me");
+
+        // The name is taken by the time the decode is done: the refusal is the one the
+        // user gets up front, and what was there is not touched.
+        var upFront = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+        var late = Assert.Throws<OptionException>(() => { using var stream = CliOptions.OpenImageOutput(png, replace: false); });
+
+        await Assert.That(late.Message).IsEqualTo(upFront.Message);
+        await Assert.That(late.Message).IsEqualTo(
+            $"'{png}' already exists; pass -o <out.png> to write somewhere else, or -o with that same path to replace it.");
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Explicit_ReplacesTheFile()
+    {
+        using var scratch = new Scratch();
+        var png = scratch.NewFile("out.png", "an older, longer render");
+
+        using (var stream = CliOptions.OpenImageOutput(png, replace: true))
+            stream.Write("new"u8);
+
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("new");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_CreatesAFreeName()
+    {
+        using var scratch = new Scratch();
+        var png = scratch.Missing("song.png");
+
+        using (var stream = CliOptions.OpenImageOutput(png, replace: false))
+            stream.Write("new"u8);
+
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("new");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_OtherFailuresKeepTheirOwnError()
+    {
+        using var scratch = new Scratch();
+        // The folder is missing, so nothing is "already there": the OS error must not be
+        // dressed up as the refusal.
+        var inMissingFolder = Path.Combine(scratch.Missing("nowhere"), "song.png");
+
+        var ex = Assert.Throws<DirectoryNotFoundException>(
+            () => { using var stream = CliOptions.OpenImageOutput(inMissingFolder, replace: false); });
+        await Assert.That(ex.Message).Contains("nowhere");
+    }
+
+    // A throwaway folder for the tests that need paths that exist (or visibly
+    // do not). Everything under it is removed on dispose.
+    private sealed class Scratch : IDisposable
+    {
+        private readonly string root = Directory.CreateTempSubdirectory("spektra-inputs").FullName;
+
+        public string NewFolder(string name) => Directory.CreateDirectory(Path.Combine(root, name)).FullName;
+
+        public string NewFile(string name, string content = "")
+        {
+            var path = Path.Combine(root, name);
+            File.WriteAllText(path, content);
+            return path;
+        }
+
+        // A path under the scratch folder where nothing was made.
+        public string Missing(string name) => Path.Combine(root, name);
+
+        public void Dispose() => Directory.Delete(root, recursive: true);
     }
 }

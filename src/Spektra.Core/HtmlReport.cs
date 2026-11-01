@@ -78,7 +78,10 @@ public static class HtmlReport
             var sevClass = sev == 2 ? "bad" : sev == 1 ? "sus" : "ok";
             body.Append($"<tr data-sev=\"{sev}\">");
             body.Append($"<td>{Escape(row.File)}</td>");
-            body.Append($"<td>{Escape(row.Codec)}</td>");
+            // A lossy codec under a lossless name is explained by the codec, so
+            // that cell is the red one (the GUI's CodecIsBad, the CLI's "holds").
+            var codecClass = TranscodeCheck.IsLossyUnderLosslessName(row.File, row.Codec) ? " class=\"bad\"" : "";
+            body.Append($"<td{codecClass}>{Escape(row.Codec)}</td>");
             body.Append($"<td class=\"{(row.Bandwidth is "Upsampled" ? "up" : sevClass)}\">{Escape(row.Bandwidth)}</td>");
             body.Append($"<td data-v=\"{(row.CutoffHz ?? 0).ToString(CultureInfo.InvariantCulture)}\">{(row.CutoffHz is { } c ? (c / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) : "")}</td>");
             body.Append($"<td class=\"{IntegrityClass(row.Integrity)}\">{Escape(row.Integrity)}</td>");

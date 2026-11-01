@@ -5,8 +5,10 @@ namespace Spektra.Core;
 /// The output format a machine-readable CLI verb emits.
 public enum OutFormat { Text, Json, Csv }
 
-/// A recognized option flag was given a missing or invalid value, or an
-/// unrecognized flag was passed. The CLI catches this and exits 2.
+/// The command line cannot be run and nothing was done: a flag with a missing
+/// or invalid value, an unrecognized flag, a path that does not exist, a folder
+/// among other paths, or an image output that already exists or is the input
+/// itself. The CLI catches this and exits 2.
 public sealed class OptionException(string message) : Exception(message);
 
 /// What `diff` was asked for: every positional argument, in order, and its
@@ -19,6 +21,11 @@ public sealed record DiffArgs(IReadOnlyList<string> Files, double? OffsetMs, flo
 /// floor, so it travels here as a name.
 public sealed record ImageArgs(
     IReadOnlyList<string> Files, string? OutPath, string? PaletteName, double? Gamma, ImageOptions Options);
+
+/// What a verb that takes "one folder or some files" was given. Folder is set
+/// (and Files empty) when the one argument is a folder to search; otherwise
+/// Folder is null and Files holds the paths as typed. Every path in it exists.
+public sealed record InputSet(string? Folder, IReadOnlyList<string> Files);
 
 /// Argument parsing for the command-line front end. It lives in Core so it is
 /// unit-testable (the CLI project carries no tests of its own).
@@ -101,6 +108,28 @@ public static class CliOptions
                 throw new OptionException($"unknown option '{a}'.");
     }
 
+    /// Sorts a verb's positional paths into one folder or a list of files, and
+    /// fails before anything is analyzed when they are neither: an unknown flag
+    /// (checked first), a path that does not exist (a typo would otherwise read
+    /// as an error row, or as success), or a folder given together with other
+    /// paths (a verb searches one folder or takes files, never a mix). The CLI
+    /// turns the OptionException into exit 2. An empty list stays empty, for
+    /// the verb to say what it wants.
+    public static InputSet Inputs(IReadOnlyList<string> positionals)
+    {
+        RejectUnknownFlags(positionals);
+        var folders = new List<string>();
+        foreach (var p in positionals)
+        {
+            if (Directory.Exists(p)) folders.Add(p);
+            else if (!File.Exists(p)) throw new OptionException($"no such file or folder: '{p}'.");
+        }
+        if (folders.Count == 0) return new InputSet(null, positionals);
+        return positionals.Count == 1
+            ? new InputSet(folders[0], [])
+            : throw new OptionException($"'{folders[0]}' is a folder: give one folder by itself, or files only.");
+    }
+
     public static DiffArgs ParseDiff(string[] args)
     {
         double? offsetMs = null;
@@ -143,4 +172,61 @@ public static class CliOptions
         }
         return new ImageArgs(files, outPath, paletteName, gamma, options);
     }
+
+    /// Where `image` writes. An explicit -o names the file, so it is used as
+    /// given and may replace what is there, except that it may not be blank or
+    /// be the input itself (full paths are compared, ignoring case on every
+    /// platform: a false refusal on a case-sensitive file system costs another
+    /// name, a missed one costs the audio). Without it the PNG goes beside the
+    /// input under the same name, and a file or folder already sitting there
+    /// is refused rather than replaced: it was never offered up (a cover, last
+    /// week's render), and for a .png input it is the input itself. Checked
+    /// before the render, so a refusal costs no decode; OpenImageOutput checks
+    /// again when the file is created.
+    public static string ImageOutPath(string input, string? outPath)
+    {
+        if (outPath is not null)
+        {
+            // Blank is as unusable as empty, and Path.GetFullPath throws on an empty or
+            // all-spaces path (on Windows), which would crash instead of exiting 2.
+            if (string.IsNullOrWhiteSpace(outPath)) throw new OptionException("-o needs a file path.");
+            if (NamesTheInput(outPath, input))
+                throw new OptionException($"-o '{outPath}' is the input file itself; pass another output file.");
+            return outPath;
+        }
+        var path = Path.ChangeExtension(input, ".png");
+        return Path.Exists(path) ? throw ImageOutExists(path, isInput: NamesTheInput(path, input)) : path;
+    }
+
+    /// Whether a path is the input file itself, by full path ignoring case. A blank
+    /// input is the render's to refuse ("File not found") and no path can name it;
+    /// GetFullPath would throw on it, so the comparison is skipped.
+    private static bool NamesTheInput(string path, string input) =>
+        !string.IsNullOrWhiteSpace(input)
+        && string.Equals(Path.GetFullPath(path), Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase);
+
+    /// Opens the PNG for writing. The default name (replace false) was free when
+    /// ImageOutPath looked, but the decode since took seconds: CreateNew turns a
+    /// file that appeared meanwhile into the same refusal, with nothing written,
+    /// instead of truncating it. An explicit -o (replace true) keeps
+    /// create-or-replace. Only a collision is translated: any other failure to
+    /// open keeps its own exception, so it is never dressed up as "already exists".
+    public static FileStream OpenImageOutput(string path, bool replace)
+    {
+        try { return File.Open(path, replace ? FileMode.Create : FileMode.CreateNew); }
+        catch (IOException) when (!replace && Path.Exists(path)) { throw ImageOutExists(path); }
+    }
+
+    /// The refusal for a default image output that is taken: ImageOutPath raises
+    /// it up front and OpenImageOutput again if the name is taken during the
+    /// render, so both say the same thing. The replace hint says "that same path"
+    /// instead of quoting it again: a quoted copy does not paste into cmd.exe (the
+    /// quotes stay literal) and breaks on an apostrophe in bash and PowerShell. The
+    /// hint is dropped when the taken name is the input itself (a .png input),
+    /// because -o with that path is refused too. OpenImageOutput never meets that
+    /// case: the render decoded the input, so it exists and ImageOutPath already
+    /// refused it up front.
+    private static OptionException ImageOutExists(string path, bool isInput = false) => new(
+        $"'{path}' already exists; pass -o <out.png> to write somewhere else"
+        + (isInput ? "." : ", or -o with that same path to replace it."));
 }

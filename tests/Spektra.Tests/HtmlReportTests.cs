@@ -91,6 +91,16 @@ public sealed class HtmlReportTests
     }
 
     [Test]
+    public async Task AuditDocument_CodecCellIsBad_ForALossyFileUnderALosslessName()
+    {
+        // The codec is what explains a renamed file's problem, so that is the
+        // red cell; the same codec under its own name stays unmarked.
+        var html = HtmlReport.AuditDocument([Row("renamed.flac", "mp3"), Row("honest.mp3", "mp3")], "T");
+        await Assert.That(html).Contains("<td>renamed.flac</td><td class=\"bad\">mp3</td>");
+        await Assert.That(html).Contains("<td>honest.mp3</td><td>mp3</td>");
+    }
+
+    [Test]
     public async Task AuditDocument_EscapesFileNames()
     {
         var html = HtmlReport.AuditDocument([Row("<img src=x>.flac")], "T");

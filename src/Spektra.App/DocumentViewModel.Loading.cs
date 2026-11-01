@@ -62,8 +62,9 @@ public sealed partial class DocumentViewModel
             // says otherwise, or the result is already remembered): a damaged
             // file must not hide behind a green bandwidth banner until someone
             // remembers Ctrl+I. Runs beside the overview decode; the banner
-            // and lane appear whenever the result lands.
-            if (Integrity is null && AutoIntegrityCheck) _ = RunIntegrityCheckAsync();
+            // and lane appear whenever the result lands, and the status bar
+            // stays the overview's.
+            if (Integrity is null && AutoIntegrityCheck) _ = RunIntegrityCheckAsync(announce: false);
 
             await RestartComputeLoopAsync(meta);
         }
