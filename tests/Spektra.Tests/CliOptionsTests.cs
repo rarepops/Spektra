@@ -299,10 +299,11 @@ public class CliOptionsTests
 
         var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
 
-        // The message names what is in the way and the way out. The spaces keep
-        // a path that happens to contain "-o" from satisfying the second check.
-        await Assert.That(ex.Message).Contains(png);
-        await Assert.That(ex.Message).Contains(" -o ");
+        // The message names what is in the way and both ways out. The replace hint says
+        // "with that same path" and does not quote it a second time: a quoted copy would
+        // not paste into cmd.exe (the quotes stay literal) and breaks on an apostrophe.
+        await Assert.That(ex.Message).IsEqualTo(
+            $"'{png}' already exists; pass -o <out.png> to write somewhere else, or -o with that same path to replace it.");
         // Refusing leaves the file exactly as it was.
         await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
     }
@@ -314,9 +315,10 @@ public class CliOptionsTests
         var cover = scratch.NewFile("cover.png");
 
         // Without -o the default output is the input itself, so rendering it
-        // would overwrite the only copy.
+        // would overwrite the only copy. The replace hint is left out: -o with
+        // that path would be refused too, because it names the input.
         var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(cover, null); });
-        await Assert.That(ex.Message).Contains(cover);
+        await Assert.That(ex.Message).IsEqualTo($"'{cover}' already exists; pass -o <out.png> to write somewhere else.");
     }
 
     [Test]
@@ -393,7 +395,8 @@ public class CliOptionsTests
         var late = Assert.Throws<OptionException>(() => { using var stream = CliOptions.OpenImageOutput(png, replace: false); });
 
         await Assert.That(late.Message).IsEqualTo(upFront.Message);
-        await Assert.That(late.Message).Contains(png);
+        await Assert.That(late.Message).IsEqualTo(
+            $"'{png}' already exists; pass -o <out.png> to write somewhere else, or -o with that same path to replace it.");
         await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
     }
 

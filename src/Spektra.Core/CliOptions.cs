@@ -190,16 +190,20 @@ public static class CliOptions
             // Blank is as unusable as empty, and Path.GetFullPath throws on an empty or
             // all-spaces path (on Windows), which would crash instead of exiting 2.
             if (string.IsNullOrWhiteSpace(outPath)) throw new OptionException("-o needs a file path.");
-            // A blank input is the render's to refuse ("File not found"), and -o cannot
-            // name it; GetFullPath would throw on it, so the comparison is skipped.
-            if (!string.IsNullOrWhiteSpace(input)
-                && string.Equals(Path.GetFullPath(outPath), Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase))
+            if (NamesTheInput(outPath, input))
                 throw new OptionException($"-o '{outPath}' is the input file itself; pass another output file.");
             return outPath;
         }
         var path = Path.ChangeExtension(input, ".png");
-        return Path.Exists(path) ? throw ImageOutExists(path) : path;
+        return Path.Exists(path) ? throw ImageOutExists(path, isInput: NamesTheInput(path, input)) : path;
     }
+
+    /// Whether a path is the input file itself, by full path ignoring case. A blank
+    /// input is the render's to refuse ("File not found") and no path can name it;
+    /// GetFullPath would throw on it, so the comparison is skipped.
+    private static bool NamesTheInput(string path, string input) =>
+        !string.IsNullOrWhiteSpace(input)
+        && string.Equals(Path.GetFullPath(path), Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase);
 
     /// Opens the PNG for writing. The default name (replace false) was free when
     /// ImageOutPath looked, but the decode since took seconds: CreateNew turns a
@@ -215,7 +219,14 @@ public static class CliOptions
 
     /// The refusal for a default image output that is taken: ImageOutPath raises
     /// it up front and OpenImageOutput again if the name is taken during the
-    /// render, so both say the same thing.
-    private static OptionException ImageOutExists(string path) => new(
-        $"'{path}' already exists; pass -o <out.png> to write somewhere else, or -o '{path}' to replace it.");
+    /// render, so both say the same thing. The replace hint says "that same path"
+    /// instead of quoting it again: a quoted copy does not paste into cmd.exe (the
+    /// quotes stay literal) and breaks on an apostrophe in bash and PowerShell. The
+    /// hint is dropped when the taken name is the input itself (a .png input),
+    /// because -o with that path is refused too. OpenImageOutput never meets that
+    /// case: the render decoded the input, so it exists and ImageOutPath already
+    /// refused it up front.
+    private static OptionException ImageOutExists(string path, bool isInput = false) => new(
+        $"'{path}' already exists; pass -o <out.png> to write somewhere else"
+        + (isInput ? "." : ", or -o with that same path to replace it."));
 }
