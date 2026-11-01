@@ -4,6 +4,22 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-11-01
+
+### Added
+- A Claude Code plugin for the command-line tool. Add this repository as a plugin marketplace and install the plugin from inside Claude Code (`/plugin marketplace add rarepops/Spektra`, then `/plugin install spektra-cli@spektra`), and Claude Code learns to use `spektra-cli` for you: which command answers which question (are these FLACs real, is anything corrupt, what do I have twice, what does one folder have that another lacks), how to read the verdicts and exit codes, how to work through a whole library without flooding the conversation, and never to delete, move or rename a file on Spektra's say-so without asking you first. It installs neither the tool nor ffmpeg, and its version follows Spektra's, so it describes this release's behaviour. Claude Code leaves automatic updates off for third-party marketplaces by default; `docs/cli.md` says how to update it.
+
+### Changed
+- The command-line tool's exit codes now say what happened, which scripts that call it may notice. A path that does not exist, or a folder given together with other paths, stops `report`, `check`, `audit` and `loudness` with exit code `2` before anything is analyzed, as the help always promised: a mistyped folder used to come back as one unreadable "file" and exit `1`, or `0` from `report`, so a typo in a script read as a finished scan. `report` and `scan` now exit `1` when a file cannot be read, as `check`, `audit` and `loudness` already did, instead of `0` with the failure visible only inside the output. `scan` takes exactly one folder and exits `2` otherwise, where `scan A B` used to scan `A` and silently ignore `B`.
+
+### Fixed
+- A lossy file renamed to look lossless is no longer passed as genuine. Spektra judged a file by its codec alone, so an MP3 renamed `.flac`, `.wav`, `.aiff`, `.aif`, `.ape`, `.wv` or `.alac` passed `audit` as an honest lossy file and read `Clean` in the Folder Manifest, exactly the fake the tool exists to catch. A lossy codec under a lossless file name now counts as a problem whatever its spectrum looks like: `audit` counts it and ends its line with `· holds mp3` (or whatever the file really holds), the Folder Manifest shows the real codec and `Problem`, the folder audit grid turns the Codec cell red, and the HTML report marks the same cell. Files already in the audit cache are judged by the new rule as soon as they are read, without being analyzed again.
+- `image` never replaces a file it was not given. Without `-o`, `image song.flac` wrote `song.png` beside the audio and silently replaced any file already called that, cover art included. It now refuses with exit code `2` when that file exists, checking before the render and again at the moment it writes, so a file that appears during a long render is safe too, and the message says how to choose another name. An explicit `-o` still replaces what it names, except the audio file itself and a blank path: `image song.flac -o song.flac` used to overwrite the recording with its own spectrogram, and a blank `-o` crashed after the whole render.
+- `dupes --json` and `--csv` no longer leave files out in silence. Files too short to fingerprint (under 20 seconds) and files that could not be read were listed in the text output but simply missing from the JSON and CSV, so an empty result looked like proof that a library had no duplicates. The rows are unchanged, so scripts that count groups still count correctly, and a line on stderr now says how many files were left out and how to list them.
+- The status bar ends the same way every time a file opens, on `Done in ... · N columns`. The overview and the automatic integrity check both wrote it when they finished, so it ended on whichever happened to finish last; the automatic check now leaves the status bar alone, since its result already has its own banner. A check you start yourself with Ctrl+I still shows `Checking integrity…` and then its result.
+- The command-line help no longer says `--json` and `--csv` work on every command (`image` takes neither), and the `dupes` and `manifest` examples in `docs/cli.md` show the absolute paths both commands really print.
+- Building from source survives a brief outage at the ffmpeg download site. `tools/get-ffmpeg.ps1` used to fall back to an unpinned ffmpeg build after a single failed download, without saying why, and CI could then keep that unpinned build in its cache. Every download is now tried up to three times, a fallback names its reason, and CI refuses the fallback outright, so it only ever tests against the pinned build.
+
 ## [0.25.1] - 2026-10-13
 
 ### Changed
@@ -542,7 +558,8 @@ at all; `npm install -g spektra-cli` gives you 0.24.3 or later.
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/rarepops/Spektra/releases/tag/v0.26.0
 [0.25.1]: https://github.com/rarepops/Spektra/releases/tag/v0.25.1
 [0.25.0]: https://github.com/rarepops/Spektra/releases/tag/v0.25.0
 [0.24.4]: https://github.com/rarepops/Spektra/releases/tag/v0.24.4

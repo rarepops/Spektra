@@ -1,7 +1,7 @@
 {
   "name": "spektra-cli",
   "description": "Use spektra-cli from Claude Code: find transcodes, upsamples, corruption and duplicates in a music library, compare files and folders, and read the verdicts safely.",
-  "version": "0.25.1",
+  "version": "0.26.0",
   "author": {
     "name": "rarepops",
     "url": "https://github.com/rarepops"
