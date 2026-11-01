@@ -16,10 +16,21 @@ public class FolderAuditTests
         public void Report(AuditEntry value) { lock (Seen) Seen.Add(value); }
     }
 
-    private static AuditTarget T(string file)
+    private static AuditTarget T(string file) => TargetAt(P(file));
+
+    private static AuditTarget TargetAt(string path)
     {
-        var info = new FileInfo(P(file));
+        var info = new FileInfo(path);
         return new AuditTarget(info.FullName, info.Length, info.LastWriteTimeUtc.Ticks);
+    }
+
+    /// sine-1khz.mp3 copied into a fresh temp folder as renamed.flac: an mp3
+    /// whose name promises lossless audio. The caller deletes the folder.
+    private static string RenamedMp3Copy()
+    {
+        var path = Path.Combine(Directory.CreateTempSubdirectory("spektra-renamed").FullName, "renamed.flac");
+        File.Copy(P("sine-1khz.mp3"), path);
+        return path;
     }
 
     private string NewTempDb() => Path.Combine(
@@ -72,14 +83,40 @@ public class FolderAuditTests
         // The entry-based HasProblem and the row-only RowSeverityOf share one
         // problem rule (FolderAudit.IsProblem), so a file must classify the same
         // once flattened to a row. Covers a transcode (problem), an honest lossy
-        // (clean), a clean wav, and an unreadable file (problem via the error
-        // term). Guards against the two predicates being split apart again.
-        foreach (var name in (string[])["transcode.flac", "chirp-mp3-64.mp3", "chirp.wav", "notaudio.txt"])
+        // (clean), a clean wav, an unreadable file (problem via the error term),
+        // and an mp3 renamed .flac (problem via the file name: the entry reads a
+        // full path, the row a bare name). Guards against the two predicates
+        // being split apart again.
+        var renamed = RenamedMp3Copy();
+        try
         {
-            var result = FolderAudit.AnalyzeFile(Ff, P(name));
-            var rowIsProblem = FolderAudit.RowSeverityOf(result.ToRow()) == RowSeverity.Problem;
-            await Assert.That(result.HasProblem).IsEqualTo(rowIsProblem);
+            string[] paths =
+                [P("transcode.flac"), P("chirp-mp3-64.mp3"), P("chirp.wav"), P("notaudio.txt"), renamed];
+            foreach (var path in paths)
+            {
+                var result = FolderAudit.AnalyzeFile(Ff, path);
+                var rowIsProblem = FolderAudit.RowSeverityOf(result.ToRow()) == RowSeverity.Problem;
+                await Assert.That(result.HasProblem).IsEqualTo(rowIsProblem);
+            }
         }
+        finally { Directory.Delete(Path.GetDirectoryName(renamed)!, recursive: true); }
+    }
+
+    [Test]
+    public async Task Run_Mp3RenamedFlac_IsAProblem()
+    {
+        // The codec alone calls this an honest mp3; the .flac name promises
+        // lossless audio, so the file is a problem whatever its bandwidth reads
+        // (a pure tone may well read Unknown, so the verdict is not asserted).
+        var renamed = RenamedMp3Copy();
+        try
+        {
+            var entries = FolderAudit.Run(Ff, [TargetAt(renamed)], jobs: 1);
+            await Assert.That(entries[0].Row.Codec).IsEqualTo("mp3");
+            await Assert.That(entries[0].HasProblem).IsTrue();
+            await Assert.That(FolderAudit.Severity(entries[0])).IsEqualTo(RowSeverity.Problem);
+        }
+        finally { Directory.Delete(Path.GetDirectoryName(renamed)!, recursive: true); }
     }
 
     [Test]

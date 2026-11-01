@@ -3,8 +3,10 @@ namespace Spektra.Core;
 /// Decides when a Lossy bandwidth verdict signals a transcode rather than an
 /// honest lossy file. Two cases: lossy content inside a lossless container
 /// ("lossy as lossless"), and an mp3/aac whose cutoff sits far below what its
-/// bitrate should deliver (re-encoded from a lossier source). Conservative by
-/// design: missing codec, bitrate, channel, or cutoff data never accuses.
+/// bitrate should deliver (re-encoded from a lossier source). It also reads the
+/// file name, which flags a lossy codec under a lossless-only extension
+/// whatever the verdict. Conservative by design: missing codec, bitrate,
+/// channel, cutoff, or name data never accuses.
 public static class TranscodeCheck
 {
     private static readonly HashSet<string> LosslessCodecs = new(StringComparer.OrdinalIgnoreCase)
@@ -43,6 +45,18 @@ public static class TranscodeCheck
     /// all. A missing codec never accuses; a missing cutoff never excuses.
     public static bool IsHonestHighCutoff(string? codec, double? cutoffHz) =>
         !IsLosslessCodec(codec) && cutoffHz >= CutoffAnalyzer.HighCutoffSuspicionHz;
+
+    /// True when a lossy codec sits under a file name that promises lossless
+    /// audio: an mp3 renamed .flac, an aac saved as .wav. The codec alone
+    /// calls such a file honest lossy, so the name has to be read as well.
+    /// Only the six extensions whose files are expected to be lossless count:
+    /// .m4a, .ogg and .wma hold both kinds (alac, flac, wmalossless), so they
+    /// claim nothing. A missing codec or name never accuses: absent data is no
+    /// evidence of a mislabel.
+    public static bool IsLossyUnderLosslessName(string? fileName, string? codec) =>
+        codec is not null && !IsLosslessCodec(codec)
+        && Path.GetExtension(fileName)?.ToLowerInvariant()
+            is ".flac" or ".wav" or ".aiff" or ".ape" or ".wv" or ".alac";
 
     /// True when a Lossy verdict on this file is a problem: any lossy wall in
     /// a lossless container, or an mp3/aac cutoff below the floor for its

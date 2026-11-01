@@ -38,6 +38,10 @@ public sealed class FolderRow(AuditEntry entry, string rootFolder) : IFileItem
         || (Row.Bandwidth is "Lossy"
             && TranscodeCheck.IsSuspectLossy(Row.Codec, Row.BitrateBps, Row.Channels, Row.CutoffHz));
 
+    /// An mp3 renamed .flac can read fine on bandwidth and integrity, so the
+    /// Codec cell is what shows why the row counts as a problem.
+    public bool CodecIsBad => TranscodeCheck.IsLossyUnderLosslessName(FullPath, Row.Codec);
+
     public RowSeverity Severity { get; } = FolderAudit.Severity(entry);
     public bool BandwidthIsUpsampled => Row.Bandwidth is "Upsampled";
     public bool IntegrityIsBad => Row.Integrity is "Corrupt" or "Error";

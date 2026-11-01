@@ -58,7 +58,10 @@ internal static partial class Program
             var bw = row.Error is not null ? "error"
                 : $"{row.Bandwidth}{(row.CutoffHz is { } hz ? $" {hz / 1000:0.0}k" : "")}";
             var integ = row.Error is not null ? "ERROR" : row.Integrity;
-            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}");
+            // A renamed lossy file can read clean on both columns, so the line
+            // itself has to say why it counts as a problem.
+            var holds = TranscodeCheck.IsLossyUnderLosslessName(row.File, row.Codec) ? $" · holds {row.Codec}" : "";
+            Console.WriteLine($"  bandwidth={bw,-18} integrity={integ,-8} {row.File}{holds}");
         }
         Console.WriteLine($"{Environment.NewLine}{files} files, {problems} with problems.");
     }

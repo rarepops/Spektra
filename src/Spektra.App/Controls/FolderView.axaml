@@ -193,7 +193,14 @@
             </DataGridTemplateColumn>
             <DataGridTextColumn Header="Cutoff kHz" Binding="{Binding CutoffKhz, StringFormat='0.0'}"
                                 SortMemberPath="CutoffKhz" Width="Auto" />
-            <DataGridTextColumn Header="Codec" Binding="{Binding Codec}" Width="Auto" />
+            <DataGridTemplateColumn Header="Codec" SortMemberPath="Codec" Width="Auto">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Classes="cell" Classes.bad="{Binding CodecIsBad}"
+                             Text="{Binding Codec}" Margin="12,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <DataGridTextColumn Header="kbps" Binding="{Binding BitrateKbps, StringFormat='0'}"
                                 SortMemberPath="BitrateKbps" Width="Auto" />
             <DataGridTextColumn Header="Hz" Binding="{Binding SampleRateHz}" Width="Auto" />

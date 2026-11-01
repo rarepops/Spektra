@@ -161,7 +161,7 @@ public sealed class AuditCache : IDisposable
         {
             using var cmd = _db.CreateCommand();
             cmd.CommandText = """
-                SELECT size, mtime_ticks, analysis_version, has_problem, row_json
+                SELECT size, mtime_ticks, analysis_version, row_json
                 FROM files WHERE path = $path
                 """;
             cmd.Parameters.AddWithValue("$path", target.Path);
@@ -174,13 +174,18 @@ public sealed class AuditCache : IDisposable
             AuditRow? row;
             try
             {
-                row = JsonSerializer.Deserialize<AuditRow>(r.GetString(4));
+                row = JsonSerializer.Deserialize<AuditRow>(r.GetString(3));
             }
             catch (JsonException)
             {
                 return null; // corrupt row_json: treat as a miss so the file re-analyzes
             }
-            return row is null ? null : new AuditEntry(target, row, r.GetInt64(3) != 0, FromCache: true);
+            // The problem flag is derived on read, not taken from has_problem, so
+            // a problem-rule change over facts the row already holds reaches
+            // cached rows without re-analysis. Put still writes has_problem
+            // because older builds sharing this file read it.
+            return row is null ? null
+                : new AuditEntry(target, row, FolderAudit.RowSeverityOf(row) == RowSeverity.Problem, FromCache: true);
         }
     }
 

@@ -42,7 +42,7 @@ Run all three before calling a code change done. CI runs the same ones.
 - Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `build:`, `ci:`). Commits are signed; never pass `--no-gpg-sign` or `--no-verify`. No AI attribution lines (`Co-Authored-By` or similar).
 - No em-dashes in anything written (code, comments, docs, commit messages): use a comma, a colon, parentheses or a middot. Markdown is one line per paragraph or bullet, never hard-wrapped. LF line endings everywhere (`.gitattributes`, `.editorconfig`).
 - The repository is public: never commit personal paths, names, emails, or details of anyone's files or music library.
-- Bump `AuditCache.AnalysisVersion` only when how a verdict or integrity result is computed changes, so cached audit rows re-analyze; changes that only alter when files are analyzed leave it alone (see `CONTRIBUTING.md`).
+- Bump `AuditCache.AnalysisVersion` only when how a verdict or integrity result is computed changes, so cached audit rows re-analyze; changes that only alter when files are analyzed leave it alone, and a change to the problem rule alone needs no bump either, because the problem flag is derived from the cached row on read (see `CONTRIBUTING.md`).
 - Everything else, from code style to fixtures, is in `CONTRIBUTING.md`.
 
 ## Skills

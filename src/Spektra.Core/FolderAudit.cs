@@ -20,12 +20,15 @@ public sealed record AuditResult(FileReport Report, IntegrityReport? Integrity, 
     public AuditRow ToRow() => Reporting.ToAuditRow(Report, Integrity, IntegrityError);
 
     /// True when the file warrants attention: unreadable, upsampled, corrupt,
-    /// or a transcode (a Lossy verdict counts only when TranscodeCheck says
-    /// the wall does not belong there - lossy content in a lossless container,
-    /// or an mp3/aac far below its bitrate's expected cutoff).
+    /// a lossy codec under a lossless-only file name (an mp3 renamed .flac,
+    /// whatever its bandwidth reads), or a transcode (a Lossy verdict counts
+    /// only when TranscodeCheck says the wall does not belong there - lossy
+    /// content in a lossless container, or an mp3/aac far below its bitrate's
+    /// expected cutoff).
     public bool HasProblem =>
         FolderAudit.IsProblem(
             Report.Error,
+            Report.Path,
             Report.Verdict?.Kind is VerdictKind.Upsampled,
             Report.Verdict?.Kind is VerdictKind.Mixed,
             Report.Verdict?.Kind is VerdictKind.Lossy,
@@ -59,6 +62,7 @@ public static class FolderAudit
     {
         var problem = IsProblem(
             row.Error,
+            row.File,
             row.Bandwidth is "Upsampled",
             row.Bandwidth is "Mixed",
             row.Bandwidth is "Lossy",
@@ -75,13 +79,14 @@ public static class FolderAudit
     /// A new problem dimension is a new parameter here, which the compiler then
     /// forces both callers to fill, so the two can no longer silently drift.
     internal static bool IsProblem(
-        string? error, bool upsampled, bool mixed, bool lossy,
+        string? error, string? fileName, bool upsampled, bool mixed, bool lossy,
         string? codec, long? bitRateBps, int? channels, double? cutoffHz,
         bool integrityBad) =>
         error is not null
         || upsampled
         || mixed
         || (lossy && TranscodeCheck.IsSuspectLossy(codec, bitRateBps, channels, cutoffHz))
+        || TranscodeCheck.IsLossyUnderLosslessName(fileName, codec)
         || integrityBad;
 
     // A Suspicious verdict colors the row yellow, unless it is an honest

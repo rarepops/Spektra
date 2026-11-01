@@ -67,4 +67,28 @@ public sealed class TranscodeCheckTests
     public async Task IsHonestHighCutoff_ExcusesLossyContainersAboveTheLine(
         string? codec, double? cutoffHz, bool expected) =>
         await Assert.That(TranscodeCheck.IsHonestHighCutoff(codec, cutoffHz)).IsEqualTo(expected);
+
+    [Test]
+    [Arguments("song.flac", "mp3")]
+    [Arguments("SONG.FLAC", "mp3")]
+    [Arguments("Album.v2/track.wav", "mp3")]
+    [Arguments("a.aiff", "aac")]
+    [Arguments("a.ape", "vorbis")]
+    [Arguments("a.wv", "opus")]
+    [Arguments("a.alac", "aac")]
+    [Arguments("a.wav", "adpcm_ms")]
+    public async Task IsLossyUnderLosslessName_LossyCodecUnderLosslessName_IsTrue(string name, string codec) =>
+        await Assert.That(TranscodeCheck.IsLossyUnderLosslessName(name, codec)).IsTrue();
+
+    [Test]
+    [Arguments("song.flac", "flac")]
+    [Arguments("song.wav", "pcm_s16le")]
+    [Arguments("song.mp3", "mp3")]
+    [Arguments("song.m4a", "aac")]
+    [Arguments("song.flac.mp3", "mp3")]
+    [Arguments("song", "mp3")]
+    [Arguments("song.flac", null)]
+    [Arguments(null, "mp3")]
+    public async Task IsLossyUnderLosslessName_OtherwiseIsFalse(string? name, string? codec) =>
+        await Assert.That(TranscodeCheck.IsLossyUnderLosslessName(name, codec)).IsFalse();
 }
