@@ -47,7 +47,7 @@ Add `--json` or `--csv` to any command except `image` for machine-readable outpu
 
     spektra-cli scan ~/Music --csv > library.csv
 
-Exit code 1 means findings (a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is fine), 2 a setup error (such as a path that does not exist), 0 a clean run, so a check fits straight into a script or a continuous integration job:
+Exit code 1 means findings (for `audit`: a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is fine), 2 a setup error (such as a path that does not exist), 0 a clean run, so a check fits straight into a script or a continuous integration job:
 
     spektra-cli audit ~/Music || echo "something in there is not what it claims"
 
