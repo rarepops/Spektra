@@ -10,9 +10,9 @@ Install it with the Windows installer, from a `spektra-cli-<version>-<os>.zip` o
 
 The npm package holds the same self-contained binaries as the zips, one per platform, and npm installs only the one the machine can run (Windows x64, ARM64 under emulation; Linux x64 with glibc, so not Alpine; macOS Intel and Apple silicon). It bundles no ffmpeg, exactly like the zips.
 
-- A single **folder** argument recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/alac); otherwise the arguments are taken as individual files.
+- `report`, `check`, `audit` and `loudness` take either one **folder**, which recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/aif/alac), or one or more individual files. A path that does not exist, or a folder given together with other paths, exits `2` before anything is analyzed, so a mistyped path cannot pass for a clean run.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, `check` corruption, `audit` real problems only (a transcode, an upsample, or corruption; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing, a path that does not exist, a folder given together with other paths). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, or a file that could not be read, `check` corruption, `audit` real problems only (a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).
 
 ## report: bandwidth verdict per file
 
@@ -41,6 +41,8 @@ Possible verdicts: **Lossless** (full-band), **Suspicious** (a rolloff that coul
     ...
     1247 files: 1180 lossless, 12 suspect, 31 likely lossy, 4 upsampled, 18 unknown, 2 errors.
 
+`scan` takes exactly one folder: no argument, two or more, a path that does not exist, or a file all exit `2`. A file that could not be read prints as `[ERROR   ]`, counts under `errors`, and makes the run exit `1`.
+
 ## check: integrity (corruption / missing data)
 
     $ spektra-cli check download.flac
@@ -56,24 +58,27 @@ Suspect means worth a listen: one or two stray decode errors (an isolated damage
       bandwidth=Lossless           integrity=Ok       01 Intro.flac
       bandwidth=Lossy 16.0k        integrity=Ok       02 Transcode.flac
       bandwidth=Upsampled 22.0k    integrity=Ok       03 Fake96k.flac
+      bandwidth=Lossy 16.0k        integrity=Ok       04 Renamed.flac · holds mp3
 
-    3 files, 2 with problems.
+    4 files, 3 with problems.
 
 A `Lossy` verdict counts as a problem only when it should not be there: lossy content inside a lossless format (`Transcode.flac` above), or an mp3/aac whose cutoff sits far below what its bitrate should deliver (a 320 kbps MP3 walling at 16 kHz was re-encoded from a ~128 kbps source). An MP3 with the cutoff its bitrate predicts is just an MP3 and exits `0`.
+
+A lossy file under a lossless name is a problem whatever its bandwidth verdict. `04 Renamed.flac` above is an MP3 that was renamed: it still decodes as one, so its line ends `· holds mp3` (the real codec) while its name promises lossless. The same goes for a lossy codec under `.wav`, `.aiff`, `.aif`, `.ape`, `.wv` or `.alac`; `.m4a`, `.ogg` and `.wma` can hold either kind, so they claim nothing.
 
 When the argument is a folder, the `File` column holds each file's path relative to it (nested rows read `Album/CD2/03.flac`), in text, CSV, and JSON output alike; explicit file arguments keep the bare name.
 
 Audit results are cached per file in `%APPDATA%\Spektra\audit-cache.db` (keyed by size and modified time), so repeat runs of the same library only analyze new or changed files. Pass `--fresh` to ignore the cache and re-analyze everything; results are written back either way. The cache is disposable: deleting the file just means the next audit starts cold. The `audit` command analyzes immediately and in full, while the desktop app's folder tab is the fine-grained counterpart (browse, pick which files to check, then analyze); both share this same on-disk cache, so a file analyzed in one is already cached for the other.
 
-Add --html report.html to also write the audit as a self-contained dark HTML page (sortable table).
+Add --html report.html to also write the audit as a self-contained dark HTML page (sortable table; a lossy codec under a lossless name shows red in the Codec column).
 
 ## dupes: find duplicate songs, keep the best
 
-    $ spektra-cli dupes Music
+    $ spektra-cli dupes /music
     Group 1 · Song Title · 2 files · sameness High · reclaim 3.2 MB
-      * Music/Album/01 Song Title.flac  [FLAC · Lossless · Ok] sameness 1.00
-        Music/Downloads/song title (v2).mp3  [MP3 · Lossy 16.0k · Ok] sameness 0.97  found by audio
-        quality High: winner is full-band lossless (FLAC), runner-up is MP3 cut at 16.0 kHz.
+      * /music/Album/01 Song Title.flac  [flac · Lossless · Ok] sameness 1.00
+        /music/Downloads/song title (v2).mp3  [mp3 · Lossy 16.0k · Ok] sameness 0.97  found by audio
+        quality High: winner is full-band lossless (flac), runner-up is mp3 cut at 16.0 kHz
 
     1 group(s) · 2 files · reclaimable 3.2 MB · 214 scanned
 
@@ -81,9 +86,13 @@ Matches audio fingerprints across every folder given on the command line, so dup
 
 Inside a group the winner (marked with `*`; a tie can mark more than one) is the copy worth keeping, ranked by the same bandwidth and integrity facts `audit` reports: full-band lossless beats a lossless file with a suspicious wall at or above 20 kHz, which beats honest lossy ranked by cutoff, which beats a proven transcode or upsampled container; corrupt members drop to the bottom outright and suspect integrity costs one class. The `quality` line names the winner and runner-up and says how sure the ranking is (`High`, `Medium`, or `Low`); treat `Low` as "look before you delete."
 
-Files too short to fingerprint reliably are listed as not analyzed instead of silently dropped:
+Files too short to fingerprint reliably, or that cannot be read, are listed as not analyzed (the reason is in brackets) instead of silently dropped:
 
-    ! not analyzed: Music/Jingles/station-id.wav (shorter than 20 s)
+      ! not analyzed: /music/Jingles/station-id.wav (shorter than 20 s)
+
+With `--json` or `--csv` the rows are the grouped files only, so those files cannot appear in them. One line on stderr counts them instead (stdout and the exit code carry no sign of it), and a run without the flag lists which:
+
+    spektra-cli dupes: 1 file(s) were not analyzed and could not be matched (shorter than 20 s, or unreadable); run without --json or --csv to list them.
 
 **Stated limits, by design:** candidates must land within 15 seconds of each other's decoded duration, so a radio edit will not pair with the extended mix; files under 20 seconds are excluded outright, since that is too little audio to fingerprint with confidence; the aligned match must cover most of the shorter file, so two tracks that merely share a section (a sample, a common intro or beat) do not pair; and matching is on audio content, not intent, so a remix, live version, or edit of a song is a different recording and will not group with the original even though a person would call them "the same song." Two copies sourced from noticeably different masters (say, a streaming rip and a differently mastered release of the same track) may also fail to pair: the fingerprint judges them different audio, which errs on the safe side.
 
@@ -95,14 +104,14 @@ Add --html report.html to also write the groups as a self-contained dark HTML pa
 
 ## manifest: list everything, decode nothing
 
-    $ spektra-cli manifest Music/Album
-    flac      28.4 MB  Music/Album/01 Song.flac · Clean
-    flac      31.1 MB  Music/Album/02 Other Song.flac
-    jpg      812.0 KB  Music/Album/cover.jpg
-    nfo        2.0 KB  Music/Album/notes.nfo
-    4 file(s) · 2 flac · 1 jpg · 1 nfo · 60.3 MB
+    $ spektra-cli manifest /music/Album
+    flac      28.4 MB  /music/Album/01 Song.flac · Clean
+    mp3        7.3 MB  /music/Album/02 Other Song.flac · Problem
+    jpg      812.0 KB  /music/Album/cover.jpg
+    nfo        2.0 KB  /music/Album/notes.nfo
+    4 file(s) · 1 flac · 1 jpg · 1 mp3 · 1 nfo · 36.5 MB
 
-The GUI's Folder Manifest as a command: one folder, every file (audio or not) with a type chip, size, and, for audio the audit cache has seen before, the honest codec and a verdict (`Clean`, `Suspect`, `Problem`), so a FLAC that is really a transcode is called out here too. The summary line is the folder's composition rollup plus its recursive size on disk. Nothing is ever decoded and no file is ever touched, which also makes this the one command that works without ffmpeg installed.
+The GUI's Folder Manifest as a command: one folder, every file (audio or not) with a type chip, size, and, for audio the audit cache has seen before, the honest codec and a verdict (`Clean`, `Suspect`, `Problem`), so a FLAC that is really a transcode is called out here too, and so is an MP3 renamed `.flac` (the chip shows its real codec, `mp3`, and the verdict reads `Problem`, as on the second line above). The summary line is the folder's composition rollup plus its recursive size on disk. Nothing is ever decoded and no file is ever touched, which also makes this the one command that works without ffmpeg installed.
 
 Add `--html manifest.html` for the self-contained collapsible tree page, or `--csv` / `--json` for flat rows (path, name, kind, severity, size), depth-first in display order.
 
@@ -179,7 +188,7 @@ spektra-cli diff approved.flac remaster.flac --threshold-db 60 || exit 1
 
 Renders the whole file's spectrogram headlessly: one pixel per analysis cell, low frequencies at the bottom, colormapped exactly like the desktop app. The image is the raw spectrogram (no axes or labels), sized width x (fft/2 + 1).
 
-- `-o <out.png>` sets the output (default: the input name with `.png`).
+- `-o <out.png>` sets the output. Without it the PNG goes beside the input, named like it with `.png`, and `image` never replaces a file it was not given: if `rip.png` is already there it writes nothing and exits `2` with `spektra-cli: 'rip.png' already exists; pass -o <out.png> to write somewhere else, or -o 'rip.png' to replace it.` With `-o` a file of that name is replaced on purpose, except the input itself (compared by path); `-o` naming the input, or a blank `-o`, exits `2` too.
 - `--palette magma|viridis|inferno|grayscale|plasma|cividis|turbo|monogreen|monoamber` or the name of a custom palette (below); defaults to the palette saved in the app's settings (Turbo out of the box).
 - `--gamma <g>` - the level curve the app calls Tightness (default: your app setting): above 1 keeps quiet detail darker so peaks read tighter, below 1 blooms.
 - `--floor <dB>` (default -120), `--fft <size>` (default 2048), `--channel <n>` (1-based; default mixdown), `--columns <n>` (width budget, default 2048; long files are peak-hold merged to fit, so any length stays whole-file).
@@ -201,7 +210,7 @@ or stops that pin a color to a position (`at`, 0..1 of the display range) or to 
 
 ## Machine-readable reports
 
-Add `--json` or `--csv` to any command:
+Add `--json` or `--csv` to any command except `image`:
 
     spektra-cli scan Music --csv > library.csv
     spektra-cli audit Music --json | jq '.[] | select(.bandwidth != "Lossless")'
@@ -222,7 +231,7 @@ The columns are stable, ordered rows (`file, codec, sampleRateHz, …`); the sam
     # is the "remaster" the same recording as my old rip? (exit 0 = effectively identical)
     spektra-cli diff my-rip.flac remaster.flac
 
-    # spectrogram PNG next to every file in an album folder
+    # spectrogram PNG next to every file in an album folder (a re-run skips the PNGs already there: image exits 2 for each and the loop carries on)
     for f in Album/*.flac; do spektra-cli image "$f"; done
 
 ## Use with Claude Code

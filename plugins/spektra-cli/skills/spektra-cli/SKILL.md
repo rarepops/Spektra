@@ -11,7 +11,7 @@ Read `reference.md` (beside this file) for each command's flags, JSON fields, sa
 
 ## Before the first command
 
-1. Run `spektra-cli --version`; it prints `spektra-cli <version>`. That proves only that the CLI is installed.
+1. Run `spektra-cli --version`; it prints `spektra-cli <version>`. That proves only that the CLI is installed. It also says what to expect: this skill describes releases after 0.25.1. With 0.25.1 or older, tell the user that version misses a lossy file renamed to a lossless extension, can replace a PNG that already sits beside the audio, and lets some unreadable files and missing paths pass, and offer the update with the commands in step 2. Until it is updated, compare each file's extension with its `codec` yourself, always pass `-o` to `image`, and look for rows with `error` set.
 2. If the command is missing, tell the user and offer to install it rather than doing it unasked: `npm install -g spektra-cli` (Node 18 or newer; Windows x64, Linux x64 with glibc, macOS on Intel or Apple silicon), or a `spektra-cli-<version>-<os>.zip` from https://github.com/rarepops/Spektra/releases/latest (the Windows installer includes it too).
 3. ffmpeg and ffprobe must be installed (on `PATH`), because Spektra bundles neither. They are checked when a real command runs: without them every command except `manifest` exits 2 with `ffmpeg/ffprobe not found` on stderr.
 
@@ -19,7 +19,7 @@ Read `reference.md` (beside this file) for each command's flags, JSON fields, sa
 
 - **Inside the Spektra source repository, this skill does not apply.** It runs the installed `spektra-cli` in the user's real profile, which can write the real audit cache; that repository's `CLAUDE.md` forbids running the app or the CLI against the user's real data and requires an isolated profile for every hand run, so follow it and its project skills instead.
 - **Never act on a verdict by yourself.** Do not delete, move, copy, rename, overwrite, re-tag or re-encode anything in the user's library because a report, a verdict or a duplicate group suggests it. Present the findings, let the user decide, and act only on an explicit confirmation of that action on those files. Verdicts are evidence, not proof (that is why `Suspicious`, `Medium` and `Low` exist), and a deleted original rarely comes back.
-- **Write outputs to a scratch folder, never into the library.** That covers JSON, CSV, HTML and PNG files. `image` without `-o` writes the PNG beside the audio file, named after it with `.png` in place of its extension (`song.flac` gives `song.png`), and silently replaces any file of that name.
+- **Write outputs to a scratch folder, never into the library.** That covers JSON, CSV, HTML and PNG files, so always pass `-o <scratch>/...` to `image`. Without `-o` it writes the PNG beside the audio file, named after it with `.png` in place of its extension (`song.flac` gives `song.png`), and refuses to replace a file already there (exit 2, nothing written). An explicit `-o` does replace the file it names, though not the audio file itself (checked by path).
 - **Keep library data out of the conversation.** Redirect folder-sized output to a file and read it with a short script that prints counts and a few examples. Summarise (counts, the folders where problems cluster, two or three examples) instead of pasting path lists: `dupes` and `manifest` print absolute paths, which often contain the user's name.
 - **Leave `--fresh` alone unless the user asks** for a re-analysis from scratch: it ignores the cache and decodes every file again.
 
@@ -40,11 +40,11 @@ Quote paths that contain spaces. `<scratch>` is a folder outside the library, su
 
 Prefer `audit` for any question about a folder's quality. It runs the bandwidth and integrity checks together, caches each file's result so a repeat run only analyses new or changed files, counts only real problems, and keeps folder-relative paths. `report` and `scan` give the bandwidth half alone, count every lossy file (an honest MP3 included) as a finding, and their JSON keeps only bare file names.
 
-Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recursively) or a list of files. Two folders are read as two files and come back as errors. `dupes` is the command that takes several folders.
+Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recursively) or a list of files. A folder together with other paths, or a path that does not exist, exits 2 before anything is analyzed. `dupes` is the command that takes several folders.
 
 ## Reading the results
 
-**Exit codes:** `0` clean, `1` findings, `2` usage or setup error (a bad option, no ffmpeg, a missing folder for `scan`, `dupes`, `manifest` or `inventory`). `audit`, `report`, `check` and `loudness` treat a missing or mistyped path as an unreadable file: one row with `error` set, exit 1 (exit 0 for `report`), so look for those rows before calling a folder clean. Exit 1 is a result, not a failure, so read the output. What counts as a finding differs per command (see reference.md); `manifest` and `inventory` always exit 0 when they run.
+**Exit codes:** `0` clean, `1` findings, `2` usage or setup error (a bad option, no ffmpeg, a path that does not exist, a folder given together with other paths, a missing folder for `scan`, `dupes`, `manifest` or `inventory`). A mistyped path is exit 2 with a message on stderr and nothing on stdout, so check the exit code before parsing a redirected file. A file that exists but cannot be read is a finding, exit 1: its row has `error` set (for `check`, a `Corrupt` or `Error` status), so look for those rows before calling a folder clean. Exit 1 is a result, not a failure, so read the output. What counts as a finding differs per command (see reference.md); `manifest` and `inventory` always exit 0 when they run.
 
 **Bandwidth verdicts** (`bandwidth` in `audit` JSON, `verdict` in `report` and `scan`):
 
@@ -58,7 +58,7 @@ Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recur
 
 **Integrity** (`integrity` in `audit`, `status` in `check`): `Ok`; `Suspect` (one or two stray decode errors, worth a listen, often junk bytes appended by a tagger); `Corrupt` (decode failure, three or more errors, or shorter than its own header says, as a truncated download is); `Error` (unreadable). Silent gaps are reported but never raise the verdict.
 
-**What `audit` counts as a problem:** unreadable, upsampled, mixed, corrupt, or `Lossy` where it does not belong (see above). Honest lossy files and `Suspicious` ones are not counted. The JSON rows carry no problem flag; `manifest` on the same folder afterwards gives Spektra's own per-file call (see reference.md).
+**What `audit` counts as a problem:** unreadable, upsampled, mixed, corrupt, `Lossy` where it does not belong (see above), or a lossy `codec` under a lossless extension (`.flac`, `.wav`, `.aiff`, `.aif`, `.ape`, `.wv`, `.alac`), whatever its `bandwidth` says: an MP3 renamed `.flac` is counted, and its text line ends `· holds mp3`. Honest lossy files and `Suspicious` ones are not counted. The JSON rows carry no problem flag; `manifest` on the same folder afterwards gives Spektra's own per-file call (see reference.md).
 
 ## Working at library scale
 
@@ -69,18 +69,16 @@ Give `audit`, `report`, `check` and `loudness` either ONE folder (searched recur
 
 ## Traps
 
-- A lossy file merely renamed keeps its real codec: an MP3 named `.flac` reports `codec` `mp3` and passes as an honest MP3, so `audit` does not count it and `manifest` calls it `Clean`. Compare each file's extension with its `codec`: a `.flac`, `.wav`, `.aiff`, `.ape` or `.wv` file holding `mp3`, `aac`, `vorbis` or `opus` is a fake too.
-- `dupes` skips files shorter than 20 seconds. The text output lists them as `! not analyzed`, but `--json` drops them silently, so an empty `[]` does not prove there are no duplicates. When it matters, save the text output to a file as well and count those lines, or check durations from `inventory`.
+- `dupes` skips files shorter than 20 seconds and files it cannot read. The text output lists them as `! not analyzed`; `--json` and `--csv` keep their rows as they were and print one line on stderr instead, `spektra-cli dupes: <n> file(s) were not analyzed and could not be matched (shorter than 20 s, or unreadable); run without --json or --csv to list them.` An empty `[]` does not prove there are no duplicates, so read stderr. To see which files, save the text output to a file as well and read those lines, or check durations from `inventory`.
 - `dupes` matches recordings, not songs: a remix, a live take, an edit more than 15 seconds longer or shorter, or a differently mastered release will not pair with the original.
 - `manifest` and `inventory` never decode audio, so they are fast but add nothing about quality. `inventory` has no verdict columns at all; `manifest` shows a verdict only for files an earlier `audit` or `dupes` analysed.
 - Path forms differ: `audit` (on a folder) and `inventory` give paths relative to that folder with `/` separators; `dupes` and `manifest` give absolute paths; `report`, `scan`, `check` and `loudness` give bare file names.
-- `report` and `scan` exit 0 even when a file could not be read, so look for `"verdict": "Error"` rows.
 - Prefer `--json` to `--csv` for parsing: CSV prefixes cells that start with `=`, `+`, `-` or `@` with an apostrophe, a guard against spreadsheet formula injection.
 
 ## Example: "find the fake FLACs in my Music folder"
 
 1. `spektra-cli --version`, to confirm the CLI is installed. A missing ffmpeg shows up in the next step as exit 2.
 2. `spektra-cli audit <folder> --json > <scratch>/audit.json`, with `<folder>` the user's Music folder. Expect exit 1 when anything is found, and a long first run on a big library.
-3. First look for rows with `error` set: a mistyped folder comes back as one such row, and a filter on `codec` would drop it silently. Sort the rows with a short script, never by printing them all. Likely fakes: a lossless `codec` (`flac`, `alac`, `ape`, `wavpack`, `pcm_s16le` and other `pcm_*`) with `bandwidth` `Lossy` or `Upsampled`, plus any file with a lossless extension whose `codec` is lossy (the renamed-file trap). Name apart: `Mixed` (part of the file), `Suspicious` inside a lossless file (worth a look, not proof), and `Corrupt` integrity (damaged, a different finding).
+3. A mistyped folder exits 2 and leaves `audit.json` empty, so check the exit code first. Then look for rows with `error` set (unreadable files; a filter on `codec` would drop them silently). Sort the rows with a short script, never by printing them all. Likely fakes: a lossless `codec` (`flac`, `alac`, `ape`, `wavpack`, `pcm_s16le` and other `pcm_*`) with `bandwidth` `Lossy` or `Upsampled`. Name apart: a lossy `codec` (`mp3`, `aac`) behind a lossless extension (`audit` counts these, but they are renamed files, not transcodes), `Mixed` (part of the file), `Suspicious` inside a lossless file (worth a look, not proof), and `Corrupt` integrity (damaged, a different finding).
 4. Report counts, where the likely fakes cluster (often whole albums from one source) and their cutoffs. Offer a spectrogram of one example as evidence, or `--html` for a page the user can browse.
 5. Stop there. If the user wants to replace or remove files, confirm exactly which files and which action first.

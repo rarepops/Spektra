@@ -43,13 +43,11 @@ that works without it is `manifest`, which only lists files.
     spektra-cli diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
     spektra-cli image <file>               Render the spectrogram to a PNG.
 
-Add `--json` or `--csv` to any command for machine-readable output:
+Add `--json` or `--csv` to any command except `image` for machine-readable output:
 
     spektra-cli scan ~/Music --csv > library.csv
 
-Exit code 1 means findings (a transcode, an upsample, or corruption; an honest
-lossy file is fine), 2 a setup error, 0 a clean run, so a check fits straight
-into a script or a continuous integration job:
+Exit code 1 means findings (a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is fine), 2 a setup error (such as a path that does not exist), 0 a clean run, so a check fits straight into a script or a continuous integration job:
 
     spektra-cli audit ~/Music || echo "something in there is not what it claims"
 

@@ -34,7 +34,7 @@ A desktop audio spectrum analyzer: drop in a file to see its spectrogram, drop i
 - Progressive spectrogram with time/frequency rulers and dB legend
 - Automated bandwidth verdict: detects a lossy low-pass cutoff and reports Lossless / Suspicious / Lossy with a likely codec/bitrate guess
 - Upsampling detection: a hi-res file whose real bandwidth stops at a lower standard rate (a 96 kHz container holding 22.05 kHz of content) is flagged Upsampled, naming the likely true source rate
-- Transcode-aware problems: an honest lossy file is not a problem; the audit flags lossy content hiding in a lossless container, or an mp3/aac whose cutoff sits far below what its bitrate should deliver
+- Transcode-aware problems: an honest lossy file is not a problem; the audit flags lossy content hiding in a lossless container, a lossy file wearing a lossless name (an MP3 renamed `.flac`), or an mp3/aac whose cutoff sits far below what its bitrate should deliver
 - Compilation-aware: a transcoded track hidden inside a compilation, DJ mix, or continuous set is reported Mixed with the suspect stretch's timestamps, instead of being masked by the genuine tracks around it
 - Export report: save the bandwidth + integrity audit for the current file or a whole folder as CSV/JSON (File → Export Report… / Export Folder Report…)
 - Folder browse-and-audit: drop a folder (or pass it on the command line) for an instant browse tree with any cached verdicts already shown, check the files or folders you want and press Analyze to audit just those into a sortable grid with byte-weighted progress, a remaining-time estimate, and a tiered severity filter (all / suspect + worse / problems only), Drilldown to focus the grid on one subtree, Refresh (Ctrl+F5) to re-read the folder from disk without analyzing anything (new files appear unchecked, deleted ones vanish, the boxes you ticked stay ticked), all backed by a persistent cache shared with the CLI; right-click any row, file, or folder for verbs (open, re-analyze fresh, analyze a folder, copy path, reveal), with multi-row selection honored
@@ -220,7 +220,7 @@ Spektra ships a small cross-platform companion CLI (command-line interface, `spe
 
 The npm package carries the same self-contained binaries the releases page does, one per platform, and npm installs only the one your machine can run: Windows x64 (ARM64 under emulation), Linux x64 with glibc, and macOS on Intel or Apple silicon. It still needs ffmpeg on your `PATH`, which it does not bundle.
 
-It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsample, or corruption; an honest lossy file is fine):
+It writes to stdout and exits 1 on findings (for `audit`: a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is fine):
 
     spektra-cli report <file|folder> ...   Bandwidth verdict per file.
     spektra-cli scan <folder>              Compact bandwidth scan of a library.
@@ -233,7 +233,7 @@ It writes to stdout and exits 1 on findings (for `audit`: a transcode, an upsamp
     spektra-cli diff <fileA> <fileB>       Compare two files: align, spectral diff, null test.
     spektra-cli image <file>               Render the spectrogram to a PNG (no window).
 
-Add `--json` or `--csv` to any command for a machine-readable report:
+Add `--json` or `--csv` to any command except `image` for a machine-readable report:
 
     spektra-cli scan Music --csv > library.csv
 
