@@ -174,22 +174,25 @@ public static class CliOptions
     }
 
     /// Where `image` writes. An explicit -o names the file, so it is used as
-    /// given and may replace what is there, except that it may not be empty or
+    /// given and may replace what is there, except that it may not be blank or
     /// be the input itself (full paths are compared, ignoring case on every
     /// platform: a false refusal on a case-sensitive file system costs another
     /// name, a missed one costs the audio). Without it the PNG goes beside the
     /// input under the same name, and a file or folder already sitting there
     /// is refused rather than replaced: it was never offered up (a cover, last
     /// week's render), and for a .png input it is the input itself. Checked
-    /// before the render, so a refusal costs no decode.
+    /// before the render, so a refusal costs no decode; OpenImageOutput checks
+    /// again when the file is created.
     public static string ImageOutPath(string input, string? outPath)
     {
         if (outPath is not null)
         {
-            if (outPath.Length == 0) throw new OptionException("-o needs a file path.");
-            // An empty input is the render's to refuse ("File not found"); GetFullPath
-            // would throw on it, so it must not reach the comparison.
-            if (input.Length > 0
+            // Blank is as unusable as empty, and Path.GetFullPath throws on an empty or
+            // all-spaces path (on Windows), which would crash instead of exiting 2.
+            if (string.IsNullOrWhiteSpace(outPath)) throw new OptionException("-o needs a file path.");
+            // A blank input is the render's to refuse ("File not found"), and -o cannot
+            // name it; GetFullPath would throw on it, so the comparison is skipped.
+            if (!string.IsNullOrWhiteSpace(input)
                 && string.Equals(Path.GetFullPath(outPath), Path.GetFullPath(input), StringComparison.OrdinalIgnoreCase))
                 throw new OptionException($"-o '{outPath}' is the input file itself; pass another output file.");
             return outPath;
@@ -198,9 +201,21 @@ public static class CliOptions
         return Path.Exists(path) ? throw ImageOutExists(path) : path;
     }
 
-    /// The refusal for a default image output that is taken. ImageOutPath raises
-    /// it up front, and the CLI raises it again if the name is taken while the
-    /// render runs, so both say the same thing.
-    public static OptionException ImageOutExists(string path) => new(
+    /// Opens the PNG for writing. The default name (replace false) was free when
+    /// ImageOutPath looked, but the decode since took seconds: CreateNew turns a
+    /// file that appeared meanwhile into the same refusal, with nothing written,
+    /// instead of truncating it. An explicit -o (replace true) keeps
+    /// create-or-replace. Only a collision is translated: any other failure to
+    /// open keeps its own exception, so it is never dressed up as "already exists".
+    public static FileStream OpenImageOutput(string path, bool replace)
+    {
+        try { return File.Open(path, replace ? FileMode.Create : FileMode.CreateNew); }
+        catch (IOException) when (!replace && Path.Exists(path)) { throw ImageOutExists(path); }
+    }
+
+    /// The refusal for a default image output that is taken: ImageOutPath raises
+    /// it up front and OpenImageOutput again if the name is taken during the
+    /// render, so both say the same thing.
+    private static OptionException ImageOutExists(string path) => new(
         $"'{path}' already exists; pass -o <out.png> to write somewhere else, or -o '{path}' to replace it.");
 }

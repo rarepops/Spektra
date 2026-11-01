@@ -356,19 +356,82 @@ public class CliOptionsTests
     }
 
     [Test]
-    public async Task ImageOutPath_EmptyExplicit_Throws()
+    [Arguments("")]
+    [Arguments(" ")]
+    [Arguments("   ")]
+    [Arguments("\t")]
+    public async Task ImageOutPath_EmptyExplicit_Throws(string blank)
     {
         // An empty -o used to reach File.Create("") after the whole render, and crash.
-        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("song.flac", ""); });
+        // Spaces only are as unusable, and Path.GetFullPath throws on them on Windows.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath("song.flac", blank); });
         await Assert.That(ex.Message).IsEqualTo("-o needs a file path.");
     }
 
     [Test]
-    public async Task ImageOutPath_EmptyInput_ReturnsTheExplicitPath()
+    [Arguments("")]
+    [Arguments(" ")]
+    [Arguments("   ")]
+    public async Task ImageOutPath_EmptyInput_ReturnsTheExplicitPath(string blank)
     {
         // `image "" -o out.png` is the render's to refuse (exit 2, "File not found:"):
-        // the same-file comparison must not turn it into a crash on GetFullPath("").
-        await Assert.That(CliOptions.ImageOutPath("", "out.png")).IsEqualTo("out.png");
+        // the same-file comparison must not turn it into a crash. Path.GetFullPath
+        // throws on an empty or all-spaces path (on Windows).
+        await Assert.That(CliOptions.ImageOutPath(blank, "out.png")).IsEqualTo("out.png");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_RefusesAFileThatAppeared()
+    {
+        using var scratch = new Scratch();
+        var input = scratch.NewFile("song.flac");
+        var png = scratch.NewFile("song.png", "keep me");
+
+        // The name is taken by the time the decode is done: the refusal is the one the
+        // user gets up front, and what was there is not touched.
+        var upFront = Assert.Throws<OptionException>(() => { CliOptions.ImageOutPath(input, null); });
+        var late = Assert.Throws<OptionException>(() => { using var stream = CliOptions.OpenImageOutput(png, replace: false); });
+
+        await Assert.That(late.Message).IsEqualTo(upFront.Message);
+        await Assert.That(late.Message).Contains(png);
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("keep me");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Explicit_ReplacesTheFile()
+    {
+        using var scratch = new Scratch();
+        var png = scratch.NewFile("out.png", "an older, longer render");
+
+        using (var stream = CliOptions.OpenImageOutput(png, replace: true))
+            stream.Write("new"u8);
+
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("new");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_CreatesAFreeName()
+    {
+        using var scratch = new Scratch();
+        var png = scratch.Missing("song.png");
+
+        using (var stream = CliOptions.OpenImageOutput(png, replace: false))
+            stream.Write("new"u8);
+
+        await Assert.That(File.ReadAllText(png)).IsEqualTo("new");
+    }
+
+    [Test]
+    public async Task OpenImageOutput_Default_OtherFailuresKeepTheirOwnError()
+    {
+        using var scratch = new Scratch();
+        // The folder is missing, so nothing is "already there": the OS error must not be
+        // dressed up as the refusal.
+        var inMissingFolder = Path.Combine(scratch.Missing("nowhere"), "song.png");
+
+        var ex = Assert.Throws<DirectoryNotFoundException>(
+            () => { using var stream = CliOptions.OpenImageOutput(inMissingFolder, replace: false); });
+        await Assert.That(ex.Message).Contains("nowhere");
     }
 
     // A throwaway folder for the tests that need paths that exist (or visibly
