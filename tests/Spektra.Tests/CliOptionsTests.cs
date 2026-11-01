@@ -47,6 +47,100 @@ public class CliOptionsTests
     }
 
     [Test]
+    public async Task Inputs_OneFolder_IsFolderMode()
+    {
+        using var scratch = new Scratch();
+        var dir = scratch.NewFolder("album");
+
+        var inputs = CliOptions.Inputs([dir]);
+
+        await Assert.That(inputs.Folder).IsEqualTo(dir);
+        await Assert.That(inputs.Files.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Inputs_OneFolderWithTrailingSeparator_IsFolderMode()
+    {
+        using var scratch = new Scratch();
+        var dir = scratch.NewFolder("album");
+
+        var inputs = CliOptions.Inputs([dir + Path.DirectorySeparatorChar]);
+
+        await Assert.That(inputs.Folder).IsNotNull();
+    }
+
+    [Test]
+    public async Task Inputs_Files_AreFiles()
+    {
+        using var scratch = new Scratch();
+        var a = scratch.NewFile("a.flac");
+        var b = scratch.NewFile("b.wav");
+
+        var inputs = CliOptions.Inputs([a, b]);
+
+        await Assert.That(inputs.Folder).IsNull();
+        await Assert.That(string.Join("|", inputs.Files)).IsEqualTo($"{a}|{b}");
+    }
+
+    [Test]
+    public async Task Inputs_MissingPath_Throws_NamingIt()
+    {
+        using var scratch = new Scratch();
+        var file = scratch.NewFile("a.flac");
+        var missing = scratch.Missing("missing.flac");
+
+        var amongFiles = Assert.Throws<OptionException>(() => { CliOptions.Inputs([file, missing]); });
+        await Assert.That(amongFiles.Message).Contains(missing);
+
+        // A mistyped folder, trailing separator and all, is named as typed.
+        var typed = missing + Path.DirectorySeparatorChar;
+        var alone = Assert.Throws<OptionException>(() => { CliOptions.Inputs([typed]); });
+        await Assert.That(alone.Message).Contains(typed);
+    }
+
+    [Test]
+    public async Task Inputs_FolderAmongOthers_Throws()
+    {
+        using var scratch = new Scratch();
+        var dirA = scratch.NewFolder("a");
+        var dirB = scratch.NewFolder("b");
+        var file = scratch.NewFile("song.flac");
+
+        var twoFolders = Assert.Throws<OptionException>(() => { CliOptions.Inputs([dirA, dirB]); });
+        await Assert.That(twoFolders.Message).Contains("is a folder");
+
+        var folderFirst = Assert.Throws<OptionException>(() => { CliOptions.Inputs([dirA, file]); });
+        await Assert.That(folderFirst.Message).Contains("is a folder");
+
+        // Position does not matter, and the message names the folder, not the file.
+        var folderLast = Assert.Throws<OptionException>(() => { CliOptions.Inputs([file, dirA]); });
+        await Assert.That(folderLast.Message).Contains("is a folder");
+        await Assert.That(folderLast.Message).Contains(dirA);
+    }
+
+    [Test]
+    public async Task Inputs_Empty_IsEmpty()
+    {
+        // No paths is the verb's own "give one or more audio files or a folder."
+        // exit 2, not a complaint from here.
+        var inputs = CliOptions.Inputs([]);
+
+        await Assert.That(inputs.Folder).IsNull();
+        await Assert.That(inputs.Files.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Inputs_UnknownFlag_StillRejectedFirst()
+    {
+        using var scratch = new Scratch();
+        var missing = scratch.Missing("missing.flac");
+
+        // The mistyped flag is named even when a path is also wrong.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.Inputs([missing, "--jso"]); });
+        await Assert.That(ex.Message).IsEqualTo("unknown option '--jso'.");
+    }
+
+    [Test]
     public async Task Value_NextTokenIsAnotherFlag_Throws()
     {
         // "--palette --gamma x" must not consume "--gamma" as the palette value
@@ -174,5 +268,26 @@ public class CliOptionsTests
     {
         var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseImage(["a.flac", "--pallete", "magma"]); });
         await Assert.That(ex.Message).IsEqualTo("unknown option '--pallete'.");
+    }
+
+    // A throwaway folder for the Inputs tests, which need paths that exist (or
+    // visibly do not). Everything under it is removed on dispose.
+    private sealed class Scratch : IDisposable
+    {
+        private readonly string root = Directory.CreateTempSubdirectory("spektra-inputs").FullName;
+
+        public string NewFolder(string name) => Directory.CreateDirectory(Path.Combine(root, name)).FullName;
+
+        public string NewFile(string name)
+        {
+            var path = Path.Combine(root, name);
+            File.WriteAllBytes(path, []);
+            return path;
+        }
+
+        // A path under the scratch folder where nothing was made.
+        public string Missing(string name) => Path.Combine(root, name);
+
+        public void Dispose() => Directory.Delete(root, recursive: true);
     }
 }

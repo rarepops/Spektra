@@ -30,9 +30,9 @@ internal static partial class Program
     private static int Scan(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
     {
         CliOptions.RejectUnknownFlags(args);
-        if (args.Length == 0 || !Directory.Exists(args[0]))
+        if (args.Length != 1 || !Directory.Exists(args[0]))
         {
-            Console.Error.WriteLine("spektra-cli scan: give an existing folder to scan.");
+            Console.Error.WriteLine("spektra-cli scan: give one existing folder to scan.");
             return 2;
         }
         var root = args[0];

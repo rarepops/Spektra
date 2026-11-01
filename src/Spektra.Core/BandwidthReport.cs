@@ -31,6 +31,13 @@ public static class BandwidthReport
         }
     }
 
+    /// True when a file counts against the exit code of report and scan: it
+    /// could not be read at all, or its verdict is likely lossy, upsampled or
+    /// mixed. Suspicious and unknown are not findings.
+    public static bool IsFinding(FileReport report) =>
+        report.Error is not null
+        || report.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed;
+
     public static IEnumerable<string> FindAudioFiles(string folder, bool recursive = true) =>
         FindAudioFileInfos(folder, recursive).Select(f => f.FullName);
 

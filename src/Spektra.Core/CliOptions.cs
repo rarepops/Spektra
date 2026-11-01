@@ -20,6 +20,11 @@ public sealed record DiffArgs(IReadOnlyList<string> Files, double? OffsetMs, flo
 public sealed record ImageArgs(
     IReadOnlyList<string> Files, string? OutPath, string? PaletteName, double? Gamma, ImageOptions Options);
 
+/// What a verb that takes "one folder or some files" was given. Folder is set
+/// (and Files empty) when the one argument is a folder to search; otherwise
+/// Folder is null and Files holds the paths as typed. Every path in it exists.
+public sealed record InputSet(string? Folder, IReadOnlyList<string> Files);
+
 /// Argument parsing for the command-line front end. It lives in Core so it is
 /// unit-testable (the CLI project carries no tests of its own).
 public static class CliOptions
@@ -99,6 +104,28 @@ public static class CliOptions
         foreach (var a in positionals)
             if (a.StartsWith('-'))
                 throw new OptionException($"unknown option '{a}'.");
+    }
+
+    /// Sorts a verb's positional paths into one folder or a list of files, and
+    /// fails before anything is analyzed when they are neither: an unknown flag
+    /// (checked first), a path that does not exist (a typo would otherwise read
+    /// as an error row, or as success), or a folder given together with other
+    /// paths (a verb searches one folder or takes files, never a mix). The CLI
+    /// turns the OptionException into exit 2. An empty list stays empty, for
+    /// the verb to say what it wants.
+    public static InputSet Inputs(IReadOnlyList<string> positionals)
+    {
+        RejectUnknownFlags(positionals);
+        var folders = new List<string>();
+        foreach (var p in positionals)
+        {
+            if (Directory.Exists(p)) folders.Add(p);
+            else if (!File.Exists(p)) throw new OptionException($"no such file or folder: '{p}'.");
+        }
+        if (folders.Count == 0) return new InputSet(null, positionals);
+        return positionals.Count == 1
+            ? new InputSet(folders[0], [])
+            : throw new OptionException($"'{folders[0]}' is a folder: give one folder by itself, or files only.");
     }
 
     public static DiffArgs ParseDiff(string[] args)

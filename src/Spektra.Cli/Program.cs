@@ -104,13 +104,14 @@ internal static partial class Program
     }
 
     // A single folder argument recurses into its audio files; otherwise the
-    // arguments are taken as individual files.
+    // arguments are taken as individual files. CliOptions.Inputs has already
+    // refused a path that does not exist and a folder mixed with other paths.
     private static IReadOnlyList<string> ResolveInputs(string[] paths)
     {
-        CliOptions.RejectUnknownFlags(paths);
-        return paths.Length == 1 && Directory.Exists(paths[0])
-            ? BandwidthReport.FindAudioFiles(paths[0]).ToList()
-            : paths;
+        var inputs = CliOptions.Inputs(paths);
+        return inputs.Folder is { } folder
+            ? BandwidthReport.FindAudioFiles(folder).ToList()
+            : inputs.Files;
     }
 
     private static void Emit<T>(IReadOnlyList<T> rows, OutFormat fmt)
@@ -119,10 +120,11 @@ internal static partial class Program
         else Console.Write(Reporting.ToCsv(rows));
     }
 
-    /// 1 when any file is judged likely lossy, upsampled or mixed: the one
-    /// exit-code rule report and scan share.
+    /// 1 when any file is a finding (BandwidthReport.IsFinding: judged likely
+    /// lossy, upsampled or mixed, or unreadable): the one exit-code rule
+    /// report and scan share.
     private static int BandwidthExitCode(IEnumerable<FileReport> reports) =>
-        reports.Any(r => r.Verdict?.Kind is VerdictKind.Lossy or VerdictKind.Upsampled or VerdictKind.Mixed) ? 1 : 0;
+        reports.Any(BandwidthReport.IsFinding) ? 1 : 0;
 
     /// Opens the shared audit cache. When it cannot be opened the verb runs on
     /// without it, after saying so on stderr along with what that costs.
@@ -169,8 +171,11 @@ internal static partial class Program
               spektra-cli --version                  Print the version.
               spektra-cli --help                     Show this help.
 
-            Add --json or --csv to any command for a machine-readable report,
+            Add --json or --csv to any command except image for a machine-readable report,
             e.g. spektra-cli scan Music --csv > report.csv
+
+            report, check, audit and loudness take one folder (searched recursively) or
+            one or more files; scan takes exactly one folder.
 
             Folders are analyzed in parallel. By default Spektra uses about 80% of
             the CPU cores; cap it with --jobs N (or -j N), e.g. spektra-cli scan Music -j 4
@@ -201,12 +206,13 @@ internal static partial class Program
             files dropped in %APPDATA%\Spektra\palettes or a palettes folder next
             to the app (see docs/cli.md for the format).
 
-            Exit code is 1 on findings (report/scan: lossy, upsampled, or mixed; check:
-            corrupt files; audit: a transcode, an upsample, or corruption - an
-            honest lossy file is not a problem; dupes: one or more duplicate
-            groups found; loudness: a file could not be measured; diff: the
-            files differ), 2 on setup errors (an unknown or malformed
-            option, or no existing file or folder given).
+            Exit code is 1 on findings (report/scan: lossy, upsampled, mixed, or
+            unreadable; check: corrupt files; audit: a transcode (including a lossy
+            file under a lossless name such as .flac), an upsample, corruption, or an
+            unreadable file - an honest lossy file is not a problem; dupes: one or more
+            duplicate groups found; loudness: a file could not be measured; diff: the
+            files differ), 2 on setup errors (an unknown or malformed option, a path
+            that does not exist, or a folder given together with other paths).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
