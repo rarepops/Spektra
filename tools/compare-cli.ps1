@@ -168,6 +168,15 @@ manifest|../lib/all|--html|../lib/no-such-dir/m.html
 # A file whose read throws, which check counts as corrupt.
 check|../lib/all/notaudio.txt|../lib/all/sine-1khz.wav
 check|../lib/all/notaudio.txt|../lib/all/sine-1khz.wav|--json
+# The same undecodable file beside a good one: report prints an error row and
+# audit an integrity=ERROR row. A missing path no longer reaches either, it
+# exits 2 before anything is analyzed.
+report|../lib/all/notaudio.txt|../lib/all/sine-1khz.wav
+audit|../lib/all/notaudio.txt|../lib/all/sine-1khz.wav
+# Path shapes refused before anything is analyzed (exit 2): a folder among
+# other paths, and more than one folder for scan.
+report|../lib/all/sine-1khz.wav|../lib/A
+scan|../lib/A|../lib/B
 '@
 
 # Run under a profile whose cache cannot be opened: a folder sits where
