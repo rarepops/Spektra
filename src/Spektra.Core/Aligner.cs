@@ -84,7 +84,7 @@ public static class Aligner
         return (double)DriftAligner.LagSpread(anchors) / rate;
     }
 
-    private static float[] DecodePrefix(
+    internal static float[] DecodePrefix(
         FfmpegPaths ffmpeg, string path, int? channel, double seconds, int rate, CancellationToken ct)
     {
         var decoder = new AudioDecoder(ffmpeg.FfmpegPath);
