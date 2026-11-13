@@ -113,7 +113,7 @@ Add --html report.html to also write the groups as a self-contained dark HTML pa
 
 The GUI's Folder Manifest as a command: one folder, every file (audio or not) with a type chip, size, and, for audio the audit cache has seen before, the honest codec and a verdict (`Clean`, `Suspect`, `Problem`), so a FLAC that is really a transcode is called out here too, and so is an MP3 renamed `.flac` (the chip shows its real codec, `mp3`, and the verdict reads `Problem`, as on the second line above). The summary line is the folder's composition rollup plus its recursive size on disk. Nothing is ever decoded and no file is ever touched, which also makes this the one command that works without ffmpeg installed.
 
-Add `--html manifest.html` for the self-contained collapsible tree page, or `--csv` / `--json` for flat rows (path, name, kind, severity, size), depth-first in display order.
+Add `--html manifest.html` for the self-contained collapsible tree page, or `--csv` / `--json` for flat rows (`Path, Name, Kind, Severity, SizeBytes`; camelCase keys in JSON), depth-first in display order.
 
 **Exit codes:** `0` listed, `2` usage error or unreadable folder.
 
@@ -142,7 +142,7 @@ Give exactly one folder. The path in each row is relative to it, so two folders 
 
 A file that cannot be read is a row carrying the reason rather than a missing row, since a damaged file reading as absent is the one failure worth never having. That covers two different breakages: a truncated file, which ffprobe refuses outright, and a zero-byte one, which it does **not** (it exits cleanly and reports a stream of 0 Hz and 0 channels, which would otherwise pass as a real track). An unreadable folder is a row too, so a permissions problem cannot read as an empty directory.
 
-Add `--csv` or `--json` for the machine-readable form; the columns are `Path, Name, Ext, SizeBytes, IsAudio, Codec, SampleRateHz, Channels, BitsPerSample, BitrateBps, DurationSeconds, Artist, AlbumArtist, Album, Title, Track, TrackTotal, Disc, DiscTotal, Year, Genre, HasEmbeddedArt, ArtFormat, ArtWidth, ArtHeight, Error`, depth-first in display order.
+Add `--csv` or `--json` for the machine-readable form; the CSV columns are `Path, Name, Ext, SizeBytes, IsAudio, Codec, SampleRateHz, Channels, BitsPerSample, BitrateBps, DurationSeconds, Artist, AlbumArtist, Album, Title, Track, TrackTotal, Disc, DiscTotal, Year, Genre, HasEmbeddedArt, ArtFormat, ArtWidth, ArtHeight, Error` (camelCase keys in JSON), depth-first in display order.
 
 **Exit codes:** `0` listed, `2` usage error (no folder, more than one, or not an existing directory). Unlike `audit`, findings never change the exit code: an inventory makes no judgement, so broken files are reported in their rows rather than in the exit status.
 
@@ -174,7 +174,7 @@ Aligns the files automatically (cross-correlation, like the desktop app's Auto b
 
 - **SAME** means the null depth (how far the A minus B residual sits below the signal) reaches the threshold, 40 dB by default; tune it with `--threshold-db <N>`. Exit code `0` for SAME, `1` for DIFFERS.
 - Alignment is automatic; pin an exact offset instead with `--offset <ms>` (positive = B's content is later than A's, the same convention as the desktop app's Align box). A warning is printed when the alignment confidence is low, and a note when the files drift apart over time.
-- `--json` / `--csv` emit one row: `fileA, fileB, offsetMs, alignConfidence, driftMs, overlapSeconds, meanAbsDb, rmsDb, maxAbsDb, withinTolerancePct, residualRmsDb, residualPeakDb, nullDepthDb, thresholdDb, same`.
+- `--json` / `--csv` emit one row: `FileA, FileB, OffsetMs, AlignConfidence, DriftMs, OverlapSeconds, MeanAbsDb, RmsDb, MaxAbsDb, WithinTolerancePct, ResidualRmsDb, ResidualPeakDb, NullDepthDb, ThresholdDb, Same` (camelCase keys in JSON).
 
 ```
 # gate a release: the remaster must be transparent against the approved master
@@ -215,7 +215,7 @@ Add `--json` or `--csv` to any command except `image`:
     spektra-cli scan Music --csv > library.csv
     spektra-cli audit Music --json | jq '.[] | select(.bandwidth != "Lossless")'
 
-The columns are stable, ordered rows (`file, codec, sampleRateHz, …`); the same schema the desktop app writes from **File → Export Report…**.
+The columns are stable, ordered rows; the same schema the desktop app writes from **File → Export Report…**. CSV headers are PascalCase (`File, Codec, SampleRateHz, …`) and JSON keys are the same names in camelCase (`file, codec, sampleRateHz, …`, as in the `jq` filter above); the column lists in this guide use the CSV spelling.
 
 ## Scripting examples
 
