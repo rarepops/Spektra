@@ -105,6 +105,73 @@ public sealed class DiffFileItem : IFileItem
     string IFileItem.FullPath => Path;
 }
 
+/// One copy of a suspect pair: its root labelled as the diff's columns label
+/// it, and its path below that root.
+public sealed class SuspectSide(string path, string root, string label) : IFileItem
+{
+    public string Path { get; } = path;
+    public string Label { get; } = label;
+    public string Relative { get; } = FolderDiffView.RelativePath(path, root);
+
+    string IFileItem.FullPath => Path;
+}
+
+/// One row of the "Same name, different audio" section: two same-named files
+/// under different roots whose audio does not match. The row is listed as soon
+/// as the scan has the pair; its label (how far the first 10 s line up) comes
+/// after, and until then the row says so.
+public sealed class SuspectItem(SuspectPair pair, IReadOnlyList<string> roots, IReadOnlyList<string> rootLabels)
+    : ObservableObject
+{
+    public SuspectPair Pair { get; } = pair;
+    public SuspectSide SideA { get; } = new(pair.PathA, pair.RootA, LabelOf(pair.RootA, roots, rootLabels));
+    public SuspectSide SideB { get; } = new(pair.PathB, pair.RootB, LabelOf(pair.RootB, roots, rootLabels));
+    public string Name { get; } = Path.GetFileNameWithoutExtension(pair.PathA);
+    public string Lengths { get; } = SuspectView.Lengths(pair);
+    public bool HasLengthGap { get; } = SuspectView.HasLengthGap(pair);
+    public string Strength { get; } = SuspectView.StrengthText(pair.Strength);
+    public string? CrossMatch { get; } = SuspectView.CrossMatch(pair, roots);
+    public bool HasCrossMatch => CrossMatch is not null;
+
+    private SuspectVerdict? _verdict;
+    public SuspectVerdict? Verdict
+    {
+        get => _verdict;
+        set
+        {
+            if (!Set(ref _verdict, value)) return;
+            RaisePropertyChanged(nameof(LabelText));
+            RaisePropertyChanged(nameof(IsBottomTier));
+        }
+    }
+
+    private bool _notChecked;
+    public string LabelText =>
+        Verdict is { } v ? SuspectView.LabelText(v.Label)
+        : _notChecked ? "not checked"
+        : "checking…";
+
+    /// The pairs that are at least partly one performance, which the window dims.
+    public bool IsBottomTier => Verdict is { } v && !SuspectView.IsTopTier(v.Label);
+
+    /// The labelling stopped before this pair's label arrived: a row must never
+    /// go on saying "checking…" once nothing is.
+    public void MarkNotChecked()
+    {
+        _notChecked = true;
+        RaisePropertyChanged(nameof(LabelText));
+    }
+
+    // The label ScopeLabel.Distinguish gave the root; a root that is not in the
+    // list stands for itself, as in SuspectView.
+    private static string LabelOf(string root, IReadOnlyList<string> roots, IReadOnlyList<string> labels)
+    {
+        for (var i = 0; i < roots.Count; i++)
+            if (string.Equals(roots[i], root, StringComparison.OrdinalIgnoreCase)) return labels[i];
+        return root;
+    }
+}
+
 /// One side of the folder diff: a scan root and the files only it has. Roots
 /// with nothing unique still get a column, because "this folder has no extras"
 /// and "this folder is not in the comparison" must not look the same.
@@ -144,6 +211,36 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// duplicate hunt and are the substance of a diff.
     public ObservableCollection<DiffColumnItem> DiffColumns { get; } = [];
     private readonly List<UnpairedFile> _allUnpaired = [];
+
+    /// Same-named files under different roots whose audio does not match, the
+    /// pairs most worth a listen first. Shown only while OnlyDifferences is on,
+    /// like the columns, but never thinned by HideTitleTwins: a name match is
+    /// what makes a suspect in the first place.
+    public ObservableCollection<SuspectItem> Suspects { get; } = [];
+    private readonly List<SuspectItem> _allSuspects = [];
+
+    /// The scan's roots as the engine spells a pair's roots (full paths), so each
+    /// finds its label; Roots keeps them as typed.
+    private IReadOnlyList<string> _suspectRoots = [];
+
+    /// From the moment the rows are listed until their labelling ends.
+    private bool _checkingLabels;
+
+    /// Counts the rows on show, so a filter that hides a pair takes it out of the count.
+    public string SuspectHeading => SuspectView.Heading(
+        top: Suspects.Count(IsTopTier),
+        bottom: Suspects.Count(s => s.IsBottomTier),
+        unlabelled: Suspects.Count(s => s.Verdict is null),
+        checking: _checkingLabels);
+
+    /// The playlist holds the top tier of the rows on show, so one must be there.
+    public bool CanSavePlaylist => !IsScanning && Suspects.Any(IsTopTier);
+
+    /// The rows on show as a listening playlist: each top-tier pair's A copy, then its B copy.
+    public string ListeningPlaylist() =>
+        SuspectView.Playlist(Suspects.Select(s => (s.Pair, s.Verdict)), _suspectRoots);
+
+    private static bool IsTopTier(SuspectItem row) => row.Verdict is { } v && SuspectView.IsTopTier(v.Label);
 
     /// Totals across the columns, for the footer. Files the other folder has
     /// under a matching name are counted apart from the ones it has not got:
@@ -234,6 +331,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             foreach (var column in FolderDiffView.Columns(_allUnpaired, Roots, tokens, HideTitleTwins))
                 DiffColumns.Add(new DiffColumnItem(column));
 
+        // HideTitleTwins is not read, by design (see Suspects).
+        Suspects.Clear();
+        if (OnlyDifferences)
+            foreach (var s in SuspectView.Visible(_allSuspects, s => s.Pair, s => s.Verdict, tokens))
+                Suspects.Add(s);
+        RaisePropertyChanged(nameof(SuspectHeading));
+        RaisePropertyChanged(nameof(CanSavePlaylist));
+
         if (_baseFooter is not { } baseText) return;
         FooterText = baseText + FolderDiffView.FooterSuffix(
             onlyDifferences: OnlyDifferences,
@@ -257,6 +362,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             if (!Set(ref _isScanning, value)) return;
             RaisePropertyChanged(nameof(CanScan));
             RaisePropertyChanged(nameof(CanExport));
+            RaisePropertyChanged(nameof(CanSavePlaylist));
         }
     }
     public bool CanScan => !IsScanning && Roots.Count > 0;
@@ -285,6 +391,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// The diff's one-sided rows open the same way; they are files like any
     /// other, they simply have no counterpart to sit beside.
     public void RequestOpen(DiffFileItem file) => OpenFileRequested?.Invoke(file.Path);
+    public void RequestOpen(SuspectSide side) => OpenFileRequested?.Invoke(side.Path);
 
     /// Raised to open a comparison tab in the main window: the winner is
     /// side A, the challenger side B, matching how the tab title reads.
@@ -293,6 +400,11 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     {
         if (member.CanCompareWithWinner) OpenCompareRequested?.Invoke(member.WinnerPath!, member.Path);
     }
+
+    /// Raised to compare a suspect pair in the main window, aligned (their starts
+    /// may differ), the first folder's copy as side A as the row reads.
+    public event Action<string, string>? OpenAlignedCompareRequested;
+    public void RequestCompare(SuspectItem item) => OpenAlignedCompareRequested?.Invoke(item.Pair.PathA, item.Pair.PathB);
 
     /// The window's error surface (the footer line doubles as the status bar).
     public void SetError(string message) => FooterText = message;
@@ -401,7 +513,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// CanExport is raised by hand because it reads LastResult as well as
     /// IsScanning. A scan gets that refresh free, since IsScanning changes on
     /// the line before; clearing the roots changes neither, so without this
-    /// Export stays enabled over results that are no longer displayed.
+    /// Export stays enabled over results that are no longer displayed. The
+    /// suspects' heading and playlist verb read the rows, so they are raised
+    /// with them.
     private void ClearResults()
     {
         Groups.Clear();
@@ -409,10 +523,14 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         _allUnpaired.Clear();
         NotAnalyzed.Clear();
         DiffColumns.Clear();
+        Suspects.Clear();
+        _allSuspects.Clear();
         _baseFooter = null;
         LastResult = null;
         RaisePropertyChanged(nameof(HasResults));
         RaisePropertyChanged(nameof(CanExport));
+        RaisePropertyChanged(nameof(SuspectHeading));
+        RaisePropertyChanged(nameof(CanSavePlaylist));
     }
 
     private void PersistRoots() => settings.DuplicateRoots = [.. Roots];
@@ -461,7 +579,18 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             _baseFooter = $"{result.Groups.Count} groups · "
                 + $"{result.Groups.Sum(g => g.Group.Members.Count)} duplicate files · "
                 + $"reclaimable {Reporting.FormatBytes(result.ReclaimableBytes)} · {result.FilesScanned} scanned{cacheNote}";
+            // Listed before their labels exist, so the section fills with
+            // "checking…" rows at once. Labelled from the roots as the engine
+            // spells them, since Roots keeps them as typed.
+            _suspectRoots = [.. roots.Select(Path.GetFullPath)];
+            var rootLabels = ScopeLabel.Distinguish(_suspectRoots);
+            SuspectItem[] suspects = [.. result.Suspects.Select(p => new SuspectItem(p, _suspectRoots, rootLabels))];
+            _allSuspects.AddRange(suspects);
+            _checkingLabels = true;
             ApplyGroupFilter(); // populates Groups and writes the footer, honoring any typed filter
+            // The scan is not done until its labels are: IsScanning stays true,
+            // and Cancel or closing the window stops the labelling too.
+            await LabelSuspectsAsync(suspects, jobs, ct);
         }
         catch (OperationCanceledException)
         {
@@ -478,5 +607,44 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             ProgressText = "";
             ProgressFraction = 0;
         }
+    }
+
+    /// The scan's last phase. However it ends, the scan's results and footer
+    /// stand: a cancel, or a failure, leaves the rows it had not reached "not
+    /// checked", and a failure adds why to the end of the footer.
+    private async Task LabelSuspectsAsync(SuspectItem[] rows, int jobs, CancellationToken ct)
+    {
+        // Made here, on the UI thread, so the callbacks run there.
+        var progress = new Progress<LabelProgress>(p =>
+        {
+            rows[p.Index].Verdict = p.Verdict;
+            ProgressFraction = (double)p.Done / p.Total;
+            ProgressText = $"Checking {p.Done} of {p.Total}";
+            RaisePropertyChanged(nameof(SuspectHeading));
+        });
+        string? failure = null;
+        try
+        {
+            var verdicts = await Task.Run(
+                () => SuspectLabeler.LabelAll(ffmpeg, [.. rows.Select(r => r.Pair)], jobs, progress, ct), ct);
+            // Again from the array: with no UI thread to post to (a test), the
+            // callbacks can land after this.
+            for (var i = 0; i < rows.Length; i++)
+                rows[i].Verdict = verdicts[i];
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            foreach (var row in rows.Where(r => r.Verdict is null))
+                row.MarkNotChecked();
+            // LabelAll throws a bare OperationCanceledException only for a pure
+            // cancel; any other failure (ffmpeg not starting, say) comes as an
+            // AggregateException, with a cancel at the same time folded in.
+            if (ex is not OperationCanceledException)
+                failure = ex.GetBaseException().Message;
+        }
+        _checkingLabels = false;
+        ApplyGroupFilter(); // the final order; raises SuspectHeading and CanSavePlaylist
+        if (failure is not null)
+            SetError($"{FooterText} · could not check the labels: {failure}");
     }
 }

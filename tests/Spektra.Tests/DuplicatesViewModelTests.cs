@@ -268,4 +268,174 @@ public sealed class DuplicatesViewModelTests
         }
         finally { Directory.Delete(work, recursive: true); }
     }
+
+    /// The diff's footer exactly as ScanAsync_InADiff_HidesTheSameRecording_AndFillsEachColumnWithWhatOnlyItHolds
+    /// expects it: the suspects section must not move it.
+    private static string DiffFooter() =>
+        ScanLine() + " · differences: 1 same hidden · 2 same name only · 2 in one folder only"
+        + " · 0 weak match · 2 not comparable";
+
+    /// The fixture's one suspect: the name both folders hold over different audio.
+    private static string SharedTitle(string root) => Path.Combine(root, "Shared Title.wav");
+
+    [Test]
+    public async Task ScanAsync_InADiff_ListsTheSharedTitle_AsASuspect()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            await Assert.That(vm.Suspects).HasSingleItem();
+            var row = vm.Suspects[0];
+            await Assert.That(row.Name).IsEqualTo("Shared Title");
+            // A 1 kHz sine against a melody that holds no 1 kHz partial.
+            await Assert.That(row.LabelText).IsEqualTo("Doesn't line up: a cover, another song, or a heavy remaster");
+            await Assert.That(row.IsBottomTier).IsFalse();
+            await Assert.That(row.Lengths).IsEqualTo("0:24 vs 0:24");
+            await Assert.That(row.Strength).IsEqualTo("same name");
+            await Assert.That(row.HasCrossMatch).IsFalse();
+            // FullPath is what the row's context menu acts on.
+            await Assert.That(((IFileItem)row.SideA).FullPath).IsEqualTo(SharedTitle(RootA));
+            await Assert.That(row.SideA.Label).IsEqualTo("A");
+            await Assert.That(((IFileItem)row.SideB).FullPath).IsEqualTo(SharedTitle(RootB));
+            await Assert.That(row.SideB.Label).IsEqualTo("B");
+            await Assert.That(vm.SuspectHeading)
+                .IsEqualTo("Same name, different audio · 1 to listen to first · 0 similar");
+            await Assert.That(vm.FooterText).IsEqualTo(DiffFooter());
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task HideTitleTwins_NeverHidesASuspect()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            // On (the default), off, then on again: the box thins the columns, never this section.
+            foreach (var hide in (bool[])[true, false, true])
+            {
+                vm.HideTitleTwins = hide;
+
+                await Assert.That(vm.Suspects).HasSingleItem().Because($"Hide name matches is {(hide ? "on" : "off")}");
+                await Assert.That(vm.SuspectHeading)
+                    .IsEqualTo("Same name, different audio · 1 to listen to first · 0 similar")
+                    .Because($"Hide name matches is {(hide ? "on" : "off")}");
+            }
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task OnlyDifferences_Off_EmptiesTheSuspects()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            vm.OnlyDifferences = false;
+
+            await Assert.That(vm.Suspects).IsEmpty();
+            // The scan found a pair, but none is on screen to save.
+            await Assert.That(vm.CanSavePlaylist).IsFalse();
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task FilterText_NarrowsTheSuspects_AndTheHeadingCountsWhatIsShown()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            vm.FilterText = "zzz";
+
+            await Assert.That(vm.Suspects).IsEmpty();
+            await Assert.That(vm.SuspectHeading).IsEqualTo("Same name, different audio · none");
+            await Assert.That(vm.CanSavePlaylist).IsFalse();
+
+            vm.FilterText = "shared";
+
+            await Assert.That(vm.Suspects).HasSingleItem();
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task RequestCompare_OnASuspect_AsksForAnAlignedCompare_FirstFolderAsA()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+            await Assert.That(vm.Suspects).HasSingleItem();
+            var aligned = new List<string>();
+            var compares = 0;
+            var opens = 0;
+            vm.OpenAlignedCompareRequested += (a, b) => aligned.Add($"{a} then {b}");
+            vm.OpenCompareRequested += (_, _) => compares++;
+            vm.OpenFileRequested += _ => opens++;
+
+            vm.RequestCompare(vm.Suspects[0]);
+
+            await Assert.That(string.Join(" | ", aligned))
+                .IsEqualTo($"{SharedTitle(RootA)} then {SharedTitle(RootB)}");
+            // The winner-against-challenger compare does not align, and nothing opens on its own.
+            await Assert.That(compares).IsEqualTo(0);
+            await Assert.That(opens).IsEqualTo(0);
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task ListeningPlaylist_HoldsThePair_AThenB()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            var vm = await ScanTheLibrary(work);
+
+            await Assert.That(vm.ListeningPlaylist()).IsEqualTo(
+                "#EXTM3U\n"
+                + $"#EXTINF:24,1 A · doesn't line up · Shared Title\n{SharedTitle(RootA)}\n"
+                + $"#EXTINF:24,1 B · doesn't line up · Shared Title\n{SharedTitle(RootB)}\n");
+            await Assert.That(vm.CanSavePlaylist).IsTrue();
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task Cancel_BeforeTheLabelsArrive_LeavesThemNotChecked_AndKeepsTheFooter()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            // Built as ScanTheLibrary builds it, plus a Cancel the moment the results land:
+            // HasResults turns true before the labelling starts, so no label ever arrives.
+            var vm = new DuplicatesViewModel(Ff, new AppSettings(), cachePath: CachePath(work));
+            vm.SetDiffRoots(RootA, RootB);
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(DuplicatesViewModel.HasResults) && vm.HasResults) vm.Cancel();
+            };
+
+            await vm.ScanAsync();
+
+            await Assert.That(vm.Suspects).HasSingleItem();
+            await Assert.That(vm.Suspects[0].LabelText).IsEqualTo("not checked");
+            await Assert.That(vm.SuspectHeading)
+                .IsEqualTo("Same name, different audio · 0 to listen to first · 0 similar · 1 not checked");
+            // The scan itself finished, so its footer stands, not "Scan cancelled".
+            await Assert.That(vm.FooterText).IsEqualTo(DiffFooter());
+            await Assert.That(vm.IsScanning).IsFalse();
+            await Assert.That(vm.CanSavePlaylist).IsFalse();
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
 }
