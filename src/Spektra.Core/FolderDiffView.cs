@@ -118,10 +118,13 @@ public static class FolderDiffView
 
     /// The file's path below its root, which is what a column shows: the
     /// column's heading already names the root.
-    public static string RelativePath(UnpairedFile file) =>
-        file.Root.Length > 0 && file.Path.StartsWith(file.Root, StringComparison.OrdinalIgnoreCase)
-            ? file.Path[file.Root.Length..].TrimStart('\\', '/')
-            : file.Path;
+    public static string RelativePath(UnpairedFile file) => RelativePath(file.Path, file.Root);
+
+    /// A path below a root, or the whole path when it is not under it.
+    public static string RelativePath(string path, string root) =>
+        root.Length > 0 && path.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+            ? path[root.Length..].TrimStart('\\', '/')
+            : path;
 
     /// The results filter applied to an unpaired file: every word must appear
     /// in its path, matching how GroupMatches treats a group's members.
