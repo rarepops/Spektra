@@ -105,6 +105,12 @@ public static class DuplicateScan
         IProgress<DupesProgress>? progress = null, CancellationToken ct = default,
         double minDurationSeconds = MinDurationSeconds)
     {
+        // CollectTargets enumerates the full path of each root, so a root spelled
+        // any other way (relative, forward slashes, "..") is a prefix of none of
+        // the files found under it. Normalizing once gives collection, RootOf,
+        // FindUnpaired and SuspectPairs.Find one list to agree on.
+        roots = [.. roots.Select(Path.GetFullPath)];
+
         var files = CollectFiles(roots);
         var artifacts = AnalyzeAll(ffmpeg, files, jobs, cache, fresh, progress, ct);
         var (usable, notAnalyzed) = Partition(files, artifacts, minDurationSeconds);

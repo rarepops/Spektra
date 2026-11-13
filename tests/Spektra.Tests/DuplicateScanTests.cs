@@ -348,6 +348,35 @@ public sealed class DuplicateScanTests
         }
     }
 
+    [Test]
+    public async Task Run_ARootSpelledThroughDotDot_StillPairsUnderItsFullPath()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-spelled-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-spelled-b").FullName;
+        try
+        {
+            // The CLI hands roots over as typed, while the files a scan finds
+            // carry the full path of their root. B is spelled through A's parent
+            // here: unless the scan normalizes its roots, B's file matches no
+            // root and its side of the pair carries "" where B belongs.
+            var spelledB = Path.Combine(rootA, "..", Path.GetFileName(rootB));
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(rootB, "Shared Title.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, spelledB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Suspects).HasSingleItem();
+            var pair = result.Suspects[0];
+            await Assert.That(pair.PathA).IsEqualTo(Path.Combine(rootA, "Shared Title.wav"));
+            await Assert.That(pair.RootB).IsEqualTo(rootB);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
     private static async Task IsAboutThreeSeconds(double? seconds)
     {
         await Assert.That(seconds).IsNotNull();
