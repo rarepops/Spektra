@@ -28,8 +28,11 @@ public sealed class DupesDiffReportTests
         new(SuspectLabel.DoesntLineUp, 0.17213),
     ];
 
+    private static AuditRow Audit(double seconds) =>
+        new("x.flac", "flac", 44100, 2, null, seconds, "Lossless", null, "Ok", 0, 0, false, null);
+
     private static UnpairedFile Lone(string path, string root, double seconds, long size = 1024) =>
-        new(path, root, new AuditRow("x.flac", "flac", 44100, 2, null, seconds, "Lossless", null, "Ok", 0, 0, false, null), size);
+        new(path, root, Audit(seconds), size);
 
     private static DupesGroupReport Group(int id, string label, string tier, params string[] members) =>
         new(new DuplicateGroup(id, label, tier, [.. members.Select(m => new DuplicateMember(m, 0.9, tier, false))]),
@@ -46,7 +49,11 @@ public sealed class DupesDiffReportTests
     // not be analyzed.
     private static DupesResult Result(params SuspectPair[] suspects) => new(
         [
-            Group(2, "weak one", "Medium", @"A\w.flac", @"B\w.mp3"),
+            // A\w.flac has an audit row and B\w.mp3 has none.
+            Group(2, "weak one", "Medium", @"A\w.flac", @"B\w.mp3") with
+            {
+                Rows = new Dictionary<string, AuditRow> { [@"A\w.flac"] = Audit(201) },
+            },
             // Confidently the same recording, so the diff never mentions it.
             Group(3, "Other Name", "High", @"A\Other Name.flac", @"B\Shared Title.flac"),
         ],
@@ -112,11 +119,17 @@ public sealed class DupesDiffReportTests
         await Assert.That(rows[2].NameStrength).IsEqualTo("NearName");
         await Assert.That(rows[3].Group).IsEqualTo(2);
         await Assert.That(rows[4].Group).IsEqualTo(2);
+        // Each weak member's own folder, and its length where it has an audit row.
+        await Assert.That(rows[3].Root).IsEqualTo("A");
+        await Assert.That(rows[3].Seconds).IsEqualTo(201);
+        await Assert.That(rows[4].Root).IsEqualTo("B");
+        await Assert.That(rows[4].Seconds).IsNull();
         await Assert.That(rows[5].Path).IsEqualTo(@"A\Only Here.flac");
         await Assert.That(rows[5].Seconds).IsEqualTo(180);
         // A\Broken Song.flac could not be analyzed either, but its pair already lists it.
         await Assert.That(rows[6].Path).IsEqualTo(@"A\Jingle.wav");
         await Assert.That(rows[6].Reason).IsEqualTo("shorter than 20 s");
+        await Assert.That(rows[6].Root).IsEqualTo("A");
     }
 
     [Test]

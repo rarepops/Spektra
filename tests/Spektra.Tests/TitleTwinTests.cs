@@ -194,6 +194,10 @@ public sealed class TitleTwinTests
     // An en dash is not a " - ": nothing splits, so there are no artists, and a
     // name this reader cannot take apart falls back to the loosest rank.
     [Arguments(@"A\Artist Name – Song Title.flac", @"B\Artist Name; Guest Two – Song Title.flac", 2)]
+    // A title with nothing left after the articles never earns a 1, though the artists nest.
+    [Arguments(@"A\Artist Name Guest - The.flac", @"B\Artist Name Guest Two - The.flac", 2)]
+    // The same title, but neither artist list sits inside the other.
+    [Arguments(@"A\Song Artist - Song Title Here.flac", @"B\Artist Guest - Song Title Here.flac", 2)]
     public async Task NameRank_says_how_closely_two_twin_names_agree(string a, string b, int expected)
     {
         // Every case must be a 0.25.0 twin first: the rank only orders twins.

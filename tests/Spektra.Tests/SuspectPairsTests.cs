@@ -165,6 +165,8 @@ public sealed class SuspectPairsTests
         await Assert.That(Show(found)).IsEqualTo(@"B\Artist Name - Song Title.flac ~ A\Artist Name - Song Title.flac (SameName)");
         await Assert.That(found[0].SecondsA).IsNull();
         await Assert.That(found[0].SecondsB).IsEqualTo(424.0);
+        await Assert.That(found[0].RootA).IsEqualTo("B");
+        await Assert.That(found[0].RootB).IsEqualTo("A");
     }
 
     [Test]
@@ -192,5 +194,41 @@ public sealed class SuspectPairsTests
         await Assert.That(Show(found)).IsEqualTo(
             @"A\Song Title Here.flac ~ C\Song Title Here.flac (SameName)"
             + @" | B\Song Title Here.flac ~ C\Song Title Here.flac (SameName)");
+    }
+
+    [Test]
+    public async Task A_credit_match_is_same_name_and_outranks_a_near_name()
+    {
+        // The credit copy's closest twin under B is the plain name, the same title with the credits
+        // nested, and it sits in another group. The Radio Edit shares the credit copy's group but is
+        // only a near name, so it is never asked. The pair found is a same-name pair.
+        var found = SuspectPairs.Find(
+        [
+            F(@"A\Artist Name - Song Title.flac", 2),
+            F(@"A\Artist Name; Guest Two - Song Title.flac", 1),
+            F(@"B\Artist Name - Song Title.flac", 2),
+            F(@"B\Artist Name - Song Title - Radio Edit.flac", 1),
+        ], AB);
+
+        await Assert.That(Show(found)).IsEqualTo(
+            @"A\Artist Name; Guest Two - Song Title.flac ~ B\Artist Name - Song Title.flac (SameName)");
+    }
+
+    [Test]
+    public async Task The_cross_match_names_a_group_mate_under_another_root_first()
+    {
+        // A's copy shares its group with a file beside it and with one under C. Path order alone would
+        // name the file beside it; the one under another root is named. B's copy is in no group.
+        var found = SuspectPairs.Find(
+        [
+            F(@"A\Artist Name - Song Title.flac", 7),
+            F(@"A\Something Else Entirely.flac", 7),
+            F(@"C\Other Words Here.flac", 7),
+            F(@"B\Artist Name - Song Title.flac"),
+        ], ["A", "B", "C"]);
+
+        await Assert.That(Show(found)).IsEqualTo(@"A\Artist Name - Song Title.flac ~ B\Artist Name - Song Title.flac (SameName)");
+        await Assert.That(found[0].SameAudioAsA).IsEqualTo(@"C\Other Words Here.flac");
+        await Assert.That(found[0].SameAudioAsB).IsNull();
     }
 }

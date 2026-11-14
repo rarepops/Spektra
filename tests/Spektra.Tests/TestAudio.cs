@@ -35,7 +35,12 @@ internal static class TestAudio
     }
 
     /// A fixture played `times` times in a row into `target`, without re-encoding.
-    public static void Loop(string fixture, int times, string target) =>
+    /// `times` is 1 or more: 0 would pass a loop count of -1, which ffmpeg reads as
+    /// looping forever.
+    public static void Loop(string fixture, int times, string target)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(times, 1);
         Ffmpeg("-stream_loop", (times - 1).ToString(CultureInfo.InvariantCulture),
             "-i", Fixture(fixture), "-c", "copy", target);
+    }
 }

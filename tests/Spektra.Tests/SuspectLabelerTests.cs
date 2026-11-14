@@ -104,6 +104,22 @@ public sealed class SuspectLabelerTests
         await Assert.That(verdict.Label).IsEqualTo(SuspectLabel.CantCompare);
     }
 
+    // This test and the next put the bad copy on side A. Each call sits inside its assertion,
+    // so a decode failure that escaped Label would fail the assertion, not the test around it.
+    [Test]
+    public async Task Label_ACopyShorterThanTheWindow_AsA_CannotBeCompared()
+    {
+        await Assert.That(() => SuspectLabeler.Label(Ff, P("stub.wav"), P("base.wav")))
+            .IsEqualTo(new SuspectVerdict(SuspectLabel.CantCompare, null));
+    }
+
+    [Test]
+    public async Task Label_AFileThatDoesNotDecode_AsA_CannotBeCompared()
+    {
+        await Assert.That(() => SuspectLabeler.Label(Ff, P("broken.wav"), P("base.wav")))
+            .IsEqualTo(new SuspectVerdict(SuspectLabel.CantCompare, null));
+    }
+
     [Test]
     public async Task Label_AFifteenSecondPair_IsCompared_NotRefused()
     {
@@ -147,6 +163,9 @@ public sealed class SuspectLabelerTests
         var reports = recorder.Reports;
         await Assert.That(string.Join(", ", reports.Select(r => r.Index).Order())).IsEqualTo("0, 1, 2");
         await Assert.That(reports[^1].Done).IsEqualTo(3);
+        // Each report carries the verdict the array holds for its pair.
+        foreach (var r in reports)
+            await Assert.That(r.Verdict).IsEqualTo(verdicts[r.Index]).Because($"the report for pair {r.Index}");
     }
 
     [Test]
