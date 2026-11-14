@@ -199,6 +199,28 @@ public partial class DuplicatesWindow : Window
             _vm.RequestCompare(member);
     }
 
+    // A same-name pair's row: double-click and the menu's first verb both put
+    // the two copies side by side, aligned.
+    private void OnSuspectDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is SuspectItem item)
+            _vm.RequestCompare(item);
+    }
+
+    private void OnCompareSuspectClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is SuspectItem item)
+            _vm.RequestCompare(item);
+    }
+
+    // Each side's submenu carries that side as its DataContext, so Play, Copy
+    // path and Reveal reuse the shared handlers; opening narrows to the type.
+    private void OnOpenSuspectSideClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is SuspectSide side)
+            _vm.RequestOpen(side);
+    }
+
     private async void OnCopyLosersClicked(object? sender, RoutedEventArgs e)
     {
         if ((sender as MenuItem)?.DataContext is DupeGroupItem group && group.LoserPaths.Count > 0)
@@ -267,6 +289,33 @@ public partial class DuplicatesWindow : Window
             // async void handler: an unguarded write failure would crash the
             // app instead of reporting (same guard as the folder view export).
             _vm.SetError($"Could not export the report: {ex.Message}");
+        }
+    }
+
+    // Written like the export above: the picker's stream starts empty, so a
+    // shorter playlist saved over a longer one leaves nothing of it behind, and
+    // StreamWriter's default UTF-8 carries no byte-order mark a player could
+    // trip on.
+    private async void OnSavePlaylistClicked(object? sender, RoutedEventArgs e)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save listening playlist",
+            SuggestedFileName = "same-name-different-audio.m3u8",
+            DefaultExtension = "m3u8",
+            FileTypeChoices = [new FilePickerFileType("M3U8 playlist") { Patterns = ["*.m3u8"] }],
+        });
+        if (file is null) return;
+        try
+        {
+            var text = _vm.ListeningPlaylist();
+            await using var stream = await file.OpenWriteAsync();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _vm.SetError($"Could not save the playlist: {ex.Message}");
         }
     }
 }
