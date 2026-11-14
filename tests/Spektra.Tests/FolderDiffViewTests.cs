@@ -282,4 +282,41 @@ public sealed class FolderDiffViewTests
     {
         await Assert.That(FolderDiffView.RelativePath(Lone(path, root))).IsEqualTo(expected);
     }
+
+    [Test]
+    public async Task ListCeilings_BothFit_KeepTheirOwn()
+    {
+        await Assert.That(FolderDiffView.ListCeilings(500, 260, 200)).IsEqualTo((260.0, 200.0));
+        // The boundary fits: the two lists fill exactly what is left.
+        await Assert.That(FolderDiffView.ListCeilings(460, 260, 200)).IsEqualTo((260.0, 200.0));
+    }
+
+    [Test]
+    public async Task ListCeilings_TooTall_ShrinkInProportion()
+    {
+        await Assert.That(FolderDiffView.ListCeilings(230, 260, 200)).IsEqualTo((130.0, 100.0));
+    }
+
+    [Test]
+    public async Task ListCeilings_NeverBelowTheFloor()
+    {
+        // Scaling gives 112.5 and 37.5: the smaller one is raised to the floor
+        // and the other takes what is left.
+        await Assert.That(FolderDiffView.ListCeilings(150, 300, 100)).IsEqualTo((90.0, 60.0));
+        // In a very short window the floors win, even though together they
+        // are taller than the room.
+        await Assert.That(FolderDiffView.ListCeilings(100, 260, 200)).IsEqualTo((60.0, 60.0));
+        await Assert.That(FolderDiffView.ListCeilings(-40, 260, 200)).IsEqualTo((60.0, 60.0));
+    }
+
+    [Test]
+    public async Task ListCeilings_AListThatIsNotShown_LeavesTheRoomToTheOther()
+    {
+        await Assert.That(FolderDiffView.ListCeilings(230, 260, 0)).IsEqualTo((230.0, 0.0));
+        await Assert.That(FolderDiffView.ListCeilings(500, 260, 0)).IsEqualTo((260.0, 0.0));
+        await Assert.That(FolderDiffView.ListCeilings(20, 260, 0)).IsEqualTo((60.0, 0.0));
+        await Assert.That(FolderDiffView.ListCeilings(230, 0, 200)).IsEqualTo((0.0, 200.0));
+        await Assert.That(FolderDiffView.ListCeilings(100, 0, 200)).IsEqualTo((0.0, 100.0));
+        await Assert.That(FolderDiffView.ListCeilings(230, 0, 0)).IsEqualTo((0.0, 0.0));
+    }
 }

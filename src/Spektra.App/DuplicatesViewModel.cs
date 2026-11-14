@@ -288,6 +288,25 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         }
     }
 
+    /// The Same name, different audio list's height ceiling, dragged at its
+    /// bottom edge and saved like the weak-match list's. A ceiling rather than
+    /// a height, so a short list stays short.
+    private const double MinSuspectPanel = 60;
+    private const double MaxSuspectPanel = 2000;
+    private double _suspectPanelHeight =
+        settings.DuplicatesSuspectPanelHeight is { } saved && double.IsFinite(saved)
+            ? Math.Clamp(saved, MinSuspectPanel, MaxSuspectPanel)
+            : 260;
+    public double SuspectPanelHeight
+    {
+        get => _suspectPanelHeight;
+        set
+        {
+            if (Set(ref _suspectPanelHeight, Math.Clamp(value, MinSuspectPanel, MaxSuspectPanel)))
+                settings.DuplicatesSuspectPanelHeight = _suspectPanelHeight;
+        }
+    }
+
     /// Every group of the last completed scan; Groups is the filtered view.
     private readonly List<DupeGroupItem> _allGroups = [];
     /// The unfiltered footer line of the last scan, re-suffixed as the

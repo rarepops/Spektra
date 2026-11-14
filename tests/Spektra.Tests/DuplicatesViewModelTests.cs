@@ -487,4 +487,25 @@ public sealed class DuplicatesViewModelTests
         }
         finally { Directory.Delete(work, recursive: true); }
     }
+
+    [Test]
+    public async Task SuspectPanelHeight_DefaultsTo260_ClampsItsRange_AndSavesEveryChange()
+    {
+        // Never dragged: the list's old fixed ceiling. Hand-edited junk is clamped.
+        await Assert.That(new DuplicatesViewModel(Ff, new AppSettings()).SuspectPanelHeight).IsEqualTo(260);
+        await Assert.That(new DuplicatesViewModel(Ff, new AppSettings { DuplicatesSuspectPanelHeight = 9999 })
+            .SuspectPanelHeight).IsEqualTo(2000);
+
+        var settings = new AppSettings();
+        var vm = new DuplicatesViewModel(Ff, settings);
+        vm.SuspectPanelHeight = 40;
+        await Assert.That(vm.SuspectPanelHeight).IsEqualTo(60);
+        await Assert.That(settings.DuplicatesSuspectPanelHeight).IsEqualTo(60);
+
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        vm.SuspectPanelHeight = 300;
+        await Assert.That(raised).Contains(nameof(DuplicatesViewModel.SuspectPanelHeight));
+        await Assert.That(settings.DuplicatesSuspectPanelHeight).IsEqualTo(300);
+    }
 }

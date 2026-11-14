@@ -94,6 +94,12 @@ public sealed class AppSettings
     /// alone. Null = never dragged, which the window reads as its own default.
     public double? DuplicatesWeakPanelHeight { get; set; }
 
+    /// The folder diff's Same name, different audio list height in logical px,
+    /// dragged at its bottom edge. Layout rather than content, so
+    /// ApplyStartupPolicy leaves it alone. Null = never dragged, which the
+    /// window reads as its own default.
+    public double? DuplicatesSuspectPanelHeight { get; set; }
+
     // Folder Manifest window state: the last listed folder and the window
     // placement persist so the window reopens where it left off. Column widths
     // follow the FolderColumnWidths shape: keyed by header, absent key = the
