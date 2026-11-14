@@ -118,10 +118,38 @@ public static class FolderDiffView
 
     /// The file's path below its root, which is what a column shows: the
     /// column's heading already names the root.
-    public static string RelativePath(UnpairedFile file) =>
-        file.Root.Length > 0 && file.Path.StartsWith(file.Root, StringComparison.OrdinalIgnoreCase)
-            ? file.Path[file.Root.Length..].TrimStart('\\', '/')
-            : file.Path;
+    public static string RelativePath(UnpairedFile file) => RelativePath(file.Path, file.Root);
+
+    /// A path below a root, or the whole path when it is not under it.
+    public static string RelativePath(string path, string root) =>
+        root.Length > 0 && path.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+            ? path[root.Length..].TrimStart('\\', '/')
+            : path;
+
+    /// The smallest height a list is ever squeezed to.
+    public const double MinListHeight = 60;
+
+    /// The height ceilings the two lists of the diff get when they must share `available`
+    /// (what is left of the diff's height once the columns' floor and the two panels' own
+    /// headings are taken out). Each list keeps its own ceiling while both fit. When they
+    /// do not, both shrink in proportion, never below MinListHeight, so in a very short
+    /// window the floors win and the sum can exceed `available`. A ceiling of 0 means that
+    /// list is not shown: it stays 0 and the other list takes `available`, up to its own
+    /// ceiling.
+    public static (double Suspect, double Weak) ListCeilings(double available, double suspectCeiling, double weakCeiling)
+    {
+        if (suspectCeiling <= 0 && weakCeiling <= 0) return (0, 0);
+        if (weakCeiling <= 0) return (Math.Min(suspectCeiling, Math.Max(MinListHeight, available)), 0);
+        if (suspectCeiling <= 0) return (0, Math.Min(weakCeiling, Math.Max(MinListHeight, available)));
+        if (suspectCeiling + weakCeiling <= available) return (suspectCeiling, weakCeiling);
+        var scale = available / (suspectCeiling + weakCeiling);
+        var (suspect, weak) = (suspectCeiling * scale, weakCeiling * scale);
+        if (suspect >= MinListHeight && weak >= MinListHeight) return (suspect, weak);
+        if (suspect < MinListHeight && weak < MinListHeight) return (MinListHeight, MinListHeight);
+        return suspect < MinListHeight
+            ? (MinListHeight, Math.Max(MinListHeight, Math.Min(weakCeiling, available - MinListHeight)))
+            : (Math.Max(MinListHeight, Math.Min(suspectCeiling, available - MinListHeight)), MinListHeight);
+    }
 
     /// The results filter applied to an unpaired file: every word must appear
     /// in its path, matching how GroupMatches treats a group's members.

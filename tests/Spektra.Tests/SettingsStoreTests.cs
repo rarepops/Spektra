@@ -313,4 +313,15 @@ public sealed class SettingsStoreTests : IDisposable
         var s = new AppSettings { OverviewCacheMB = saved };
         await Assert.That(s.EffectiveOverviewCacheMB).IsEqualTo(effective);
     }
+
+    [Test]
+    public async Task DuplicatesSuspectPanelHeight_DefaultNull_AndRoundTrips()
+    {
+        var defaults = SettingsStore.Load(SettingsPath);
+        await Assert.That(defaults.DuplicatesSuspectPanelHeight).IsNull();
+
+        SettingsStore.Save(SettingsPath, new AppSettings { DuplicatesSuspectPanelHeight = 264.5 });
+
+        await Assert.That(SettingsStore.Load(SettingsPath).DuplicatesSuspectPanelHeight).IsEqualTo(264.5);
+    }
 }

@@ -102,6 +102,35 @@ Add --html report.html to also write the groups as a self-contained dark HTML pa
 
 **Exit codes:** `0` no duplicate groups found, `1` one or more duplicate groups found, `2` usage or environment error (no folder given, or an argument is not an existing directory).
 
+### dupes --diff: what differs between two folders
+
+    $ spektra-cli dupes --diff /music/Old /music/New
+    Same name, different audio · 1 to listen to first · 1 similar
+      1. Doesn't line up: a cover, another song, or a heavy remaster · same name · 3:41 vs 3:12
+         Old: /music/Old/Artist Name - Song Title.flac
+         New: /music/New/Artist Name - Song Title.flac
+         the copy in New is the same audio as Artist Name; Guest Two - Song Title.flac in Old
+      2. Partly the same: another mix or edit · near name · 3:20 vs 3:35
+         Old: /music/Old/Song Title - Radio Edit.flac
+         New: /music/New/Song Title.flac
+    Only in Old · nothing
+    Only in New · 1 file(s) · 28.4 MB
+         /music/New/Bonus Track.flac
+
+`dupes --diff` asks what differs between folders holding nearly the same music, the question the desktop app's **Only differences** view answers. It prints, in this order, the files with the same name and different audio, the weak matches (groups too weak to take on trust, with their members), what each folder alone holds (every folder gets its line, `nothing` included), and the files that could not be analyzed; groups the scan is confident are the same recording are left out, whatever their format or quality.
+
+A file is a suspect when it has a name twin in another of the folders and none of its twins there shares its audio group; any shared group clears it, a weak one included. That is the shape a cover sold under the original's name takes, but a mislabeled remix or another master of the same song takes it too, so nothing here calls a copy fake: the label describes the evidence and you decide by ear. Twins are looked for in order: identical names first, then the same title with one copy crediting artists the other leaves out (both read `same name`), then names that agree only once version words such as Remastered or Radio Edit are set aside, or where one name otherwise sits inside the other (`near name`).
+
+Each pair is labelled by how the opening seconds of its two copies line up. `Doesn't line up` (a cover, another song, or a heavy remaster) and `Can't compare` (one copy is broken or too short) are the pairs to listen to first and come first; `Partly the same` (another mix or edit) and `Same performance` (another master, or identical) follow, counted as similar. Within a label, same-name pairs come before near-name ones. When a copy's audio matches another file in the scan, a line under the pair names that file and its folder, as in the example above.
+
+Alignment can clear a pair but never convict one: only the first 10 seconds of each copy are compared, within 2 seconds either way, so a different intro, a larger offset, or a copy that opens with silence there reads as `Doesn't line up` too. Files under 20 seconds, which the duplicate hunt never groups, are aligned like any other, so two identical short tracks appear here as `Same performance`.
+
+With `--json` or `--csv` the report is one row per pair or file, in the same order, its `Kind` one of `suspect`, `weak`, `only-in` and `not-analyzed`. The columns are `Kind, Root, Path, OtherRoot, OtherPath, NameStrength, Label, AlignConfidence, Seconds, OtherSeconds, SameAudioAs, OtherSameAudioAs, Group, Reason` (camelCase keys in JSON). A suspect row holds the first folder's copy in `Root` and `Path` and the other copy in the `Other` columns; `NameStrength` and `Label` hold enum names (`SameName`, `NearName`; `DoesntLineUp`, `CantCompare`, `PartlySame`, `SamePerformance`) and `AlignConfidence` is rounded to 3 places. A weak row carries its `Group`, and a not-analyzed row its `Reason`. A file in a suspect pair is never also listed as `only-in` or `not-analyzed`, since the pair already shows it; a member of a weak group that is also in a suspect pair is listed under both, because both facts hold.
+
+Add `--playlist out.m3u8` to also write the pairs to listen to first as an `.m3u8` playlist (UTF-8 without a byte-order mark) for your own player, in the order shown: each pair's copy from the first folder, then its copy from the second, so the two play back to back. `--html` is refused with `--diff` (use `--json`, `--csv` or `--playlist`), and `--diff` needs two or more folders. A note on the name: the top-level `spektra-cli --diff` is the two-file `diff` command; here `--diff` is an option after `dupes`.
+
+**Exit codes:** `0` nothing differs (files that could not be analyzed do not count on their own), `1` at least one suspect pair, weak match, or file only one folder holds, `2` usage or environment error (fewer than two folders, a folder that does not exist, `--html` with `--diff`, a playlist that cannot be written, or labels that could not be checked).
+
 ## manifest: list everything, decode nothing
 
     $ spektra-cli manifest /music/Album

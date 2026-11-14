@@ -29,7 +29,7 @@ internal static partial class Program
         }
 
         if (html is not null
-            && !TryWriteHtml("manifest", html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")))
+            && !TryWriteText("manifest", html, HtmlReport.ManifestDocument(root, "Spektra Folder Manifest")))
             return 2;
 
         var rows = FolderManifest.ToRows(root);

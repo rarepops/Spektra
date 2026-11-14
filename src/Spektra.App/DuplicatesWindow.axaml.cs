@@ -27,6 +27,20 @@ public partial class DuplicatesWindow : Window
         _vm = vm;
         _settings = settings;
         DataContext = vm;
+        // Both lists get their ceilings before the first layout, so the first
+        // frame is not unbounded; FitDiffLists keeps them after every pass.
+        SuspectScroll.MaxHeight = _vm.SuspectPanelHeight;
+        WeakScroll.MaxHeight = _vm.WeakPanelHeight;
+        DiffGrid.LayoutUpdated += (_, _) => FitDiffLists();
+        // A drag changes a ceiling and nothing in the layout, so no pass would
+        // follow it: fit at once, and the list follows the pointer as it did
+        // while its MaxHeight was bound.
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(DuplicatesViewModel.SuspectPanelHeight)
+                or nameof(DuplicatesViewModel.WeakPanelHeight))
+                FitDiffLists();
+        };
         if (settings.DuplicatesWindow is { } p)
         {
             // Position is physical px, Width/Height logical; the intersect test
@@ -199,6 +213,28 @@ public partial class DuplicatesWindow : Window
             _vm.RequestCompare(member);
     }
 
+    // A same-name pair's row: double-click and the menu's first verb both put
+    // the two copies side by side, aligned.
+    private void OnSuspectDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is SuspectItem item)
+            _vm.RequestCompare(item);
+    }
+
+    private void OnCompareSuspectClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is SuspectItem item)
+            _vm.RequestCompare(item);
+    }
+
+    // Each side's submenu carries that side as its DataContext, so Play, Copy
+    // path and Reveal reuse the shared handlers; opening narrows to the type.
+    private void OnOpenSuspectSideClicked(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as MenuItem)?.DataContext is SuspectSide side)
+            _vm.RequestOpen(side);
+    }
+
     private async void OnCopyLosersClicked(object? sender, RoutedEventArgs e)
     {
         if ((sender as MenuItem)?.DataContext is DupeGroupItem group && group.LoserPaths.Count > 0)
@@ -226,6 +262,48 @@ public partial class DuplicatesWindow : Window
     {
         var ceiling = Math.Max(60, DiffGrid.Bounds.Height - 150);
         _vm.WeakPanelHeight = Math.Min(ceiling, _vm.WeakPanelHeight - e.Vector.Y);
+    }
+
+    // Dragging the same-name list's bottom edge down gives it more room: the
+    // weak handler's clamp, with the sign of the drag turned round.
+    private void OnSuspectPanelDrag(object? sender, VectorEventArgs e)
+    {
+        _vm.SuspectPanelHeight = Math.Min(Math.Max(60, DiffGrid.Bounds.Height - 150), _vm.SuspectPanelHeight + e.Vector.Y);
+    }
+
+    // What the columns keep however short the window: a heading, a summary
+    // and a row or two of files.
+    private const double ColumnsFloor = 120;
+
+    // DiffGrid's rows are Auto,*,Auto: the same-name section and the weak-match
+    // panel take their own height and the columns get the rest. With both lists
+    // long, in a window of the default size (which leaves DiffGrid about 390 px),
+    // the two Auto rows together are taller than the grid: the columns get
+    // nothing and the weak-match panel is pushed past the bottom of the grid.
+    // The columns are the view the user opened, so after every layout pass the
+    // two lists' ceilings are fitted to what the columns leave, and the lists
+    // shrink before the columns do.
+    private void FitDiffLists()
+    {
+        var suspectShown = SuspectPanel.IsVisible && _vm.Suspects.Count > 0;
+        var available = DiffGrid.Bounds.Height - ColumnsFloor
+            - OwnHeight(SuspectPanel, SuspectScroll) - OwnHeight(WeakPanel, WeakScroll);
+        var (suspect, weak) = FolderDiffView.ListCeilings(
+            available, suspectShown ? _vm.SuspectPanelHeight : 0, WeakPanel.IsVisible ? _vm.WeakPanelHeight : 0);
+        // A list not on show (its panel hidden, or no pairs) keeps its own ceiling.
+        Fit(SuspectScroll, suspectShown ? suspect : _vm.SuspectPanelHeight);
+        Fit(WeakScroll, WeakPanel.IsVisible ? weak : _vm.WeakPanelHeight);
+
+        // A panel's height besides its list: its heading, padding, border and margin.
+        static double OwnHeight(Control panel, Control list) =>
+            panel.IsVisible ? panel.Bounds.Height + panel.Margin.Top + panel.Margin.Bottom - list.Bounds.Height : 0;
+
+        // Only a real change is set, so the pass it starts finds nothing more to
+        // change and the layout settles instead of looping.
+        static void Fit(Control list, double ceiling)
+        {
+            if (Math.Abs(list.MaxHeight - ceiling) >= 0.5) list.MaxHeight = ceiling;
+        }
     }
 
     // Open the format flyout on hover, so the three options are one move away
@@ -267,6 +345,33 @@ public partial class DuplicatesWindow : Window
             // async void handler: an unguarded write failure would crash the
             // app instead of reporting (same guard as the folder view export).
             _vm.SetError($"Could not export the report: {ex.Message}");
+        }
+    }
+
+    // Written like the export above: the picker's stream starts empty, so a
+    // shorter playlist saved over a longer one leaves nothing of it behind, and
+    // StreamWriter's default UTF-8 carries no byte-order mark a player could
+    // trip on.
+    private async void OnSavePlaylistClicked(object? sender, RoutedEventArgs e)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save listening playlist",
+            SuggestedFileName = "same-name-different-audio.m3u8",
+            DefaultExtension = "m3u8",
+            FileTypeChoices = [new FilePickerFileType("M3U8 playlist") { Patterns = ["*.m3u8"] }],
+        });
+        if (file is null) return;
+        try
+        {
+            var text = _vm.ListeningPlaylist();
+            await using var stream = await file.OpenWriteAsync();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(text);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _vm.SetError($"Could not save the playlist: {ex.Message}");
         }
     }
 }

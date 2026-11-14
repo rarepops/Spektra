@@ -22,42 +22,66 @@ public static class TitleTwin
     /// and any track whose name happens to contain a short one.
     private const int MinSharedWords = 3;
 
+    /// The release-format and version words. `Words` drops them, because they
+    /// never decide whether a track is on both sides; `VersionedWords` keeps
+    /// them, because they do decide whether two copies are one recording.
+    private static readonly HashSet<string> VersionWords = new(StringComparer.Ordinal)
+    {
+        "remaster", "remastered", "radio", "edit", "original", "mix", "extended",
+        "instrumental", "album", "single", "version", "explicit", "clean", "mono",
+        "stereo", "remix",
+    };
+
+    /// The credit markers and the articles a tagger drops at will. Neither says
+    /// anything about the recording, so both readings of a name drop them.
+    private static readonly HashSet<string> CreditsAndArticles = new(StringComparer.Ordinal)
+    {
+        "feat", "ft", "the", "a", "an", "and",
+    };
+
     /// Words that appear on one side of a library and not the other without
     /// ever naming a different track: release-format and version noise, plus
     /// the articles a tagger drops at will. Stripping them costs a little
     /// fidelity ("a-ha" keeps only "ha") and that is harmless, because both
     /// sides are stripped by the same rule and only their agreement is read.
-    private static readonly HashSet<string> Noise = new(StringComparer.Ordinal)
-    {
-        "remaster", "remastered", "radio", "edit", "original", "mix", "extended",
-        "instrumental", "album", "single", "version", "explicit", "clean", "mono",
-        "stereo", "remix", "feat", "ft", "the", "a", "an", "and",
-    };
+    /// It is the two lists above together, so `Words` drops what it always did.
+    private static readonly HashSet<string> Noise = new(VersionWords.Concat(CreditsAndArticles), StringComparer.Ordinal);
 
     /// The words a file name offers as evidence: lower-cased, split on
     /// everything that is not a letter or digit, noise and years dropped, and
     /// deduplicated, so "Duran Duran" cannot outweigh the rest of a name.
-    public static IReadOnlySet<string> Words(string path)
+    public static IReadOnlySet<string> Words(string path) =>
+        WordsOf(System.IO.Path.GetFileNameWithoutExtension(path), Noise);
+
+    /// `Words` with the version words kept: only the credits, the articles and
+    /// the years are dropped. `Words` drops the version words on purpose, which
+    /// is right for "does the other folder have this track" and wrong for "is
+    /// this the same recording": on its own it twins "Song - Radio Edit" with
+    /// "Song - Extended Mix". This reading keeps what tells those two apart.
+    public static IReadOnlySet<string> VersionedWords(string path) =>
+        WordsOf(System.IO.Path.GetFileNameWithoutExtension(path), CreditsAndArticles);
+
+    /// The one reading both of the above share: they differ only in `drop`.
+    private static IReadOnlySet<string> WordsOf(string text, IReadOnlySet<string> drop)
     {
-        var name = System.IO.Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
         var set = new HashSet<string>(StringComparer.Ordinal);
         var word = new System.Text.StringBuilder();
-        foreach (var c in name.Replace("&", " and "))
+        foreach (var c in text.ToLowerInvariant().Replace("&", " and "))
         {
             if (char.IsLetterOrDigit(c)) word.Append(c);
-            else { Add(set, word); word.Clear(); }
+            else { Add(set, word, drop); word.Clear(); }
         }
-        Add(set, word);
+        Add(set, word, drop);
         return set;
     }
 
-    private static void Add(HashSet<string> set, System.Text.StringBuilder word)
+    private static void Add(HashSet<string> set, System.Text.StringBuilder word, IReadOnlySet<string> drop)
     {
         if (word.Length == 0) return;
         var w = word.ToString();
-        if (Noise.Contains(w)) return;
+        if (drop.Contains(w)) return;
         // A bare year is a reissue's stamp, never the difference between two
-        // tracks; it arrives attached to the noise words already dropped.
+        // tracks, so both readings drop it.
         if (w.Length == 4 && int.TryParse(w, out var year) && year is >= 1900 and <= 2099) return;
         set.Add(w);
     }
@@ -87,6 +111,42 @@ public static class TitleTwin
         return shared == small.Count && shared >= MinSharedWords;
     }
 
+    /// How closely two names agree, for two names `SameTrack` already accepted:
+    /// 0 when they hold the same words with the version words kept, 1 when they
+    /// have the same title and one artist list is inside the other, 2 for
+    /// anything else.
+    ///
+    /// This exists because `Words` drops the version words on purpose, which is
+    /// right for "does the other folder have this track" and wrong for "is this
+    /// the same recording": on its own it twins "Song - Radio Edit" with "Song -
+    /// Extended Mix". The rank puts that difference back without touching the
+    /// relation. It only orders pairs `SameTrack` accepted and never adds a
+    /// twin it refused, so the rank of any other pair means nothing.
+    ///
+    /// The artists are the words before the first " - ", read like `Words`; the
+    /// title is the rest, read like `VersionedWords`. A name without a " - " (an
+    /// en dash does not count) has no artists and is all title, so two of them
+    /// rank 0 or 2. A title with nothing left after the credits and articles
+    /// does not count as the same title, so it never earns a 1.
+    public static int NameRank(string pathA, string pathB)
+    {
+        if (VersionedWords(pathA).SetEquals(VersionedWords(pathB))) return 0;
+        var (artistsA, titleA) = ArtistsAndTitle(pathA);
+        var (artistsB, titleB) = ArtistsAndTitle(pathB);
+        return titleA.Count > 0 && titleA.SetEquals(titleB)
+            && (artistsA.IsSubsetOf(artistsB) || artistsB.IsSubsetOf(artistsA)) ? 1 : 2;
+    }
+
+    private static (IReadOnlySet<string> Artists, IReadOnlySet<string> Title) ArtistsAndTitle(string path)
+    {
+        const string separator = " - ";
+        var name = System.IO.Path.GetFileNameWithoutExtension(path);
+        var split = name.IndexOf(separator, StringComparison.Ordinal);
+        return split < 0
+            ? (WordsOf("", Noise), WordsOf(name, CreditsAndArticles))
+            : (WordsOf(name[..split], Noise), WordsOf(name[(split + separator.Length)..], CreditsAndArticles));
+    }
+
     /// For each needle, the path of a file under a DIFFERENT root that names
     /// the same track, or no entry at all when there is none.
     ///
@@ -109,6 +169,39 @@ public static class TitleTwin
             if (ClosestTwin(new Named(path, root, Words(path)), hay, byWord, seen) is { } twin)
                 found[path] = twin;
         return found;
+    }
+
+    /// Every pair of files under different roots whose names are twins, as
+    /// indexes into `files`: each pair once, the lower index first, in index
+    /// order. It is the relation `FindAcrossRoots` reads, all of it, where that
+    /// keeps only the closest twin of each needle, so any file it names a twin
+    /// for is also in a pair here.
+    ///
+    /// The same rules apply: a twin under the same root is a duplicate, not a
+    /// difference between folders, and one file listed under two roots is not
+    /// its own twin.
+    public static IReadOnlyList<(int A, int B)> CrossRootTwins(IReadOnlyList<(string Path, string Root)> files)
+    {
+        var hay = files.Select(f => new Named(f.Path, f.Root, Words(f.Path))).ToArray();
+        var byWord = IndexByWord(hay);
+
+        var pairs = new List<(int A, int B)>();
+        var seen = new HashSet<int>();
+        for (var a = 0; a < hay.Length; a++)
+        {
+            seen.Clear();
+            foreach (var w in hay[a].Words)
+                foreach (var b in byWord[w])
+                {
+                    if (b <= a || !seen.Add(b)) continue;
+                    if (string.Equals(hay[b].Root, hay[a].Root, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (string.Equals(hay[b].Path, hay[a].Path, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (SameTrack(hay[a].Words, hay[b].Words)) pairs.Add((a, b));
+                }
+        }
+        // A file's twins turn up word by word, not in index order.
+        pairs.Sort();
+        return pairs;
     }
 
     /// A file name reduced to the evidence it offers, kept beside where the

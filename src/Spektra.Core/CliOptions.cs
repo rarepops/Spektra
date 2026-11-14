@@ -22,6 +22,11 @@ public sealed record DiffArgs(IReadOnlyList<string> Files, double? OffsetMs, flo
 public sealed record ImageArgs(
     IReadOnlyList<string> Files, string? OutPath, string? PaletteName, double? Gamma, ImageOptions Options);
 
+/// What `dupes` was asked for: the folders, in order, and its flags. Diff asks
+/// what differs between the folders instead of for the duplicate groups;
+/// Playlist (only with Diff) and Html (only without it) name a file to write.
+public sealed record DupesArgs(IReadOnlyList<string> Roots, bool Fresh, bool Diff, string? Html, string? Playlist);
+
 /// What a verb that takes "one folder or some files" was given. Folder is set
 /// (and Files empty) when the one argument is a folder to search; otherwise
 /// Folder is null and Files holds the paths as typed. Every path in it exists.
@@ -68,12 +73,16 @@ public static class CliOptions
     }
 
     /// Pulls "--html &lt;path&gt;" out of a verb's argument list; null when absent.
-    public static string? TakeHtml(ref string[] args)
+    public static string? TakeHtml(ref string[] args) => TakePath("--html", ref args);
+
+    /// Pulls a flag and the file path after it out of a verb's argument list;
+    /// null when the flag is absent.
+    private static string? TakePath(string flag, ref string[] args)
     {
-        var i = Array.IndexOf(args, "--html");
+        var i = Array.IndexOf(args, flag);
         if (i < 0) return null;
         if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
-            throw new OptionException("--html needs a file path.");
+            throw new OptionException($"{flag} needs a file path.");
         var path = args[i + 1];
         args = [.. args[..i], .. args[(i + 2)..]];
         return path;
@@ -128,6 +137,25 @@ public static class CliOptions
         return positionals.Count == 1
             ? new InputSet(folders[0], [])
             : throw new OptionException($"'{folders[0]}' is a folder: give one folder by itself, or files only.");
+    }
+
+    /// Reads `dupes`: --fresh and --diff wherever they sit, then --html and
+    /// --playlist with their paths, then the folders, so a run without the new
+    /// flags gets every message it got before they existed. Whether the folders
+    /// exist is the verb's own check.
+    public static DupesArgs ParseDupes(string[] args)
+    {
+        var roots = args.Where(a => a is not ("--fresh" or "--diff")).ToArray();
+        var html = TakeHtml(ref roots);
+        var playlist = TakePath("--playlist", ref roots);
+        RejectUnknownFlags(roots);
+
+        var diff = args.Contains("--diff");
+        if (playlist is not null && !diff) throw new OptionException("--playlist needs --diff.");
+        if (html is not null && diff)
+            throw new OptionException("--html cannot be combined with --diff; use --json, --csv or --playlist.");
+        if (diff && roots.Length < 2) throw new OptionException("--diff needs two or more folders.");
+        return new DupesArgs(roots, args.Contains("--fresh"), diff, html, playlist);
     }
 
     public static DiffArgs ParseDiff(string[] args)

@@ -35,7 +35,7 @@ internal static partial class Program
             : r.Row with { File = Reporting.RelativeFile(folder, r.Target.Path) };
 
         var rows = results.Select(RowFor).ToList();
-        if (html is not null && !TryWriteHtml("audit", html, HtmlReport.AuditDocument(rows, "Spektra audit")))
+        if (html is not null && !TryWriteText("audit", html, HtmlReport.AuditDocument(rows, "Spektra audit")))
             return 2;
 
         var problems = results.Count(r => r.HasProblem);

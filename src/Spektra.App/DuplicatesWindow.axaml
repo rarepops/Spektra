@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:app="clr-namespace:Spektra.App"
+        xmlns:core="clr-namespace:Spektra.Core;assembly=Spektra.Core"
         x:Class="Spektra.App.DuplicatesWindow"
         Title="Duplicate Detective" Width="980" Height="680"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
@@ -65,6 +66,15 @@
     </Style>
     <Style Selector="Grid.memberRow.menuOpen">
       <Setter Property="Background" Value="#1E1E1E" />
+    </Style>
+    <!-- Same name, different audio: the pairs that line up at least partly
+         stay listed, receding behind the ones worth a listen first, and two
+         lengths 10 s or more apart take the warning colour of the diff's notes. -->
+    <Style Selector="Grid.suspectRow.dim">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <Style Selector="TextBlock.lengthGap">
+      <Setter Property="Foreground" Value="#E0A030" />
     </Style>
   </Window.Styles>
   <!-- One member row for every list of group members in this window, the
@@ -201,7 +211,7 @@
                 Content="Hide name matches"
                 IsVisible="{Binding OnlyDifferences}"
                 IsChecked="{Binding HideTitleTwins, Mode=TwoWay}"
-                ToolTip.Tip="Also hide files whose track the other folder has under a matching name, which Spektra could not confirm by ear · the count stays under each column" />
+                ToolTip.Tip="Also hide files whose track the other folder has under a matching name, which Spektra could not confirm by ear · the count stays under each column · they stay listed under Same name, different audio" />
       <CheckBox DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center"
                 Content="Only differences"
                 IsChecked="{Binding OnlyDifferences, Mode=TwoWay}"
@@ -250,8 +260,102 @@
            so "what does this side have that the other does not" is read across,
            with weak matches pinned underneath as the one thing a diff cannot
            answer for you. -->
-      <Grid x:Name="DiffGrid" IsVisible="{Binding OnlyDifferences}" RowDefinitions="*,Auto">
-        <ItemsControl Grid.Row="0" ItemsSource="{Binding DiffColumns}">
+      <Grid x:Name="DiffGrid" IsVisible="{Binding OnlyDifferences}" RowDefinitions="Auto,*,Auto">
+        <!-- Same name, different audio: files whose names say one track while
+             their audio sits apart, the shape a cover sold under the original's
+             name takes, though a remix or another master takes it too. Above the
+             columns, because these are the files most worth a listen, and never
+             thinned by Hide name matches, because a matching name is what makes
+             a pair here. Rows describe the evidence; the listener decides. -->
+        <Border x:Name="SuspectPanel" Grid.Row="0" BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
+                Margin="0,0,6,8" Padding="8,6" IsVisible="{Binding HasScanResults}">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Margin="8,0,0,0" MinHeight="26" Padding="10,3"
+                      VerticalContentAlignment="Center" Content="Save listening playlist…"
+                      Click="OnSavePlaylistClicked" IsEnabled="{Binding CanSavePlaylist}"
+                      ToolTip.Tip="The pairs above the dimmed ones, each folder's copy in turn, as an .m3u8 for your own player" />
+              <TextBlock Text="{Binding SuspectHeading}" Foreground="#DDDDDD" FontWeight="SemiBold"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+            <Thumb DockPanel.Dock="Bottom" Height="6" Margin="-8,0,-8,-6"
+                   Cursor="SizeNorthSouth" DragDelta="OnSuspectPanelDrag"
+                   ToolTip.Tip="Drag to give this list more or less room">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Border Background="Transparent" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+            <ScrollViewer x:Name="SuspectScroll">
+              <ItemsControl ItemsSource="{Binding Suspects}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="app:SuspectItem">
+                    <Grid Classes="memberRow suspectRow" Classes.dim="{Binding IsBottomTier}"
+                          Margin="0,2" RowDefinitions="Auto,Auto,Auto"
+                          DoubleTapped="OnSuspectDoubleTapped">
+                      <!-- Each side's submenu takes that side as its DataContext, so
+                           the shared file verbs reach that copy through
+                           FileActions.ItemFrom, as they do on a diff row. Its
+                           header binds the side's own Label: only the DataContext
+                           binding reads the row, every other binding on that
+                           MenuItem already sees the side, so SideA.Label would
+                           come up empty. -->
+                      <Grid.ContextMenu>
+                        <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
+                          <MenuItem Header="Compare side by side" Click="OnCompareSuspectClicked"
+                                    ToolTip.Tip="Both copies in the main window, aligned, the first folder's copy as A" />
+                          <Separator />
+                          <MenuItem Header="{Binding Label}" DataContext="{Binding SideA}">
+                            <MenuItem Header="_Open spectrogram" Click="OnOpenSuspectSideClicked" />
+                            <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
+                            <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+                            <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+                          </MenuItem>
+                          <MenuItem Header="{Binding Label}" DataContext="{Binding SideB}">
+                            <MenuItem Header="_Open spectrogram" Click="OnOpenSuspectSideClicked" />
+                            <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
+                            <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
+                            <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
+                          </MenuItem>
+                        </ContextMenu>
+                      </Grid.ContextMenu>
+                      <!-- A DockPanel, not a horizontal StackPanel, so each part is
+                           measured against the width left and trims instead of
+                           running off the edge. -->
+                      <DockPanel Grid.Row="0">
+                        <TextBlock TextTrimming="CharacterEllipsis">
+                          <Run Text="{Binding Name}" /><Run Text=" · " />
+                        </TextBlock>
+                        <TextBlock Text="{Binding LabelText}" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{x:Static core:SuspectView.AlignmentLimit}" />
+                        <TextBlock>
+                          <Run Text=" · " /><Run Text="{Binding Strength}" /><Run Text=" · " />
+                        </TextBlock>
+                        <TextBlock Text="{Binding Lengths}" Classes.lengthGap="{Binding HasLengthGap}" />
+                      </DockPanel>
+                      <Grid Grid.Row="1" ColumnDefinitions="*,*">
+                        <TextBlock Grid.Column="0" Margin="0,0,12,0" Foreground="#888888" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SideA.Path}">
+                          <Run Text="{Binding SideA.Label}" /><Run Text=": " /><Run Text="{Binding SideA.Relative}" />
+                        </TextBlock>
+                        <TextBlock Grid.Column="1" Foreground="#888888" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SideB.Path}">
+                          <Run Text="{Binding SideB.Label}" /><Run Text=": " /><Run Text="{Binding SideB.Relative}" />
+                        </TextBlock>
+                      </Grid>
+                      <TextBlock Grid.Row="2" Text="{Binding CrossMatch}" Foreground="#E0A030"
+                                 FontSize="12" IsVisible="{Binding HasCrossMatch}"
+                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CrossMatch}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </DockPanel>
+        </Border>
+
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding DiffColumns}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <UniformGrid Rows="1" />
@@ -271,7 +375,7 @@
                     <ItemsControl ItemsSource="{Binding Files}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="app:DiffFileItem">
-                          <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto,Auto"
+                          <Grid Classes="memberRow" Margin="0,2" RowDefinitions="Auto,Auto,Auto,Auto"
                                 DoubleTapped="OnDiffFileDoubleTapped">
                             <Grid.ContextMenu>
                               <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
@@ -290,6 +394,10 @@
                             <TextBlock Grid.Row="2" Text="{Binding TwinNote}" Foreground="#E0A030"
                                        FontSize="12" IsVisible="{Binding HasTwin}"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TwinNote}" />
+                            <!-- Every file with a name match is also a pair in the
+                                 section above, so the row says where to hear it. -->
+                            <TextBlock Grid.Row="3" Text="listed under Same name, different audio"
+                                       Foreground="#999999" FontSize="12" IsVisible="{Binding HasTwin}" />
                           </Grid>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
@@ -315,7 +423,7 @@
              actually opened. The ceiling is dragged at the panel's top edge and
              remembered. The count stays outside the scroll: it is the sentence
              that says how much is down there. -->
-        <Border Grid.Row="1" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
+        <Border x:Name="WeakPanel" Grid.Row="2" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
                 BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
           <DockPanel>
             <Thumb DockPanel.Dock="Top" Height="6" Margin="-8,-6,-8,0"
@@ -329,7 +437,7 @@
             </Thumb>
             <TextBlock DockPanel.Dock="Top" Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
                        Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
-            <ScrollViewer MaxHeight="{Binding WeakPanelHeight}" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="WeakScroll" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="app:DupeGroupItem">

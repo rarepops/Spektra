@@ -137,13 +137,14 @@ internal static partial class Program
         return cache;
     }
 
-    /// Writes a verb's --html page. False, after saying why on stderr, when
+    /// Writes a file a verb was asked for (an --html page, a --playlist) as
+    /// UTF-8 without a byte-order mark. False, after saying why on stderr, when
     /// the file cannot be written; every verb treats that as a setup error.
-    private static bool TryWriteHtml(string verb, string path, string html)
+    private static bool TryWriteText(string verb, string path, string text)
     {
         try
         {
-            File.WriteAllText(path, html);
+            File.WriteAllText(path, text);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -193,6 +194,12 @@ internal static partial class Program
             With --json or --csv the rows are the grouped files only; the files it
             could not analyze are counted on stderr, and the text output lists them.
 
+            dupes --diff <folderA> <folderB> compares folders instead: it lists the
+            same-named files whose audio differs, labelled by how well their first
+            10 s line up, the ones that do not first; then weak matches and what each
+            folder alone holds. --playlist out.m3u8 also writes the pairs to hear
+            first, A then B. (The top-level --diff is the two-file diff command.)
+
             manifest lists every file, audio or not, with a type chip per file;
             files the audit has seen before get their real codec and verdict
             chips from the cache. It never decodes, works without ffmpeg, and
@@ -217,10 +224,11 @@ internal static partial class Program
             unreadable; check: corrupt files; audit: a transcode (including a lossy
             file under a lossless name such as .flac), an upsample, corruption, or an
             unreadable file - an honest lossy file is not a problem; dupes: one or more
-            duplicate groups found; loudness: a file could not be measured; diff: the
-            files differ), 2 on setup errors (an unknown or malformed option, no file
-            or folder given, a path that does not exist, a folder given together with
-            other paths, or image: the default output file already exists).
+            duplicate groups found, or with --diff anything that differs; loudness: a
+            file could not be measured; diff: the files differ), 2 on setup errors (an
+            unknown or malformed option, no file or folder given, a path that does not
+            exist, a folder given together with other paths, or image: the default
+            output file already exists).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;

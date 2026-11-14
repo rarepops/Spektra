@@ -210,4 +210,176 @@ public sealed class DuplicateScanTests
         }
         finally { Directory.Delete(root, recursive: true); }
     }
+
+    [Test]
+    public async Task Run_ListsSameNamedFilesWithDifferentAudio_AsSuspects()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-b").FullName;
+        try
+        {
+            // Same name on both sides, different audio: neither file can pair
+            // by ear, so the suspect pair is the only place the disagreement
+            // shows. A third file with a name of its own is nobody's suspect.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(rootB, "Shared Title.wav"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Lonely.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Suspects).HasSingleItem();
+            var pair = result.Suspects[0];
+            await Assert.That(pair.PathA).IsEqualTo(Path.Combine(rootA, "Shared Title.wav"));
+            await Assert.That(pair.PathB).IsEqualTo(Path.Combine(rootB, "Shared Title.wav"));
+            await Assert.That(pair.RootA).IsEqualTo(rootA);
+            await Assert.That(pair.RootB).IsEqualTo(rootB);
+            await Assert.That(pair.Strength).IsEqualTo(NameStrength.SameName);
+            await Assert.That(pair.SameAudioAsA).IsNull();
+            await Assert.That(pair.SameAudioAsB).IsNull();
+            await IsAboutThreeSeconds(pair.SecondsA);
+            await IsAboutThreeSeconds(pair.SecondsB);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_ASuspectCanBeGroupedWithAThirdFile_AndNamesIt()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-third-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-third-b").FullName;
+        try
+        {
+            // B's MP3 is the same audio as A's all-artists copy (they group),
+            // while A's plain-named file under the very same name is different
+            // audio. The MP3 is still a suspect against that plain name, and
+            // its side of the pair says where its audio really is.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Artist Name - Song Title.wav"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Artist Name; Guest Two - Song Title.wav"));
+            File.Copy(P("tones-a-128.mp3"), Path.Combine(rootB, "Artist Name - Song Title.mp3"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            var guestCopy = Path.Combine(rootA, "Artist Name; Guest Two - Song Title.wav");
+            var mp3 = Path.Combine(rootB, "Artist Name - Song Title.mp3");
+            await Assert.That(result.Groups).HasSingleItem();
+            var members = result.Groups[0].Group.Members.Select(m => m.Path).ToList();
+            await Assert.That(members.Count).IsEqualTo(2);
+            await Assert.That(members).Contains(guestCopy);
+            await Assert.That(members).Contains(mp3);
+
+            await Assert.That(result.Suspects).HasSingleItem();
+            var pair = result.Suspects[0];
+            await Assert.That(pair.PathA).IsEqualTo(Path.Combine(rootA, "Artist Name - Song Title.wav"));
+            await Assert.That(pair.PathB).IsEqualTo(mp3);
+            await Assert.That(pair.SameAudioAsA).IsNull();
+            await Assert.That(pair.SameAudioAsB).IsEqualTo(guestCopy);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_FilesTooShortToFingerprint_StillPair_WithTheirLengths()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-short-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-short-b").FullName;
+        try
+        {
+            // Under the fingerprint minimum a file is never grouped, but it was
+            // still decoded for its audit row, and a name twin under the other
+            // folder may be a different recording all the same. The lengths
+            // come from the rows Partition set aside.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("chirp.wav"), Path.Combine(rootB, "Shared Title.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 3600);
+
+            await Assert.That(result.NotAnalyzed.Count).IsEqualTo(2);
+            await Assert.That(result.Groups).IsEmpty();
+            await Assert.That(result.Suspects).HasSingleItem();
+            await IsAboutThreeSeconds(result.Suspects[0].SecondsA);
+            await IsAboutThreeSeconds(result.Suspects[0].SecondsB);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_EveryUnpairedFileWithATwin_IsInASuspectPair()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-all-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-all-b").FullName;
+        try
+        {
+            // The files of the first two suspect tests, in one scan. The folder
+            // diff points every name-matched row at the suspects section with
+            // no state of its own, which is honest only while no such file is
+            // missing from it.
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(rootB, "Shared Title.wav"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Lonely.wav"));
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Artist Name - Song Title.wav"));
+            File.Copy(P("tones-a.wav"), Path.Combine(rootA, "Artist Name; Guest Two - Song Title.wav"));
+            File.Copy(P("tones-a-128.mp3"), Path.Combine(rootB, "Artist Name - Song Title.mp3"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            var named = result.Unpaired.Where(u => u.TwinPath is not null).ToList();
+            await Assert.That(named).IsNotEmpty(); // else the invariant holds over nothing
+            var suspected = result.Suspects
+                .SelectMany(s => new[] { s.PathA, s.PathB })
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            await Assert.That(named.Where(u => !suspected.Contains(u.Path)).Select(u => u.Path)).IsEmpty();
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_ARootSpelledThroughDotDot_StillPairsUnderItsFullPath()
+    {
+        var rootA = Directory.CreateTempSubdirectory("suspect-spelled-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("suspect-spelled-b").FullName;
+        try
+        {
+            // The CLI hands roots over as typed, while the files a scan finds
+            // carry the full path of their root. B is spelled through A's parent
+            // here: unless the scan normalizes its roots, B's file matches no
+            // root and its side of the pair carries "" where B belongs.
+            var spelledB = Path.Combine(rootA, "..", Path.GetFileName(rootB));
+            File.Copy(P("chirp.wav"), Path.Combine(rootA, "Shared Title.wav"));
+            File.Copy(P("noise.wav"), Path.Combine(rootB, "Shared Title.wav"));
+
+            var result = DuplicateScan.Run(Ff, [rootA, spelledB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Suspects).HasSingleItem();
+            var pair = result.Suspects[0];
+            await Assert.That(pair.PathA).IsEqualTo(Path.Combine(rootA, "Shared Title.wav"));
+            await Assert.That(pair.RootB).IsEqualTo(rootB);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    private static async Task IsAboutThreeSeconds(double? seconds)
+    {
+        await Assert.That(seconds).IsNotNull();
+        await Assert.That(seconds!.Value).IsBetween(2.9, 3.1);
+    }
 }

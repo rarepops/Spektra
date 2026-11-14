@@ -46,6 +46,14 @@ public sealed record DupesResult(
     /// Usable files that joined no group. Init-only with an empty default so
     /// every existing construction site and test compiles untouched.
     public IReadOnlyList<UnpairedFile> Unpaired { get; init; } = [];
+
+    /// Pairs of files under different roots that share a name, exactly or
+    /// nearly (see SuspectPair.Strength), while no audio group they share
+    /// vouches for them: what a folder diff lists as "same name, different
+    /// audio". Drawn from every collected file, grouped or not and analyzed
+    /// or not, so it is not a view over Unpaired. Init-only with an empty
+    /// default, like Unpaired.
+    public IReadOnlyList<SuspectPair> Suspects { get; init; } = [];
 }
 
 /// Flat, stable export row: one per group member, winners first. Lives in Core
@@ -97,6 +105,12 @@ public static class DuplicateScan
         IProgress<DupesProgress>? progress = null, CancellationToken ct = default,
         double minDurationSeconds = MinDurationSeconds)
     {
+        // CollectTargets enumerates the full path of each root, so a root spelled
+        // any other way (relative, forward slashes, "..") is a prefix of none of
+        // the files found under it. Normalizing once gives collection, RootOf,
+        // FindUnpaired and SuspectPairs.Find one list to agree on.
+        roots = [.. roots.Select(Path.GetFullPath)];
+
         var files = CollectFiles(roots);
         var artifacts = AnalyzeAll(ffmpeg, files, jobs, cache, fresh, progress, ct);
         var (usable, notAnalyzed) = Partition(files, artifacts, minDurationSeconds);
@@ -110,12 +124,14 @@ public static class DuplicateScan
 
         var reports = BuildReports(groups, usable, pairs);
         var unpaired = FindUnpaired(usable, groups, roots, files);
+        var suspects = FindSuspects(files, artifacts, groups, roots);
 
         return new DupesResult(
             [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
             notAnalyzed, files.Length, reports.Sum(r => r.ReclaimableBytes))
         {
             Unpaired = [.. unpaired.OrderBy(u => u.Path, StringComparer.OrdinalIgnoreCase)],
+            Suspects = suspects,
         };
     }
 
@@ -258,17 +274,12 @@ public static class DuplicateScan
             foreach (var m in g.Members)
                 grouped.Add(m.Path);
 
-        // Longest root first: with nested roots the deepest is the honest answer.
-        var rootsByDepth = roots.OrderByDescending(r => r.Length).ToArray();
-        string RootOf(string path) => Array.Find(rootsByDepth, r =>
-            path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
-
         var unpaired = new List<UnpairedFile>();
         foreach (var u in usable)
         {
             var path = u.Target.Path;
             if (grouped.Contains(path)) continue;
-            unpaired.Add(new UnpairedFile(path, RootOf(path), u.Entry.Row, u.Target.SizeBytes));
+            unpaired.Add(new UnpairedFile(path, RootOf(path, roots), u.Entry.Row, u.Target.SizeBytes));
         }
 
         // Matching nothing by audio is not the same as being absent, and a
@@ -280,12 +291,56 @@ public static class DuplicateScan
         // has.
         var twins = TitleTwin.FindAcrossRoots(
             unpaired.Select(f => (f.Path, f.Root)),
-            files.Select(f => (f.Path, Root: RootOf(f.Path))));
+            files.Select(f => (f.Path, Root: RootOf(f.Path, roots))));
         for (var i = 0; i < unpaired.Count; i++)
             if (twins.TryGetValue(unpaired[i].Path, out var twin))
                 unpaired[i] = unpaired[i] with { TwinPath = twin };
         return unpaired;
     }
+
+    /// Name twins under different roots that no shared audio group vouches
+    /// for. Every collected file takes part, analyzed or not and grouped or
+    /// not, because a file too short or too broken to fingerprint can still
+    /// hold different audio under a name the other folder has. It is the
+    /// haystack FindUnpaired searches for twins, which is what puts every
+    /// unpaired file that has a TwinPath into some pair here.
+    private static IReadOnlyList<SuspectPair> FindSuspects(
+        AuditTarget[] files, Artifact[] artifacts,
+        IReadOnlyList<DuplicateGroup> groups, IReadOnlyList<string> roots)
+    {
+        // A pair needs a file under each of two roots, so with fewer than two the
+        // cross-root name walk can only come back empty: a single-folder scan skips it.
+        if (roots.Count < 2) return [];
+
+        // One id space: DuplicateGrouper numbers every group, High and Medium,
+        // from a single counter, so a group's Id names it across the whole
+        // result. Any shared group clears a pair, whatever its tier.
+        var groupOf = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in groups)
+            foreach (var m in g.Members)
+                groupOf[m.Path] = g.Id;
+
+        // Lengths come from the audit rows, not from `usable`: a file under the
+        // fingerprint minimum has a row and no place in the usable list.
+        var scanned = new ScannedFile[files.Length];
+        for (var i = 0; i < files.Length; i++)
+        {
+            var path = files[i].Path;
+            scanned[i] = new ScannedFile(
+                path, RootOf(path, roots), groupOf.TryGetValue(path, out var id) ? id : null,
+                artifacts[i].Entry?.Row.DurationSeconds);
+        }
+        return SuspectPairs.Find(scanned, roots);
+    }
+
+    /// The scan root a path sits under, ignoring case, or "" when it sits
+    /// under none. With nested roots the deepest is the honest answer, so the
+    /// longest matching root wins. The result is an element of `roots` itself,
+    /// never a normalized copy, because SuspectPairs.Find matches it back
+    /// against that same list.
+    internal static string RootOf(string path, IReadOnlyList<string> roots) =>
+        roots.OrderByDescending(r => r.Length)
+            .FirstOrDefault(r => path.StartsWith(r, StringComparison.OrdinalIgnoreCase)) ?? "";
 
     /// Flat export rows, one per member, winners first inside each group.
     public static IReadOnlyList<DupesRow> ToRows(DupesResult result) =>

@@ -342,6 +342,7 @@ public partial class MainWindow
             _vm.OpenComparison(winner, challenger);
             Activate();
         };
+        vm.OpenAlignedCompareRequested += (a, b) => _ = CompareAlignedAsync(a, b);
         _dupesVm = vm;
         _dupesWindow = new DuplicatesWindow(vm, _vm.Settings);
         _dupesWindow.Closed += (_, _) => { _dupesWindow = null; _dupesVm = null; };
@@ -351,6 +352,16 @@ public partial class MainWindow
             seed(vm);
             _ = vm.ScanAsync();
         }
+    }
+
+    /// A Duplicate Detective suspect pair, side by side and aligned the way the --compare --auto
+    /// launch aligns: once both copies have loaded, never on a fixed delay.
+    private async Task CompareAlignedAsync(string pathA, string pathB)
+    {
+        if (_vm.OpenComparison(pathA, pathB) is not { } cmp) return;
+        Activate();
+        await cmp.Loaded;
+        await cmp.AlignAsync();
     }
 
     private FolderManifestWindow? _manifestWindow;
