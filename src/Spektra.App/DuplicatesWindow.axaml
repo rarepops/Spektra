@@ -267,7 +267,7 @@
              columns, because these are the files most worth a listen, and never
              thinned by Hide name matches, because a matching name is what makes
              a pair here. Rows describe the evidence; the listener decides. -->
-        <Border Grid.Row="0" BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
+        <Border x:Name="SuspectPanel" Grid.Row="0" BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
                 Margin="0,0,6,8" Padding="8,6" IsVisible="{Binding HasScanResults}">
           <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
@@ -278,7 +278,16 @@
               <TextBlock Text="{Binding SuspectHeading}" Foreground="#DDDDDD" FontWeight="SemiBold"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DockPanel>
-            <ScrollViewer MaxHeight="260">
+            <Thumb DockPanel.Dock="Bottom" Height="6" Margin="-8,0,-8,-6"
+                   Cursor="SizeNorthSouth" DragDelta="OnSuspectPanelDrag"
+                   ToolTip.Tip="Drag to give this list more or less room">
+              <Thumb.Template>
+                <ControlTemplate>
+                  <Border Background="Transparent" />
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>
+            <ScrollViewer x:Name="SuspectScroll">
               <ItemsControl ItemsSource="{Binding Suspects}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="app:SuspectItem">
@@ -414,7 +423,7 @@
              actually opened. The ceiling is dragged at the panel's top edge and
              remembered. The count stays outside the scroll: it is the sentence
              that says how much is down there. -->
-        <Border Grid.Row="2" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
+        <Border x:Name="WeakPanel" Grid.Row="2" IsVisible="{Binding !!Groups.Count}" Margin="0,8,6,0"
                 BorderBrush="#3A3320" BorderThickness="1" CornerRadius="4" Padding="8,6">
           <DockPanel>
             <Thumb DockPanel.Dock="Top" Height="6" Margin="-8,-6,-8,0"
@@ -428,7 +437,7 @@
             </Thumb>
             <TextBlock DockPanel.Dock="Top" Foreground="#E0A030" FontSize="12" Margin="0,0,0,4"
                        Text="{Binding Groups.Count, StringFormat='{}{0} possibly the same · check these yourself'}" />
-            <ScrollViewer MaxHeight="{Binding WeakPanelHeight}" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="WeakScroll" HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="app:DupeGroupItem">

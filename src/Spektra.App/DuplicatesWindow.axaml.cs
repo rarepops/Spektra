@@ -27,6 +27,11 @@ public partial class DuplicatesWindow : Window
         _vm = vm;
         _settings = settings;
         DataContext = vm;
+        // Both lists get their ceilings before the first layout, so the first
+        // frame is not unbounded; FitDiffLists keeps them after every pass.
+        SuspectScroll.MaxHeight = _vm.SuspectPanelHeight;
+        WeakScroll.MaxHeight = _vm.WeakPanelHeight;
+        DiffGrid.LayoutUpdated += (_, _) => FitDiffLists();
         if (settings.DuplicatesWindow is { } p)
         {
             // Position is physical px, Width/Height logical; the intersect test
@@ -248,6 +253,48 @@ public partial class DuplicatesWindow : Window
     {
         var ceiling = Math.Max(60, DiffGrid.Bounds.Height - 150);
         _vm.WeakPanelHeight = Math.Min(ceiling, _vm.WeakPanelHeight - e.Vector.Y);
+    }
+
+    // Dragging the same-name list's bottom edge down gives it more room: the
+    // weak handler's clamp, with the sign of the drag turned round.
+    private void OnSuspectPanelDrag(object? sender, VectorEventArgs e)
+    {
+        _vm.SuspectPanelHeight = Math.Min(Math.Max(60, DiffGrid.Bounds.Height - 150), _vm.SuspectPanelHeight + e.Vector.Y);
+    }
+
+    // What the columns keep however short the window: a heading, a summary
+    // and a row or two of files.
+    private const double ColumnsFloor = 120;
+
+    // DiffGrid's rows are Auto,*,Auto: the same-name section and the weak-match
+    // panel take their own height and the columns get the rest. With both lists
+    // long, in a window of the default size (which leaves DiffGrid about 390 px),
+    // the two Auto rows together are taller than the grid: the columns get
+    // nothing and the weak-match panel is pushed past the bottom of the grid.
+    // The columns are the view the user opened, so after every layout pass the
+    // two lists' ceilings are fitted to what the columns leave, and the lists
+    // shrink before the columns do.
+    private void FitDiffLists()
+    {
+        var suspectShown = SuspectPanel.IsVisible && _vm.Suspects.Count > 0;
+        var available = DiffGrid.Bounds.Height - ColumnsFloor
+            - OwnHeight(SuspectPanel, SuspectScroll) - OwnHeight(WeakPanel, WeakScroll);
+        var (suspect, weak) = FolderDiffView.ListCeilings(
+            available, suspectShown ? _vm.SuspectPanelHeight : 0, WeakPanel.IsVisible ? _vm.WeakPanelHeight : 0);
+        // A list not on show (its panel hidden, or no pairs) keeps its own ceiling.
+        Fit(SuspectScroll, suspectShown ? suspect : _vm.SuspectPanelHeight);
+        Fit(WeakScroll, WeakPanel.IsVisible ? weak : _vm.WeakPanelHeight);
+
+        // A panel's height besides its list: its heading, padding, border and margin.
+        static double OwnHeight(Control panel, Control list) =>
+            panel.IsVisible ? panel.Bounds.Height + panel.Margin.Top + panel.Margin.Bottom - list.Bounds.Height : 0;
+
+        // Only a real change is set, so the pass it starts finds nothing more to
+        // change and the layout settles instead of looping.
+        static void Fit(Control list, double ceiling)
+        {
+            if (Math.Abs(list.MaxHeight - ceiling) >= 0.5) list.MaxHeight = ceiling;
+        }
     }
 
     // Open the format flyout on hover, so the three options are one move away
