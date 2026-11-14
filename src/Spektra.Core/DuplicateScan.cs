@@ -308,6 +308,10 @@ public static class DuplicateScan
         AuditTarget[] files, Artifact[] artifacts,
         IReadOnlyList<DuplicateGroup> groups, IReadOnlyList<string> roots)
     {
+        // A pair needs a file under each of two roots, so with fewer than two the
+        // cross-root name walk can only come back empty: a single-folder scan skips it.
+        if (roots.Count < 2) return [];
+
         // One id space: DuplicateGrouper numbers every group, High and Medium,
         // from a single counter, so a group's Id names it across the whole
         // result. Any shared group clears a pair, whatever its tier.

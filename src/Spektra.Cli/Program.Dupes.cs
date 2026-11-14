@@ -72,7 +72,7 @@ internal static partial class Program
             // Anything but a pure cancel (ffmpeg not starting, say) comes as an
             // AggregateException; its base exception says what went wrong.
             Console.Error.WriteLine(
-                $"spektra-cli dupes: error: could not check the labels: {ex.GetBaseException().Message}");
+                $"spektra-cli dupes: could not check the labels: {ex.GetBaseException().Message}");
             return 2;
         }
 
@@ -85,7 +85,11 @@ internal static partial class Program
         }
 
         var rows = DupesDiffReport.Rows(result, verdicts, roots);
-        if (fmt == OutFormat.Text) Console.Write(DupesDiffReport.Text(result, verdicts, roots));
+        // Text ends its lines in \n; here they end as Console.WriteLine ends every
+        // other verb's. Replace, not ReplaceLineEndings, which would also split a
+        // file name holding U+2028 or U+0085.
+        if (fmt == OutFormat.Text)
+            Console.Write(DupesDiffReport.Text(result, verdicts, roots).Replace("\n", Environment.NewLine));
         else Emit(rows, fmt);
         return DupesDiffReport.Differs(rows) ? 1 : 0;
     }
