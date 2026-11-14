@@ -32,6 +32,15 @@ public partial class DuplicatesWindow : Window
         SuspectScroll.MaxHeight = _vm.SuspectPanelHeight;
         WeakScroll.MaxHeight = _vm.WeakPanelHeight;
         DiffGrid.LayoutUpdated += (_, _) => FitDiffLists();
+        // A drag changes a ceiling and nothing in the layout, so no pass would
+        // follow it: fit at once, and the list follows the pointer as it did
+        // while its MaxHeight was bound.
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(DuplicatesViewModel.SuspectPanelHeight)
+                or nameof(DuplicatesViewModel.WeakPanelHeight))
+                FitDiffLists();
+        };
         if (settings.DuplicatesWindow is { } p)
         {
             // Position is physical px, Width/Height logical; the intersect test
