@@ -6,11 +6,8 @@ internal static partial class Program
 {
     private static int Dupes(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
     {
-        var fresh = args.Contains("--fresh");
-        var roots = args.Where(a => a is not "--fresh").ToArray();
-        var html = CliOptions.TakeHtml(ref roots);
-        CliOptions.RejectUnknownFlags(roots);
-        if (roots.Length == 0 || !roots.All(Directory.Exists))
+        var (roots, fresh, diff, html, playlist) = CliOptions.ParseDupes(args);
+        if (roots.Count == 0 || !roots.All(Directory.Exists))
         {
             Console.Error.WriteLine("spektra-cli dupes: give one or more existing folders.");
             return 2;
@@ -21,8 +18,12 @@ internal static partial class Program
         try { result = ScanWithProgress(ffmpeg, roots, jobs, cache, fresh); }
         finally { cache?.Dispose(); }
 
+        // The scan reports full paths, so the folders are named and matched by
+        // their full paths too, however they were typed.
+        if (diff) return DupesDiff(ffmpeg, result, [.. roots.Select(Path.GetFullPath)], playlist, fmt, jobs);
+
         if (html is not null
-            && !TryWriteHtml("dupes", html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")))
+            && !TryWriteText("dupes", html, HtmlReport.DupesDocument(result, "Spektra Duplicate Detective")))
             return 2;
 
         if (fmt == OutFormat.Text) PrintDupes(result);
@@ -44,7 +45,7 @@ internal static partial class Program
     /// Runs the scan with a one-line progress readout on stderr, shown only
     /// when stderr is a terminal so it never lands in a redirected log.
     private static DupesResult ScanWithProgress(
-        FfmpegPaths ffmpeg, string[] roots, int jobs, AuditCache? cache, bool fresh)
+        FfmpegPaths ffmpeg, IReadOnlyList<string> roots, int jobs, AuditCache? cache, bool fresh)
     {
         var progress = new Progress<DupesProgress>(p =>
         {
@@ -54,6 +55,60 @@ internal static partial class Program
         var result = DuplicateScan.Run(ffmpeg, roots, jobs, cache, fresh, progress);
         if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r");
         return result;
+    }
+
+    /// dupes --diff: labels each same-name pair by how its first seconds line
+    /// up, writes the listening playlist when one was asked for, then prints
+    /// what differs. 1 when anything does; 2, with nothing on stdout, when the
+    /// labels could not be checked or the playlist could not be written.
+    private static int DupesDiff(
+        FfmpegPaths ffmpeg, DupesResult result, IReadOnlyList<string> roots, string? playlist,
+        OutFormat fmt, int jobs)
+    {
+        SuspectVerdict[] verdicts;
+        try { verdicts = LabelWithProgress(ffmpeg, result.Suspects, jobs); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Anything but a pure cancel (ffmpeg not starting, say) comes as an
+            // AggregateException; its base exception says what went wrong.
+            Console.Error.WriteLine(
+                $"spektra-cli dupes: error: could not check the labels: {ex.GetBaseException().Message}");
+            return 2;
+        }
+
+        if (playlist is not null)
+        {
+            var shown = SuspectView.Visible(
+                result.Suspects.Select((p, i) => (Pair: p, Verdict: (SuspectVerdict?)verdicts[i])),
+                s => s.Pair, s => s.Verdict, []);
+            if (!TryWriteText("dupes", playlist, SuspectView.Playlist(shown, roots))) return 2;
+        }
+
+        var rows = DupesDiffReport.Rows(result, verdicts, roots);
+        if (fmt == OutFormat.Text) Console.Write(DupesDiffReport.Text(result, verdicts, roots));
+        else Emit(rows, fmt);
+        return DupesDiffReport.Differs(rows) ? 1 : 0;
+    }
+
+    /// Labels the pairs with a running count on stderr, shown only when stderr
+    /// is a terminal, as the scan's is, and cleared after. The count is written
+    /// as it is reported: Progress&lt;T&gt; would post it to the thread pool, where
+    /// the last one could land after the line is cleared.
+    private static SuspectVerdict[] LabelWithProgress(
+        FfmpegPaths ffmpeg, IReadOnlyList<SuspectPair> pairs, int jobs)
+    {
+        var progress = new InlineProgress<LabelProgress>(p =>
+        {
+            if (!Console.IsErrorRedirected)
+                Console.Error.Write($"\rChecking {p.Done}/{p.Total}    ");
+        });
+        try { return SuspectLabeler.LabelAll(ffmpeg, pairs, jobs, progress); }
+        finally { if (!Console.IsErrorRedirected) Console.Error.Write("\r                        \r"); }
+    }
+
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private static void PrintDupes(DupesResult result)

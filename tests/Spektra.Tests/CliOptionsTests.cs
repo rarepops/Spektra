@@ -437,6 +437,67 @@ public class CliOptionsTests
         await Assert.That(ex.Message).Contains("nowhere");
     }
 
+    [Test]
+    public async Task ParseDupes_FoldersAlone_AreTheRoots()
+    {
+        var parsed = CliOptions.ParseDupes(["a", "b"]);
+        await Assert.That(string.Join("|", parsed.Roots)).IsEqualTo("a|b");
+        await Assert.That(parsed.Fresh).IsFalse();
+        await Assert.That(parsed.Diff).IsFalse();
+        await Assert.That(parsed.Html).IsNull();
+        await Assert.That(parsed.Playlist).IsNull();
+    }
+
+    [Test]
+    public async Task ParseDupes_ReadsDiffFreshAndPlaylist_Anywhere()
+    {
+        var parsed = CliOptions.ParseDupes(["--diff", "a", "--playlist", "p.m3u8", "b", "--fresh"]);
+        await Assert.That(string.Join("|", parsed.Roots)).IsEqualTo("a|b");
+        await Assert.That(parsed.Diff).IsTrue();
+        await Assert.That(parsed.Fresh).IsTrue();
+        await Assert.That(parsed.Playlist).IsEqualTo("p.m3u8");
+        await Assert.That(parsed.Html).IsNull();
+    }
+
+    [Test]
+    public async Task ParseDupes_RefusesAPlaylistWithoutDiff()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["a", "b", "--playlist", "p.m3u8"]); });
+        await Assert.That(ex.Message).IsEqualTo("--playlist needs --diff.");
+    }
+
+    [Test]
+    public async Task ParseDupes_RefusesHtmlWithDiff()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["--diff", "a", "b", "--html", "x.html"]); });
+        await Assert.That(ex.Message).IsEqualTo("--html cannot be combined with --diff; use --json, --csv or --playlist.");
+    }
+
+    [Test]
+    public async Task ParseDupes_RefusesADiffOfOneFolder()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["--diff", "a"]); });
+        await Assert.That(ex.Message).IsEqualTo("--diff needs two or more folders.");
+    }
+
+    [Test]
+    public async Task ParseDupes_PlaylistNeedsAPath()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["--diff", "a", "b", "--playlist"]); });
+        await Assert.That(ex.Message).IsEqualTo("--playlist needs a file path.");
+    }
+
+    [Test]
+    public async Task ParseDupes_KeepsTheOldMessages()
+    {
+        // What a dupes run without the new flags was told before they existed.
+        var unknown = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["a", "--bogus"]); });
+        await Assert.That(unknown.Message).IsEqualTo("unknown option '--bogus'.");
+
+        var noPath = Assert.Throws<OptionException>(() => { CliOptions.ParseDupes(["a", "--html"]); });
+        await Assert.That(noPath.Message).IsEqualTo("--html needs a file path.");
+    }
+
     // A throwaway folder for the tests that need paths that exist (or visibly
     // do not). Everything under it is removed on dispose.
     private sealed class Scratch : IDisposable
