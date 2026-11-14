@@ -124,8 +124,8 @@ public sealed class SuspectItem(SuspectPair pair, IReadOnlyList<string> roots, I
     : ObservableObject
 {
     public SuspectPair Pair { get; } = pair;
-    public SuspectSide SideA { get; } = new(pair.PathA, pair.RootA, LabelOf(pair.RootA, roots, rootLabels));
-    public SuspectSide SideB { get; } = new(pair.PathB, pair.RootB, LabelOf(pair.RootB, roots, rootLabels));
+    public SuspectSide SideA { get; } = new(pair.PathA, pair.RootA, SuspectView.LabelOf(pair.RootA, roots, rootLabels));
+    public SuspectSide SideB { get; } = new(pair.PathB, pair.RootB, SuspectView.LabelOf(pair.RootB, roots, rootLabels));
     public string Name { get; } = Path.GetFileNameWithoutExtension(pair.PathA);
     public string Lengths { get; } = SuspectView.Lengths(pair);
     public bool HasLengthGap { get; } = SuspectView.HasLengthGap(pair);
@@ -160,15 +160,6 @@ public sealed class SuspectItem(SuspectPair pair, IReadOnlyList<string> roots, I
     {
         _notChecked = true;
         RaisePropertyChanged(nameof(LabelText));
-    }
-
-    // The label ScopeLabel.Distinguish gave the root; a root that is not in the
-    // list stands for itself, as in SuspectView.
-    private static string LabelOf(string root, IReadOnlyList<string> roots, IReadOnlyList<string> labels)
-    {
-        for (var i = 0; i < roots.Count; i++)
-            if (string.Equals(roots[i], root, StringComparison.OrdinalIgnoreCase)) return labels[i];
-        return root;
     }
 }
 

@@ -62,8 +62,8 @@ public static class DupesDiffReport
         {
             text.Append($"  {++number}. {SuspectView.LabelText(verdict.Label)} · ")
                 .Append($"{SuspectView.StrengthText(pair.Strength)} · {SuspectView.Lengths(pair)}\n")
-                .Append($"     {LabelOf(pair.RootA, roots, labels)}: {pair.PathA}\n")
-                .Append($"     {LabelOf(pair.RootB, roots, labels)}: {pair.PathB}\n");
+                .Append($"     {SuspectView.LabelOf(pair.RootA, roots, labels)}: {pair.PathA}\n")
+                .Append($"     {SuspectView.LabelOf(pair.RootB, roots, labels)}: {pair.PathB}\n");
             if (SuspectView.CrossMatch(pair, roots) is { } cross) text.Append($"     {cross}\n");
         }
 
@@ -119,13 +119,4 @@ public static class DupesDiffReport
 
     private static List<NotAnalyzedFile> NotAnalyzed(DupesResult result, HashSet<string> paired) =>
         [.. result.NotAnalyzed.Where(f => !paired.Contains(f.Path)).OrderBy(f => f.Path, StringComparer.OrdinalIgnoreCase)];
-
-    // The label ScopeLabel.Distinguish gave a root; a root that is not in the
-    // list stands for itself, as in SuspectView.
-    private static string LabelOf(string root, IReadOnlyList<string> roots, IReadOnlyList<string> labels)
-    {
-        for (var i = 0; i < roots.Count; i++)
-            if (string.Equals(roots[i], root, StringComparison.OrdinalIgnoreCase)) return labels[i];
-        return root;
-    }
 }

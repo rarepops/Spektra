@@ -16,10 +16,14 @@ public static class SuspectView
     /// Two copies whose lengths differ by this many seconds or more are worth a look.
     private const double LengthGapSeconds = 10;
 
-    /// The labels listed first. Named here, not read off the enum's numbers, so a
-    /// label added later is placed on purpose.
-    public static bool IsTopTier(SuspectLabel label) =>
-        label is SuspectLabel.DoesntLineUp or SuspectLabel.CantCompare;
+    /// The labels listed first. Every label is named here, not read off the enum's
+    /// numbers, and any other value throws, so a label added later is placed on purpose.
+    public static bool IsTopTier(SuspectLabel label) => label switch
+    {
+        SuspectLabel.DoesntLineUp or SuspectLabel.CantCompare => true,
+        SuspectLabel.PartlySame or SuspectLabel.SamePerformance => false,
+        _ => throw new ArgumentOutOfRangeException(nameof(label), label, null),
+    };
 
     /// A label as a row shows it: the evidence, never a verdict.
     public static string LabelText(SuspectLabel label) => label switch
@@ -52,7 +56,8 @@ public static class SuspectView
     /// The rows whose paths hold every filter word (ignoring case; the words may land
     /// on different sides, as a group's filter reads its members), in the order the
     /// section lists them: by label rank (a row with no label yet first), then same
-    /// name before near name, then the file name of A ignoring case, then A's path.
+    /// name before near name, then the file name of A ignoring case, then A's path,
+    /// then B's path, which settles one A file paired with two B files.
     public static IReadOnlyList<T> Visible<T>(
         IEnumerable<T> rows, Func<T, SuspectPair> pairOf, Func<T, SuspectVerdict?> verdictOf,
         IReadOnlyCollection<string> tokens) =>
@@ -61,7 +66,8 @@ public static class SuspectView
             .OrderBy(r => Rank(verdictOf(r)))
             .ThenBy(r => pairOf(r).Strength == NameStrength.NearName)
             .ThenBy(r => Path.GetFileName(pairOf(r).PathA), StringComparer.OrdinalIgnoreCase)
-            .ThenBy(r => pairOf(r).PathA, StringComparer.Ordinal)];
+            .ThenBy(r => pairOf(r).PathA, StringComparer.Ordinal)
+            .ThenBy(r => pairOf(r).PathB, StringComparer.Ordinal)];
 
     /// The section's heading: how many pairs to listen to first, how many are similar,
     /// and how many have no label yet (still being checked, or left unchecked after a
@@ -143,8 +149,9 @@ public static class SuspectView
         $"the copy in {LabelOf(root, roots, labels)} is the same audio as {Path.GetFileName(sameAudioAs)} "
         + $"in {LabelOf(DuplicateScan.RootOf(sameAudioAs, roots), roots, labels)}";
 
-    // The label ScopeLabel.Distinguish gave a folder; a root that is not in the list stands for itself.
-    private static string LabelOf(string root, IReadOnlyList<string> roots, IReadOnlyList<string> labels)
+    /// The label ScopeLabel.Distinguish gave a root (labels[i] for roots[i], matched ignoring case);
+    /// a root that is not in the list stands for itself.
+    public static string LabelOf(string root, IReadOnlyList<string> roots, IReadOnlyList<string> labels)
     {
         for (var i = 0; i < roots.Count; i++)
             if (string.Equals(roots[i], root, StringComparison.OrdinalIgnoreCase)) return labels[i];

@@ -75,6 +75,22 @@ public sealed class SuspectViewTests
     }
 
     [Test]
+    public async Task Visible_OneFileInTwoPairs_FallsBackToTheOtherPath()
+    {
+        // One A file pairs with two B files, given in the wrong order: only B's path tells them apart.
+        var rows = new (SuspectPair Pair, SuspectVerdict? Verdict)[]
+        {
+            (Pair(@"A\Intro.flac", @"B\Live\Intro.flac"), V(SuspectLabel.DoesntLineUp)),
+            (Pair(@"A\Intro.flac", @"B\Album\Intro.flac"), V(SuspectLabel.DoesntLineUp)),
+        };
+
+        var shown = SuspectView.Visible(rows, r => r.Pair, r => r.Verdict, []);
+
+        await Assert.That(string.Join(" | ", shown.Select(r => r.Pair.PathB)))
+            .IsEqualTo(@"B\Album\Intro.flac | B\Live\Intro.flac");
+    }
+
+    [Test]
     public async Task Visible_RowsStillBeingChecked_ComeBeforeEveryLabel()
     {
         // Bravo has no label yet and sorts after Alpha by name: only its rank puts it first.
@@ -208,6 +224,9 @@ public sealed class SuspectViewTests
         await Assert.That(SuspectView.IsTopTier(SuspectLabel.CantCompare)).IsTrue();
         await Assert.That(SuspectView.IsTopTier(SuspectLabel.PartlySame)).IsFalse();
         await Assert.That(SuspectView.IsTopTier(SuspectLabel.SamePerformance)).IsFalse();
+
+        // A label added later is placed on purpose, never dropped into the bottom tier unseen.
+        Assert.Throws<ArgumentOutOfRangeException>(() => { SuspectView.IsTopTier((SuspectLabel)99); });
     }
 
     [Test]

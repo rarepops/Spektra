@@ -1,8 +1,9 @@
 namespace Spektra.Core;
 
-/// How the first seconds of a suspect pair's two copies line up. Declared in the
-/// order the window lists them: the top tier (doesn't line up, can't compare),
-/// then the dimmed bottom tier (partly the same, same performance).
+/// How the first seconds of a suspect pair's two copies line up: the top tier
+/// (doesn't line up, can't compare) and the dimmed bottom tier (partly the same,
+/// same performance). The order the window lists them in is SuspectView's, never
+/// the enum's numbers.
 ///
 /// Alignment can clear a pair and never convict one. "Doesn't line up" is what a
 /// cover, another song, a heavy remaster, a different intro and an offset beyond
