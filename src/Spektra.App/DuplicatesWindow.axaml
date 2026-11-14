@@ -268,7 +268,7 @@
              thinned by Hide name matches, because a matching name is what makes
              a pair here. Rows describe the evidence; the listener decides. -->
         <Border Grid.Row="0" BorderBrush="#2E2E2E" BorderThickness="1" CornerRadius="4"
-                Margin="0,0,6,8" Padding="8,6">
+                Margin="0,0,6,8" Padding="8,6" IsVisible="{Binding HasScanResults}">
           <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
               <Button DockPanel.Dock="Right" Margin="8,0,0,0" MinHeight="26" Padding="10,3"

@@ -438,4 +438,53 @@ public sealed class DuplicatesViewModelTests
         }
         finally { Directory.Delete(work, recursive: true); }
     }
+
+    [Test]
+    public async Task HasScanResults_HoldsFromTheResultsLanding_UntilTheyAreCleared()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            // Before any scan the section would say "none" before it knows.
+            var fresh = new DuplicatesViewModel(Ff, new AppSettings(), cachePath: CachePath(work));
+            await Assert.That(fresh.HasScanResults).IsFalse();
+
+            var vm = await ScanTheLibrary(work);
+            await Assert.That(vm.HasScanResults).IsTrue();
+
+            // What the Clear all button calls.
+            vm.ClearRoots();
+            await Assert.That(vm.HasScanResults).IsFalse();
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Test]
+    public async Task ScanAsync_CheckingTheLabels_KeepsTheColumnsItListed()
+    {
+        var work = Directory.CreateTempSubdirectory("dupes-vm").FullName;
+        try
+        {
+            // Built as ScanTheLibrary builds it, plus a copy of the columns as first listed: the
+            // first SuspectHeading raised while columns are on show comes from the first
+            // ApplyGroupFilter, before the labels are checked.
+            var vm = new DuplicatesViewModel(Ff, new AppSettings(), cachePath: CachePath(work));
+            vm.SetDiffRoots(RootA, RootB);
+            DiffColumnItem[]? listed = null;
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (listed is null && e.PropertyName == nameof(DuplicatesViewModel.SuspectHeading)
+                    && vm.DiffColumns.Count > 0)
+                    listed = [.. vm.DiffColumns];
+            };
+
+            await vm.ScanAsync();
+
+            // Columns built anew would throw a list the user is scrolling back to the top.
+            await Assert.That(vm.DiffColumns.Count).IsEqualTo(2);
+            for (var i = 0; i < 2; i++)
+                await Assert.That(ReferenceEquals(vm.DiffColumns[i], listed![i])).IsTrue().Because($"column {i + 1}");
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
 }

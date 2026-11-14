@@ -310,6 +310,10 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// folders that share nothing still differ, and loudly).
     public bool HasResults => _allGroups.Count > 0 || _allUnpaired.Count > 0;
 
+    /// True from the moment a scan's results land until they are cleared. The Same name,
+    /// different audio section shows only then, so it never says "none" before it knows.
+    public bool HasScanResults => LastResult is not null;
+
     /// The results filter: every word must match the group label or some
     /// member's path. Applied live against the finished scan, never the disk.
     private string _filterText = "";
@@ -331,13 +335,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             foreach (var column in FolderDiffView.Columns(_allUnpaired, Roots, tokens, HideTitleTwins))
                 DiffColumns.Add(new DiffColumnItem(column));
 
-        // HideTitleTwins is not read, by design (see Suspects).
-        Suspects.Clear();
-        if (OnlyDifferences)
-            foreach (var s in SuspectView.Visible(_allSuspects, s => s.Pair, s => s.Verdict, tokens))
-                Suspects.Add(s);
-        RaisePropertyChanged(nameof(SuspectHeading));
-        RaisePropertyChanged(nameof(CanSavePlaylist));
+        ApplySuspectFilter(tokens);
 
         if (_baseFooter is not { } baseText) return;
         FooterText = baseText + FolderDiffView.FooterSuffix(
@@ -349,6 +347,21 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
             visibleGroups: Groups.Count,
             totalGroups: _allGroups.Count,
             notComparable: NotAnalyzed.Count);
+    }
+
+    /// Lists the suspects the filter words keep, in the section's order. Kept apart
+    /// from ApplyGroupFilter so the labels arriving can re-sort the rows without
+    /// building the groups and columns anew, which would throw lists the user is
+    /// already scrolling back to the top.
+    private void ApplySuspectFilter(IReadOnlyCollection<string> tokens)
+    {
+        // HideTitleTwins is not read, by design (see Suspects).
+        Suspects.Clear();
+        if (OnlyDifferences)
+            foreach (var s in SuspectView.Visible(_allSuspects, s => s.Pair, s => s.Verdict, tokens))
+                Suspects.Add(s);
+        RaisePropertyChanged(nameof(SuspectHeading));
+        RaisePropertyChanged(nameof(CanSavePlaylist));
     }
 
     private CancellationTokenSource? _cts;
@@ -441,8 +454,8 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// already showing. Roots are not persisted here for the same reason
     /// SetSingleRoot does not persist them: a one-off launch must leave the
     /// saved root list alone. Turning the filter on before the scan is safe
-    /// because ScanAsync ends in ApplyGroupFilter, so the columns are built the
-    /// moment results land.
+    /// because ScanAsync runs ApplyGroupFilter the moment results land, so the
+    /// columns are built then.
     public void SetDiffRoots(string folderA, string folderB)
     {
         if (IsScanning) { SetError(ScanBusyNote); return; }
@@ -528,6 +541,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
         _baseFooter = null;
         LastResult = null;
         RaisePropertyChanged(nameof(HasResults));
+        RaisePropertyChanged(nameof(HasScanResults));
         RaisePropertyChanged(nameof(CanExport));
         RaisePropertyChanged(nameof(SuspectHeading));
         RaisePropertyChanged(nameof(CanSavePlaylist));
@@ -570,6 +584,7 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 ffmpeg, roots, jobs, localCache, fresh: false, progress, ct), ct);
 
             LastResult = result;
+            RaisePropertyChanged(nameof(HasScanResults));
             _allGroups.AddRange(result.Groups.Select(g => new DupeGroupItem(g)));
             foreach (var n in result.NotAnalyzed)
                 NotAnalyzed.Add(n);
@@ -614,6 +629,16 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
     /// checked", and a failure adds why to the end of the footer.
     private async Task LabelSuspectsAsync(SuspectItem[] rows, int jobs, CancellationToken ct)
     {
+        if (rows.Length == 0)
+        {
+            _checkingLabels = false;
+            RaisePropertyChanged(nameof(SuspectHeading));
+            return;
+        }
+
+        // Until the first label lands, the bar and its text would still show the scan's last report.
+        ProgressFraction = 0;
+        ProgressText = $"Checking 0 of {rows.Length}";
         // Made here, on the UI thread, so the callbacks run there.
         var progress = new Progress<LabelProgress>(p =>
         {
@@ -643,7 +668,9 @@ public sealed class DuplicatesViewModel(FfmpegPaths ffmpeg, AppSettings settings
                 failure = ex.GetBaseException().Message;
         }
         _checkingLabels = false;
-        ApplyGroupFilter(); // the final order; raises SuspectHeading and CanSavePlaylist
+        // The final order, raising SuspectHeading and CanSavePlaylist. Only the suspects
+        // are listed again: the groups and columns have not changed.
+        ApplySuspectFilter(DuplicateScan.ParseFilterTokens(FilterText));
         if (failure is not null)
             SetError($"{FooterText} · could not check the labels: {failure}");
     }
