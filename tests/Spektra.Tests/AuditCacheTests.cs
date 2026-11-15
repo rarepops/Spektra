@@ -180,8 +180,7 @@ public sealed class AuditCacheTests : IDisposable
     [Test]
     public async Task Fingerprint_RoundTrips_AndStalesOnIdentityChange()
     {
-        var db = Path.Combine(Directory.CreateTempSubdirectory("spektra-fp").FullName, "cache.db");
-        using var cache = AuditCache.Open(db);
+        using var cache = AuditCache.Open(DbPath);
         var target = new AuditTarget(@"C:\m\a.flac", 100, 200);
         cache.PutFingerprint(target, new Fingerprint(8, [1u, 2u, 3u]), 12.5, "Artist", "Title");
 
@@ -198,8 +197,7 @@ public sealed class AuditCacheTests : IDisposable
     [Test]
     public async Task PruneFolder_AlsoPrunesFingerprints()
     {
-        var db = Path.Combine(Directory.CreateTempSubdirectory("spektra-fp2").FullName, "cache.db");
-        using var cache = AuditCache.Open(db);
+        using var cache = AuditCache.Open(DbPath);
         var dead = new AuditTarget(@"C:\m\dead.mp3", 1, 1);
         var live = new AuditTarget(@"C:\m\live.mp3", 1, 1);
         var outside = new AuditTarget(@"C:\other\keep.mp3", 1, 1);

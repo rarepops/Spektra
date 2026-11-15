@@ -2,8 +2,13 @@ using Spektra.Core;
 
 namespace Spektra.Tests;
 
-public class FolderAuditTests
+public sealed class FolderAuditTests : IDisposable
 {
+    private readonly string _dir = Directory.CreateTempSubdirectory("spektra-fa").FullName;
+    private string DbPath => Path.Combine(_dir, "cache.db");
+
+    public void Dispose() => Directory.Delete(_dir, recursive: true);
+
     private static readonly string Fixtures = Path.Combine(AppContext.BaseDirectory, "fixtures");
     private static readonly FfmpegPaths Ff = FfmpegLocator.Locate([])!;
     private static string P(string file) => Path.Combine(Fixtures, file);
@@ -33,9 +38,6 @@ public class FolderAuditTests
         return path;
     }
 
-    private string NewTempDb() => Path.Combine(
-        Directory.CreateTempSubdirectory("spektra-fa").FullName, "cache.db");
-
     [Test]
     public async Task Run_KeepsInputOrder_DespiteParallelism()
     {
@@ -52,7 +54,7 @@ public class FolderAuditTests
     [Test]
     public async Task Run_UnreadableFile_YieldsErrorRow_AndProblem_AndIsNotCached()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         var target = T("notaudio.txt");
         var entries = FolderAudit.Run(Ff, [target], jobs: 1, cache);
         await Assert.That(entries[0].Row.Error).IsNotNull();
@@ -142,7 +144,7 @@ public class FolderAuditTests
     [Test]
     public async Task Run_ReplaysCacheHits_WithoutAnalyzing()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         AuditTarget[] targets = [T("chirp.wav"), T("noise.wav")];
         var first = FolderAudit.Run(Ff, targets, jobs: 2, cache);
 
@@ -160,7 +162,7 @@ public class FolderAuditTests
     [Test]
     public async Task Run_Fresh_IgnoresAPoisonedEntry_AndOverwritesIt()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         var target = T("chirp.wav");
         var poisoned = new AuditRow(
             "chirp.wav", "flac", 1, 1, 1, 1, "Lossy", 1000, "Corrupt", 9, 9, true, null);
@@ -176,7 +178,7 @@ public class FolderAuditTests
     [Test]
     public async Task Run_Cancelled_KeepsCompletedEntriesInCache()
     {
-        var db = NewTempDb();
+        var db = DbPath;
         AuditTarget[] targets = [T("chirp.wav"), T("noise.wav")];
         using var cts = new CancellationTokenSource();
         var cancelAfterFirst = new CancelAfterFirst(cts);
@@ -283,7 +285,7 @@ public class FolderAuditTests
     [Test]
     public async Task Run_AnalyzesOnlyTheGivenSubset_AndCachesOnlyThose()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         AuditTarget[] all =
         [
             T("chirp.wav"), T("noise.wav"), T("sine-1khz.wav"),

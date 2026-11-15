@@ -2,23 +2,24 @@ using Spektra.Core;
 
 namespace Spektra.Tests;
 
-public sealed class KeyMapStoreTests
+public sealed class KeyMapStoreTests : IDisposable
 {
-    private static string WriteFile(string contents)
+    private readonly string _dir = Directory.CreateTempSubdirectory("spektra-keys").FullName;
+    private string KeysPath => Path.Combine(_dir, "keybindings.json");
+
+    public void Dispose() => Directory.Delete(_dir, recursive: true);
+
+    private string WriteFile(string contents)
     {
-        var dir = Directory.CreateTempSubdirectory("spektra-keys").FullName;
-        var path = Path.Combine(dir, "keybindings.json");
-        File.WriteAllText(path, contents);
-        return path;
+        File.WriteAllText(KeysPath, contents);
+        return KeysPath;
     }
 
     [Test]
     public async Task An_absent_file_is_the_defaults_and_says_nothing()
     {
         // Every existing user is in this state. It is not a problem to report.
-        var dir = Directory.CreateTempSubdirectory("spektra-keys-none").FullName;
-
-        var map = KeyMapStore.Load(Path.Combine(dir, "keybindings.json"), out var problems);
+        var map = KeyMapStore.Load(KeysPath, out var problems);
 
         await Assert.That(problems).IsEmpty();
         await Assert.That(map.Label(KeyCommand.SaveImage)).IsEqualTo("Ctrl+S");

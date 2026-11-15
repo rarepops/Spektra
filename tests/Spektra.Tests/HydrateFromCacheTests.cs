@@ -2,11 +2,12 @@ using Spektra.Core;
 
 namespace Spektra.Tests;
 
-public sealed class HydrateFromCacheTests
+public sealed class HydrateFromCacheTests : IDisposable
 {
-    private static string NewTempDb() =>
-        Path.Combine(Directory.CreateTempSubdirectory("spektra-hydrate").FullName,
-            "audit-cache.db");
+    private readonly string _dir = Directory.CreateTempSubdirectory("spektra-hydrate").FullName;
+    private string DbPath => Path.Combine(_dir, "audit-cache.db");
+
+    public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     private static readonly string Fixtures =
         Path.Combine(AppContext.BaseDirectory, "fixtures");
@@ -31,7 +32,7 @@ public sealed class HydrateFromCacheTests
     [Test]
     public async Task Hits_and_misses_are_positional()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         AuditTarget[] all = [T("sine-1khz.flac"), T("chirp.wav")];
         // Analyze only the first target so the cache holds exactly one row.
         FolderAudit.Run(Ff, [all[0]], jobs: 1, cache);
@@ -46,7 +47,7 @@ public sealed class HydrateFromCacheTests
     [Test]
     public async Task Stale_target_is_a_miss()
     {
-        using var cache = AuditCache.Open(NewTempDb());
+        using var cache = AuditCache.Open(DbPath);
         var target = T("sine-1khz.flac");
         FolderAudit.Run(Ff, [target], jobs: 1, cache);
 

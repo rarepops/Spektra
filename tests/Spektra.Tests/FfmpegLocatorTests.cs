@@ -8,20 +8,28 @@ public class FfmpegLocatorTests
     public async Task FindsBinariesInProbeDir()
     {
         var dir = Directory.CreateTempSubdirectory("spektra-loc").FullName;
-        var exe = OperatingSystem.IsWindows() ? ".exe" : "";
-        File.WriteAllText(Path.Combine(dir, "ffmpeg" + exe), "");
-        File.WriteAllText(Path.Combine(dir, "ffprobe" + exe), "");
+        try
+        {
+            var exe = OperatingSystem.IsWindows() ? ".exe" : "";
+            File.WriteAllText(Path.Combine(dir, "ffmpeg" + exe), "");
+            File.WriteAllText(Path.Combine(dir, "ffprobe" + exe), "");
 
-        var found = FfmpegLocator.Locate([dir], searchPath: false);
-        await Assert.That(found).IsNotNull();
-        await Assert.That(found!.FfmpegPath).IsEqualTo(Path.Combine(dir, "ffmpeg" + exe));
+            var found = FfmpegLocator.Locate([dir], searchPath: false);
+            await Assert.That(found).IsNotNull();
+            await Assert.That(found!.FfmpegPath).IsEqualTo(Path.Combine(dir, "ffmpeg" + exe));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
     }
 
     [Test]
     public async Task ReturnsNullWhenAbsent()
     {
         var empty = Directory.CreateTempSubdirectory("spektra-empty").FullName;
-        await Assert.That(FfmpegLocator.Locate([empty], searchPath: false)).IsNull();
+        try
+        {
+            await Assert.That(FfmpegLocator.Locate([empty], searchPath: false)).IsNull();
+        }
+        finally { Directory.Delete(empty, recursive: true); }
     }
 
     [Test]
