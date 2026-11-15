@@ -1,8 +1,8 @@
 # spektra-cli command reference
 
-Per-command detail for the `spektra-cli` skill, describing spektra-cli releases after 0.25.1 (SKILL.md says what an older one gets wrong). `spektra-cli --help` prints the tool's own summary. Placeholders: `<folder>`, `<file>`, `<file-a>`, `<file-b>`, `<folder-a>`, `<folder-b>`, and `<scratch>` (a folder outside the library). Quote paths that contain spaces.
+Per-command detail for the `spektra-cli` skill, describing spektra-cli releases after 0.25.1, with `dupes --diff` from the release after 0.26.0 (SKILL.md says what an older one gets wrong). `spektra-cli --help` prints the tool's own summary. Placeholders: `<folder>`, `<file>`, `<file-a>`, `<file-b>`, `<folder-a>`, `<folder-b>`, and `<scratch>` (a folder outside the library). Quote paths that contain spaces.
 
-Contents: common options and exit codes · audit · report and scan · check · dupes (and what folder A has that folder B lacks) · diff · loudness · manifest · inventory · image · output formats.
+Contents: common options and exit codes · audit · report and scan · check · dupes (and dupes --diff: what differs between two folders) · diff · loudness · manifest · inventory · image · output formats.
 
 ## Common options and exit codes
 
@@ -17,11 +17,12 @@ Contents: common options and exit codes · audit · report and scan · check · 
 | `report`, `scan` | at least one `Lossy`, `Upsampled` or `Mixed` verdict, an honest MP3 included, or a file that could not be read |
 | `check` | at least one `Corrupt` or unreadable file (`Suspect` alone exits 0) |
 | `dupes` | at least one duplicate group |
+| `dupes --diff` | something differs: a suspect pair, a weak match, or a file only one folder holds (files that could not be analyzed do not count on their own) |
 | `diff` | the files differ |
 | `loudness` | a file could not be measured |
 | `manifest`, `inventory`, `image` | never: they exit 0, or 2 on an error |
 
-Exit 2 always means the run itself failed: a bad option, a path that does not exist, a folder given together with other paths (for `audit`, `report`, `check` and `loudness`; both are caught before anything is analyzed), a missing folder for `scan`, `dupes`, `manifest` or `inventory`, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written. `image` also exits 2 for an output it will not write (see image). A file that exists but cannot be read is a finding, not exit 2: `audit`, `report` and `loudness` return its row with `error` set and exit 1, and `check` gives it a `Corrupt` or `Error` status and exits 1.
+Exit 2 always means the run itself failed: a bad option, a path that does not exist, a folder given together with other paths (for `audit`, `report`, `check` and `loudness`; both are caught before anything is analyzed), a missing folder for `scan`, `dupes`, `manifest` or `inventory`, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written. `dupes --diff` adds its own: fewer than two folders, `--html` given with it, a `--playlist` that cannot be written, or labels that could not be checked. `image` also exits 2 for an output it will not write (see image). A file that exists but cannot be read is a finding, not exit 2: `audit`, `report` and `loudness` return its row with `error` set and exit 1, and `check` gives it a `Corrupt` or `Error` status and exits 1.
 
 ## audit
 
@@ -104,9 +105,28 @@ The text form adds what JSON and CSV leave out: `! not analyzed: <path> (shorter
 
 Limits by design: copies must be within 15 seconds of each other's length; files under 20 seconds are never compared; the match must cover most of the shorter file, so a shared intro or sample does not pair; a remix, live take or edit is a different recording; two differently mastered releases may not pair.
 
-### What does folder A have that folder B lacks?
+### dupes --diff: what differs between two folders
 
-`dupes` prints matches, not differences, so derive the difference:
+    spektra-cli dupes --diff <folder-a> <folder-b> --json > <scratch>/diff.json
+    spektra-cli dupes --diff <folder-a> <folder-b> --json --playlist <scratch>/listen.m3u8 > <scratch>/diff.json
+
+Needs a release after 0.26.0 (an older one rejects `--diff` with exit 2: use the recipe in the next section). Two or more folders, and the options of `dupes` except `--html`, which is refused here. It answers what differs between folders holding nearly the same music: groups the scan is confident are one recording are left out, whatever their format or quality, and the rest comes in this order: same-named files whose audio differs, weak matches, what each folder alone holds, and the files that could not be analyzed.
+
+JSON: one row per pair or file, in that order. Fields: `kind`, `root`, `path`, `otherRoot`, `otherPath`, `nameStrength`, `label`, `alignConfidence`, `seconds`, `otherSeconds`, `sameAudioAs`, `otherSameAudioAs`, `group`, `reason`.
+
+- `kind` is `suspect` (a same-name pair), `weak` (a member of a group too weak to take on trust, with its `group`), `only-in` (a file only its `root` holds) or `not-analyzed` (with its `reason`). Paths are absolute, as in the rest of `dupes`.
+- A file is a suspect when it has a name twin in another folder and no twin there shares its audio group (any shared group clears it, a weak one included). A `suspect` row holds the first folder's copy in `root` and `path` and the other copy in `otherRoot` and `otherPath`. `nameStrength` is `SameName` (identical names, or one copy credits artists the other leaves out) or `NearName` (names that agree once version words such as Remastered or Radio Edit are set aside, or where one sits inside the other).
+- `label` says how the first 10 seconds of the two copies line up. `DoesntLineUp` (a cover, another song, or a heavy remaster) and `CantCompare` (a copy is broken or too short) are the pairs to hear first and come first; `PartlySame` (another mix or edit) and `SamePerformance` (another master, or identical) follow. `alignConfidence` is the score behind the label, rounded to 3 places; `seconds` and `otherSeconds` are the two lengths.
+- `sameAudioAs` and `otherSameAudioAs` name another file in the scan whose audio matches that copy (in the text form, the line under the pair).
+- A file in a suspect pair is never also an `only-in` or `not-analyzed` row. A member of a weak group that is also in a suspect pair is listed under both.
+
+Alignment can clear a pair but never convict one: only the first 10 seconds are compared, within 2 seconds either way, so a different intro, a larger offset, or a copy that opens with silence reads `DoesntLineUp` too. Present the labels as evidence and let the user decide by ear.
+
+`--playlist <file>` also writes the pairs to hear first as an `.m3u8` playlist (UTF-8 without a byte-order mark): each pair's copy from the first folder, then its copy from the other, so the two play back to back. It holds absolute paths, so write it to `<scratch>` unless the user names a place. A user with the Spektra desktop app sees the same view with `spektra --diff "<folder-a>" "<folder-b>"` (Duplicate Detective with Only differences ticked).
+
+### On 0.26.0 or older: derive the difference by hand
+
+Without `--diff`, `dupes` prints matches, not differences, so derive the difference:
 
 1. `spektra-cli dupes <folder-a> <folder-b> --json > <scratch>/pairs.json`
 2. `spektra-cli inventory <folder-a> --json > <scratch>/a.json` and `spektra-cli inventory <folder-b> --json > <scratch>/b.json` for both full file lists (fast: nothing is decoded).
@@ -114,7 +134,7 @@ Limits by design: copies must be within 15 seconds of each other's length; files
 4. Sort A's audio rows (`isAudio` true) that sit in no such group: `error` set means "unreadable, not compared"; `durationSeconds` under 20 means "too short to compare"; the rest are candidates for "B lacks this". A file in a `Medium` group with a B member is "possibly in B, worth a check".
 5. Before calling a candidate missing, look for it by name in b.json (the `title` tag, or the file name): a match there usually means B holds another master or encode that the audio did not pair, so report it as "probably in B under another version", not as missing.
 
-Swap A and B for the other direction. A user with the Spektra desktop app can see the same comparison as a view with `spektra --diff "<folder-a>" "<folder-b>"` (Duplicate Detective with Only differences ticked), which also matches tracks by name where the audio alone did not.
+Swap A and B for the other direction.
 
 ## diff
 
