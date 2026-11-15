@@ -111,6 +111,12 @@ public sealed class SuspectSide(string path, string root, string label) : IFileI
 {
     public string Path { get; } = path;
     public string Label { get; } = label;
+
+    /// The label escaped for the row's submenu header: underscores double
+    /// because Avalonia reads a lone '_' as an access-key marker, as
+    /// ScopeLabel.ForMenu does for the folder menus. The row's text keeps Label.
+    public string MenuLabel { get; } = label.Replace("_", "__");
+
     public string Relative { get; } = FolderDiffView.RelativePath(path, root);
 
     string IFileItem.FullPath => Path;

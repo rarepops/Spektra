@@ -508,4 +508,16 @@ public sealed class DuplicatesViewModelTests
         await Assert.That(raised).Contains(nameof(DuplicatesViewModel.SuspectPanelHeight));
         await Assert.That(settings.DuplicatesSuspectPanelHeight).IsEqualTo(300);
     }
+
+    [Test]
+    public async Task SuspectSide_MenuLabel_DoublesUnderscores_AndTheRowKeepsTheLabel()
+    {
+        // A lone '_' in a menu header is an access-key marker: a folder labelled
+        // Old_Rips would read OldRips in the row's A and B submenus.
+        var root = Path.Combine(Path.GetTempPath(), "Old_Rips");
+        var side = new SuspectSide(Path.Combine(root, "a.flac"), root, "Old_Rips");
+
+        await Assert.That(side.MenuLabel).IsEqualTo("Old__Rips");
+        await Assert.That(side.Label).IsEqualTo("Old_Rips");
+    }
 }

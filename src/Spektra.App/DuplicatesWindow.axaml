@@ -297,22 +297,23 @@
                       <!-- Each side's submenu takes that side as its DataContext, so
                            the shared file verbs reach that copy through
                            FileActions.ItemFrom, as they do on a diff row. Its
-                           header binds the side's own Label: only the DataContext
-                           binding reads the row, every other binding on that
-                           MenuItem already sees the side, so SideA.Label would
-                           come up empty. -->
+                           header binds the side's own MenuLabel (its Label with
+                           underscores doubled, so none reads as an access key):
+                           only the DataContext binding reads the row, every
+                           other binding on that MenuItem already sees the side,
+                           so SideA.MenuLabel would come up empty. -->
                       <Grid.ContextMenu>
                         <ContextMenu Opened="OnMemberMenuOpened" Closed="OnMemberMenuClosed">
                           <MenuItem Header="Compare side by side" Click="OnCompareSuspectClicked"
                                     ToolTip.Tip="Both copies in the main window, aligned, the first folder's copy as A" />
                           <Separator />
-                          <MenuItem Header="{Binding Label}" DataContext="{Binding SideA}">
+                          <MenuItem Header="{Binding MenuLabel}" DataContext="{Binding SideA}">
                             <MenuItem Header="_Open spectrogram" Click="OnOpenSuspectSideClicked" />
                             <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
                             <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
                             <MenuItem Header="_Reveal in Explorer" Click="OnRevealMemberClicked" />
                           </MenuItem>
-                          <MenuItem Header="{Binding Label}" DataContext="{Binding SideB}">
+                          <MenuItem Header="{Binding MenuLabel}" DataContext="{Binding SideB}">
                             <MenuItem Header="_Open spectrogram" Click="OnOpenSuspectSideClicked" />
                             <MenuItem Header="Play in _default player" Click="OnPlayMemberClicked" />
                             <MenuItem Header="Copy _path" Click="OnCopyMemberPathClicked" />
