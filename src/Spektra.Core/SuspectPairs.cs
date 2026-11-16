@@ -7,7 +7,14 @@ public enum NameStrength { SameName, NearName }
 
 /// One collected file as the suspect rule sees it: where it is, which audio group holds it (null when
 /// none: unpaired, or never analyzed), and its decoded length when the scan learned it.
-public sealed record ScannedFile(string Path, string Root, int? Group, double? Seconds);
+public sealed record ScannedFile(string Path, string Root, int? Group, double? Seconds)
+{
+    /// The file's audit row, null when the scan could not analyze it.
+    public AuditRow? Row { get; init; }
+
+    /// The file's size on disk, in bytes.
+    public long SizeBytes { get; init; }
+}
 
 /// Two files under different roots whose names say they are the same track while their audio groups
 /// disagree. A is the file under the root listed first. SameAudioAsX is another member of X's audio
