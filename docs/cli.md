@@ -12,7 +12,7 @@ The npm package holds the same self-contained binaries as the zips, one per plat
 
 - `report`, `check`, `audit` and `loudness` take either one **folder**, which recurses into every audio file beneath it (flac/mp3/wav/ogg/opus/m4a/aac/wma/ape/wv/aiff/aif/alac), or one or more individual files. A path that does not exist, or a folder given together with other paths, exits `2` before anything is analyzed, so a mistyped path cannot pass for a clean run.
 - Folders are analyzed in parallel using about 80% of the CPU cores; cap the workers with `--jobs N` (or `-j N`). Output order always matches input order.
-- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing, a path that does not exist, a folder given together with other paths). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, or a file that could not be read, `check` corruption, `audit` real problems only (a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).
+- **Exit codes:** `0` clean, `1` findings, `2` setup errors (e.g. ffmpeg missing, a path that does not exist, a folder given together with other paths). Findings per command: `report`/`scan` anything lossy, upsampled, or mixed, or a file that could not be read, `check` corruption, `audit` real problems only (a transcode, a lossy file under a lossless name, an upsample, corruption, or an unreadable file; an honest lossy file is not a problem), `dupes` one or more duplicate groups found, `imposters` a checked copy that is not the reference recording, `diff` the files differ. `manifest` and `inventory` make no judgement and so never report findings: they exit `0` whatever they list. Requires ffmpeg + ffprobe on `PATH` (except `manifest`, which never decodes and needs neither).
 
 ## report: bandwidth verdict per file
 
@@ -130,6 +130,51 @@ With `--json` or `--csv` the report is one row per pair or file, in the same ord
 Add `--playlist out.m3u8` to also write the pairs to listen to first as an `.m3u8` playlist (UTF-8 without a byte-order mark) for your own player, in the order shown: each pair's copy from the first folder, then its copy from the second, so the two play back to back. `--html` is refused with `--diff` (use `--json`, `--csv` or `--playlist`), and `--diff` needs two or more folders. A note on the name: the top-level `spektra-cli --diff` is the two-file `diff` command; here `--diff` is an option after `dupes`.
 
 **Exit codes:** `0` nothing differs (files that could not be analyzed do not count on their own), `1` at least one suspect pair, weak match, or file only one folder holds, `2` usage or environment error (fewer than two folders, a folder that does not exist, `--html` with `--diff`, a playlist that cannot be written, or labels that could not be checked).
+
+## imposters: check copies against a trusted folder
+
+    $ spektra-cli imposters --reference /music/Rips /music/Old /music/New
+    Imposter Buster · reference Rips · 5 song(s) · 1 with no copy confirmed · 1 with a copy that differs · 3 all clear · 1 file(s) with no reference · 1 reference file(s) not in the checked folders · 14 scanned
+    No copy is the reference recording · 1
+      1. Artist Name - Song Three
+         reference: /music/Rips/Artist Name - Song Three.m4a · 3:41 · aac cut at 19.5 kHz
+         Old: /music/Old/Artist Name - Song Three.flac · 3:12 · Doesn't line up: a cover, another song, or another master
+              the same audio as Artist Name - Other Song.m4a in Rips
+         best copy: the reference file
+    A copy differs from the reference recording · 1
+      2. Artist Name - Song One
+         reference: /music/Rips/Artist Name - Song One.m4a · 3:41 · aac cut at 19.5 kHz
+         Old: /music/Old/Artist Name - Song One.flac · 3:41 · The reference recording
+         New: /music/New/Artist Name - Song One.flac · 3:39 · Partly the same: another mix or edit
+         best copy: Old: Artist Name - Song One.flac · winner is full-band lossless (flac), runner-up is aac cut at 19.5 kHz
+    No reference by name · 1 file(s)
+         /music/Old/Bonus Track.flac
+    Not in the checked folders · 1 reference file(s)
+         /music/Rips/Rips Only.m4a
+
+`imposters` checks the folders you list against a **reference folder** you trust to hold the recordings you mean, such as a rip you made yourself: for every song the reference folder names, it says which copies in the other folders are the reference recording, how the others differ, and which copy has the best real quality. It answers what `dupes --diff` cannot: comparing two download folders shows only where they disagree, so it cannot tell which copy is the right one, and a wrong recording that both folders hold passes unseen. The reference folder is taken on trust: if one of its files holds a different recording from the one you meant, the copies that hold the one you meant read as different.
+
+Songs come from names. Every audio file in the reference folder is a reference file, and every audio file in the other folders a checked file. A checked file's candidates are the reference files with the same name, whatever the format, or with the same title where one name credits artists the other leaves out; a solo and a collaboration can share a title, so the audio decides between them, not the closer name. A name a version word apart (Radio Edit against Extended Mix) names another recording and is never a candidate. Each checked file is graded against every candidate and keeps the best grade, which makes it a copy in that reference file's song. A checked file with no candidate is listed under `No reference by name`, and a reference file that no copy chose under `Not in the checked folders`; neither counts as a finding.
+
+Each copy gets one of five grades. A grade describes the evidence, never a verdict on the file, so listen before you act on one:
+
+- `The reference recording`: the copy and the reference file share an audio group (their fingerprints match, as `dupes` would group them), or their first 10 seconds line up as the same performance and their lengths are less than 10 seconds apart.
+- `Same opening, another length: an edit, another cut, or a cut-off file`: the first 10 seconds line up as the same performance, but the lengths are 10 seconds or more apart. Alignment reads only the opening, so without this rule a radio edit that opens like its extended mix would pass as the same recording.
+- `Partly the same: another mix or edit`: the openings line up only in part.
+- `Doesn't line up: a cover, another song, or another master`: the openings do not line up. Only the first 10 seconds are compared, within 2 seconds either way, so another master of the right recording, another intro, a larger offset, or a copy that opens with silence reads this way too.
+- `Can't compare: a copy is broken or too short`: the copy or the reference file could not be decoded, or one of them holds less than 10 seconds of audio.
+
+A song's copies add up to its verdict: every copy is the reference recording (all clear), at least one is and another differs, or none is. The text lists the songs with no copy confirmed first, then the songs where a copy differs, numbered on across both, and counts the all-clear songs in its first line only. Each song shows its reference file with its length and quality, then each copy with its folder, length and grade. When the scan found a copy's audio in another file, a line under the copy names that file and its folder: above, Song Three's copy holds the same audio as another song of the reference folder.
+
+The best copy is ranked among the reference file and the copies graded `The reference recording`, on the same quality ladder `dupes` uses: an honest lossy file outranks a lossless transcode, and identical top copies tie (both are named, joined by `=`). A copy that is not the reference recording is never the best copy, whatever its quality: it may sound better, but it is not a better copy of this recording. With no copy confirmed, the best copy is the reference file itself. A file the scan could not analyze is not ranked, and a song with nothing to rank says `no copy could be ranked`.
+
+With `--json` or `--csv` the report is one row per file, its `Kind` one of `reference` (a song's reference file), `copy` (a checked file graded against it), `no-reference` and `reference-only`. Every song is listed, the all-clear ones included, in the text's order with the all-clear songs last, each reference row followed by its copies; then the checked files with no reference, then the reference files not in the checked folders. The columns are `Kind, Song, Verdict, Root, Path, Grade, AlignConfidence, Seconds, ReferencePath, ReferenceSeconds, Best, Quality, SameAudioAs` (camelCase keys in JSON). `Song` (the reference file's name without its extension) and `Verdict` (`NoneConfirmed`, `SomeConfirmed` or `AllConfirmed`) are set on reference and copy rows; `Grade` (`Confirmed`, `OtherLength`, `PartlySame`, `DoesntLineUp` or `CantCompare`), `AlignConfidence`, `ReferencePath`, `ReferenceSeconds` and `SameAudioAs` on copy rows only. `AlignConfidence` is the alignment score behind the grade, rounded to 3 places, and null when the shared audio group settled the grade or nothing could be compared. `Best` is true on the best copy of each song (a tie marks more than one), and `Quality` describes the file as `dupes` does (`aac cut at 19.5 kHz`), null for a file the scan could not analyze. `Root` and the paths are absolute.
+
+Add `--playlist out.m3u8` to also write the copies to listen to as an `.m3u8` playlist (UTF-8 without a byte-order mark) for your own player, in the order shown: for each song with a copy that differs, its copies that are not the reference recording, then its reference file, so your player walks a song's copies and then the recording they should be. A copy holding the same audio as one already listed for its song is left out, and the paths are absolute.
+
+`imposters` rides the same cache as `audit` and `dupes` (`%APPDATA%\Spektra\audit-cache.db`), so a file already analyzed is not decoded again, and `--fresh` re-analyzes everything; the grades themselves are worked out on every run. It is view-only: it never changes, renames, moves or deletes a file, whichever copy wins.
+
+**Exit codes:** `0` every checked copy is the reference recording (files with no reference, and reference files with no copy, do not count), `1` at least one checked copy is not, `2` usage or environment error (no `--reference`, no folder to check, a folder that does not exist, the reference folder also given as a folder to check, a playlist that cannot be written, or copies that could not be checked).
 
 ## manifest: list everything, decode nothing
 
