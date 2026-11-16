@@ -14,7 +14,7 @@ public static class SuspectView
         "Alignment can clear a pair, never convict one: only the first 10 s of each copy are compared, within ±2 s, so a different intro or a larger offset also reads as doesn't line up.";
 
     /// Two copies whose lengths differ by this many seconds or more are worth a look.
-    private const double LengthGapSeconds = 10;
+    public const double LengthGapSeconds = 10;
 
     /// The labels listed first. Every label is named here, not read off the enum's
     /// numbers, and any other value throws, so a label added later is placed on purpose.
