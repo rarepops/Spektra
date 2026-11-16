@@ -2,8 +2,8 @@ namespace Spektra.Core;
 
 /// How a checked copy compares with the reference file of its song. Evidence, never a verdict on
 /// the file: a copy that is not the reference recording can be another master, an edit or a real
-/// alternate version. The grades are declared best first, and a copy with several reference files
-/// to choose from keeps its best grade in that order.
+/// alternate version. A copy with several reference files to choose from keeps its best grade, by
+/// the preference ImposterSongs writes out for each grade.
 public enum CopyGrade { Confirmed, OtherLength, PartlySame, DoesntLineUp, CantCompare }
 
 public enum SongVerdict { AllConfirmed, SomeConfirmed, NoneConfirmed }
@@ -158,12 +158,25 @@ public static class ImposterSongs
                 var verdict = alignmentOf(r.Path, copy.Path);
                 return (Reference: r, Grade: Grade(false, verdict, copy.Seconds, r.Seconds), Confidence: verdict?.Confidence);
             })
-            // CopyGrade is declared best first, and a null confidence sorts below every number.
-            .OrderBy(x => x.Grade)
+            // Preference names each grade's place, and a null confidence sorts below every number.
+            .OrderBy(x => Preference(x.Grade))
             .ThenByDescending(x => x.Confidence)
             .ThenBy(x => x.Reference.Path, StringComparer.Ordinal)
             .First();
     }
+
+    /// A grade's place when a copy chooses among reference files, best first. Every grade is named
+    /// here, not read off the order the enum declares them in, and any other value throws, so a
+    /// grade added later is placed on purpose.
+    private static int Preference(CopyGrade grade) => grade switch
+    {
+        CopyGrade.Confirmed => 0,
+        CopyGrade.OtherLength => 1,
+        CopyGrade.PartlySame => 2,
+        CopyGrade.DoesntLineUp => 3,
+        CopyGrade.CantCompare => 4,
+        _ => throw new ArgumentOutOfRangeException(nameof(grade), grade, null),
+    };
 
     private static ImposterSong Song(
         ScannedFile reference, IReadOnlyList<GradedCopy> copies, Func<string, string, double> similarity)
