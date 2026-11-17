@@ -1,8 +1,8 @@
 namespace Spektra.Core;
 
 /// Imposter Buster's engine: the duplicate scan over the reference folder and the folders to check,
-/// then an alignment of each pair that no audio group settles (the only audio work beyond the scan),
-/// then ImposterSongs' rule over what both found.
+/// then an alignment of each pair that no identical fingerprint settles (the only audio work beyond
+/// the scan), then ImposterSongs' rule over what both found.
 public static class ImposterScan
 {
     /// Scans the reference folder and the folders to check, then grades every checked copy
@@ -25,7 +25,7 @@ public static class ImposterScan
 
         var scan = DuplicateScan.Run(ffmpeg, [reference, .. roots], jobs, cache, fresh, progress, ct, minDurationSeconds);
         var candidates = ImposterSongs.Candidates(scan.Files, reference);
-        var pairs = ImposterSongs.PairsToAlign(candidates);
+        var pairs = ImposterSongs.PairsToAlign(candidates, scan.Similarity);
         var verdicts = SuspectLabeler.LabelAll(
             ffmpeg,
             [.. pairs.Select(p => new SuspectPair(

@@ -21,9 +21,11 @@ public sealed class ImposterViewTests
         string.Join(" | ", ImposterView.Ordered(songs, tokens).Select(s => Path.GetFileNameWithoutExtension(s.Reference.Path)));
 
     [Test]
-    public async Task GradeText_ShortGrade_VerdictText_HoldTheExactCopy()
+    public async Task GradeText_ShortGrade_VerdictText_GradeLimit_HoldTheExactCopy()
     {
         await Assert.That(ImposterView.GradeText(CopyGrade.Confirmed)).IsEqualTo("The reference recording");
+        await Assert.That(ImposterView.GradeText(CopyGrade.SameByFingerprint))
+            .IsEqualTo("Same by fingerprint, but the openings don't line up: another master, an edit, or a re-recording");
         await Assert.That(ImposterView.GradeText(CopyGrade.OtherLength))
             .IsEqualTo("Same opening, another length: an edit, another cut, or a cut-off file");
         await Assert.That(ImposterView.GradeText(CopyGrade.PartlySame)).IsEqualTo("Partly the same: another mix or edit");
@@ -32,14 +34,18 @@ public sealed class ImposterViewTests
         await Assert.That(ImposterView.GradeText(CopyGrade.CantCompare)).IsEqualTo("Can't compare: a copy is broken or too short");
 
         await Assert.That(ImposterView.ShortGrade(CopyGrade.Confirmed)).IsEqualTo("reference recording");
+        await Assert.That(ImposterView.ShortGrade(CopyGrade.SameByFingerprint)).IsEqualTo("same by fingerprint");
         await Assert.That(ImposterView.ShortGrade(CopyGrade.OtherLength)).IsEqualTo("other length");
         await Assert.That(ImposterView.ShortGrade(CopyGrade.PartlySame)).IsEqualTo("partly the same");
         await Assert.That(ImposterView.ShortGrade(CopyGrade.DoesntLineUp)).IsEqualTo("doesn't line up");
         await Assert.That(ImposterView.ShortGrade(CopyGrade.CantCompare)).IsEqualTo("can't compare");
 
-        await Assert.That(ImposterView.VerdictText(SongVerdict.AllConfirmed)).IsEqualTo("Every copy is the reference recording");
-        await Assert.That(ImposterView.VerdictText(SongVerdict.SomeConfirmed)).IsEqualTo("A copy differs from the reference recording");
-        await Assert.That(ImposterView.VerdictText(SongVerdict.NoneConfirmed)).IsEqualTo("No copy is the reference recording");
+        await Assert.That(ImposterView.VerdictText(SongVerdict.AllConfirmed)).IsEqualTo("Every copy is confirmed as the reference recording");
+        await Assert.That(ImposterView.VerdictText(SongVerdict.SomeConfirmed)).IsEqualTo("A copy is not confirmed as the reference recording");
+        await Assert.That(ImposterView.VerdictText(SongVerdict.NoneConfirmed)).IsEqualTo("No copy is confirmed as the reference recording");
+
+        await Assert.That(ImposterView.GradeLimit).IsEqualTo(
+            "A grade describes evidence, never a verdict on the file. A copy is confirmed when its fingerprint is all but identical to the reference file's, or when their first 10 s line up and their lengths agree. A fingerprint that only matches says the same song and arrangement, which another master and a careful re-recording both give. Another intro or a larger offset also reads as doesn't line up.");
     }
 
     [Test]
@@ -80,26 +86,29 @@ public sealed class ImposterViewTests
     [Test]
     public async Task Ordered_PutsTheSongsWithNoConfirmedCopyFirst_ThenByGrade_ThenByName()
     {
-        // Down to Echo the names run against the order, so only the verdicts and grades put them in
+        // Down to Charlie the names run against the order, so only the verdicts and grades put them in
         // place. Echo has a copy that doesn't line up, but a confirmed one too, so it follows every
         // song with no confirmed copy. Golf's first copy is only partly the same, but its other can't
-        // compare, and the most worrying copy counts. alpha and Bravo differ only in name, and a sort
+        // compare, and the most worrying copy counts. Delta's copy is another length, which comes
+        // before Charlie's, the same by fingerprint. alpha and Bravo differ only in name, and a sort
         // that told capitals from small letters would put Bravo first.
         ImposterSong[] songs =
         [
             Song(F(Rips, "Bravo.m4a"), SongVerdict.AllConfirmed, (F(Old, "Bravo.flac"), CopyGrade.Confirmed)),
+            Song(F(Rips, "Charlie.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Charlie.flac"), CopyGrade.SameByFingerprint)),
             Song(
                 F(Rips, "Echo.m4a"), SongVerdict.SomeConfirmed,
                 (F(Old, "Echo.flac"), CopyGrade.Confirmed), (F(New, "Echo.flac"), CopyGrade.DoesntLineUp)),
             Song(F(Rips, "Foxtrot.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Foxtrot.flac"), CopyGrade.PartlySame)),
             Song(F(Rips, "alpha.m4a"), SongVerdict.AllConfirmed, (F(Old, "alpha.flac"), CopyGrade.Confirmed)),
             Song(F(Rips, "Hotel.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Hotel.flac"), CopyGrade.DoesntLineUp)),
+            Song(F(Rips, "Delta.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Delta.flac"), CopyGrade.OtherLength)),
             Song(
                 F(Rips, "Golf.m4a"), SongVerdict.NoneConfirmed,
                 (F(Old, "Golf.flac"), CopyGrade.PartlySame), (F(New, "Golf.flac"), CopyGrade.CantCompare)),
         ];
 
-        await Assert.That(Order(songs)).IsEqualTo("Hotel | Golf | Foxtrot | Echo | alpha | Bravo");
+        await Assert.That(Order(songs)).IsEqualTo("Hotel | Golf | Foxtrot | Delta | Charlie | Echo | alpha | Bravo");
     }
 
     [Test]

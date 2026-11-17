@@ -42,8 +42,16 @@ internal sealed class ImposterLibrary : IDisposable
         Loop("chirp.wav", 8, Path.Combine(Old, "Artist Name - Song Three.wav"));
 
         // Song Four: New's copy is not audio, so it cannot be decoded.
-        Loop("tones-b.wav", 8, Path.Combine(Rips, "Artist Name - Song Four.wav"));
+        Loop("sine-1khz-stereo.wav", 8, Path.Combine(Rips, "Artist Name - Song Four.wav"));
         File.Copy(Fixture("notaudio.txt"), Path.Combine(New, "Artist Name - Song Four.wav"));
+
+        // Song Five: New's copy is the reference file byte for byte, so its fingerprint is identical.
+        // Old's copy opens with 5 s of silence: the fingerprints still match, at an offset, but the
+        // openings sit further apart than the alignment reaches.
+        Loop("tones-b.wav", 8, Path.Combine(Rips, "Artist Name - Song Five.wav"));
+        Ffmpeg("-i", Path.Combine(Rips, "Artist Name - Song Five.wav"), "-af", "adelay=5000:all=1",
+            Path.Combine(Old, "Artist Name - Song Five.wav"));
+        File.Copy(Path.Combine(Rips, "Artist Name - Song Five.wav"), Path.Combine(New, "Artist Name - Song Five.wav"));
 
         // A file to check that no reference file names, and a reference file that no copy names.
         Loop("sine-1khz.wav", 8, Path.Combine(Old, "Bonus Track.wav"));

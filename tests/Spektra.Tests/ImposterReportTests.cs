@@ -44,11 +44,12 @@ public sealed class ImposterReportTests
         SongVerdict.NoneConfirmed,
         new QualityRanking([ThreeReference.Path], "High", "identical copies, keep either", [ThreeReference.Path]));
 
-    // One copy confirmed and the best copy, the other only partly the same.
+    // One copy confirmed by its all but identical fingerprint and the best copy, the other only
+    // partly the same.
     private static readonly ImposterSong SongOne = new(
         OneReference,
         [
-            new GradedCopy(OneOld, CopyGrade.Confirmed, null, null),
+            new GradedCopy(OneOld, CopyGrade.Confirmed, null, null) { Similarity = 0.98765 },
             new GradedCopy(F(New, "Artist Name - Song One.flac", Flac(219)), CopyGrade.PartlySame, 0.61268, null),
         ],
         SongVerdict.SomeConfirmed,
@@ -87,23 +88,25 @@ public sealed class ImposterReportTests
         await Assert.That(string.Concat(rows.Select(r => r.Best ? '*' : '.'))).IsEqualTo("*..*..*.*.**..");
 
         // Every column of the rows that show each kind of value. Grade, ReferencePath,
-        // ReferenceSeconds and SameAudioAs belong to copy rows, AlignConfidence is rounded to 3
-        // places, and Quality is null for a file the scan could not read.
+        // ReferenceSeconds, SameAudioAs and Similarity belong to copy rows, AlignConfidence and
+        // Similarity are rounded to 3 places, Similarity is null where the scan did not match the
+        // copy with its reference file, and Quality is null for a file the scan could not read.
         await Assert.That(rows[0]).IsEqualTo(new ImposterRow(
             "reference", "Artist Name - Song Three", "NoneConfirmed", Rips, "/music/Rips/Artist Name - Song Three.m4a",
-            null, null, 221, null, null, true, "aac cut at 19.5 kHz", null));
+            null, null, 221, null, null, true, "aac cut at 19.5 kHz", null, null));
         await Assert.That(rows[1]).IsEqualTo(new ImposterRow(
             "copy", "Artist Name - Song Three", "NoneConfirmed", Old, "/music/Old/Artist Name - Song Three.flac",
             "DoesntLineUp", 0.043, 192, "/music/Rips/Artist Name - Song Three.m4a", 221, false, "full-band lossless (flac)",
-            "/music/Rips/Artist Name - Other Song.m4a"));
+            "/music/Rips/Artist Name - Other Song.m4a", null));
         await Assert.That(rows[3]).IsEqualTo(new ImposterRow(
             "copy", "Artist Name - Song One", "SomeConfirmed", Old, "/music/Old/Artist Name - Song One.flac",
-            "Confirmed", null, 221, "/music/Rips/Artist Name - Song One.m4a", 221, true, "full-band lossless (flac)", null));
+            "Confirmed", null, 221, "/music/Rips/Artist Name - Song One.m4a", 221, true, "full-band lossless (flac)", null, 0.988));
         await Assert.That(rows[4].AlignConfidence).IsEqualTo(0.613);
         await Assert.That(rows[12]).IsEqualTo(new ImposterRow(
-            "no-reference", null, null, Old, "/music/Old/Bonus Track.flac", null, null, null, null, null, false, null, null));
+            "no-reference", null, null, Old, "/music/Old/Bonus Track.flac", null, null, null, null, null, false, null, null, null));
         await Assert.That(rows[13]).IsEqualTo(new ImposterRow(
-            "reference-only", null, null, Rips, "/music/Rips/Rips Only.m4a", null, null, 200, null, null, false, "aac cut at 19.5 kHz", null));
+            "reference-only", null, null, Rips, "/music/Rips/Rips Only.m4a", null, null, 200, null, null, false, "aac cut at 19.5 kHz",
+            null, null));
     }
 
     [Test]
@@ -112,7 +115,7 @@ public sealed class ImposterReportTests
         var csv = Reporting.ToCsv(ImposterReport.Rows(Documented));
 
         await Assert.That(csv[..csv.IndexOf('\n')]).IsEqualTo(
-            "Kind,Song,Verdict,Root,Path,Grade,AlignConfidence,Seconds,ReferencePath,ReferenceSeconds,Best,Quality,SameAudioAs");
+            "Kind,Song,Verdict,Root,Path,Grade,AlignConfidence,Seconds,ReferencePath,ReferenceSeconds,Best,Quality,SameAudioAs,Similarity");
     }
 
     [Test]
@@ -121,13 +124,13 @@ public sealed class ImposterReportTests
         // Every line ends in \n, the last one included.
         await Assert.That(ImposterReport.Text(Documented)).IsEqualTo(Lines(
             "Imposter Buster · reference Rips · 5 song(s) · 1 with no copy confirmed · 1 with a copy that differs · 3 all clear · 1 file(s) with no reference · 1 reference file(s) not in the checked folders · 14 scanned",
-            "No copy is the reference recording · 1",
+            "No copy is confirmed as the reference recording · 1",
             "  1. Artist Name - Song Three",
             "     reference: /music/Rips/Artist Name - Song Three.m4a · 3:41 · aac cut at 19.5 kHz",
             "     Old: /music/Old/Artist Name - Song Three.flac · 3:12 · Doesn't line up: a cover, another song, or another master",
             "          the same audio as Artist Name - Other Song.m4a in Rips",
             "     best copy: the reference file",
-            "A copy differs from the reference recording · 1",
+            "A copy is not confirmed as the reference recording · 1",
             "  2. Artist Name - Song One",
             "     reference: /music/Rips/Artist Name - Song One.m4a · 3:41 · aac cut at 19.5 kHz",
             "     Old: /music/Old/Artist Name - Song One.flac · 3:41 · The reference recording",
@@ -171,7 +174,7 @@ public sealed class ImposterReportTests
 
         await Assert.That(ImposterReport.Text(new ImposterResult(Rips, Checked, [song], [], [], 3))).IsEqualTo(Lines(
             "Imposter Buster · reference Rips · 1 song(s) · 1 with no copy confirmed · 0 with a copy that differs · 0 all clear · 0 file(s) with no reference · 0 reference file(s) not in the checked folders · 3 scanned",
-            "No copy is the reference recording · 1",
+            "No copy is confirmed as the reference recording · 1",
             "  1. Artist Name - Broken Song",
             "     reference: /music/Rips/Artist Name - Broken Song.m4a · ?",
             "     Old: /music/Old/Artist Name - Broken Song.flac · 3:20 · Can't compare: a copy is broken or too short",
@@ -198,7 +201,7 @@ public sealed class ImposterReportTests
             ],
         };
         await Assert.That(string.Join(" ", Enum.GetValues<CopyGrade>().Select(g => $"{g}={ImposterReport.HasFindings(OneCopy(g))}")))
-            .IsEqualTo("Confirmed=False OtherLength=True PartlySame=True DoesntLineUp=True CantCompare=True");
+            .IsEqualTo("Confirmed=False SameByFingerprint=True OtherLength=True PartlySame=True DoesntLineUp=True CantCompare=True");
         await Assert.That(ImposterReport.HasFindings(lists with { Songs = [SongOne] })).IsTrue();
     }
 }

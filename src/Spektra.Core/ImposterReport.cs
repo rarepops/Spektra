@@ -5,11 +5,13 @@ namespace Spektra.Core;
 /// One row of `spektra-cli imposters` as JSON or CSV. Kind is "reference" (a song's reference
 /// file), "copy" (a checked file graded against it), "no-reference" (a checked file no reference
 /// file names) or "reference-only" (a reference file no checked file names). Verdict and Grade
-/// hold enum names.
+/// hold enum names. Similarity is a copy's fingerprint similarity with its reference file, null
+/// where the scan did not match the two.
 public sealed record ImposterRow(
     string Kind, string? Song, string? Verdict, string Root, string Path,
     string? Grade, double? AlignConfidence, double? Seconds,
-    string? ReferencePath, double? ReferenceSeconds, bool Best, string? Quality, string? SameAudioAs);
+    string? ReferencePath, double? ReferenceSeconds, bool Best, string? Quality, string? SameAudioAs,
+    double? Similarity);
 
 /// What Imposter Buster found, as `spektra-cli imposters` prints it: the songs in the order
 /// ImposterView lists them, then the checked files no reference file names, then the reference
@@ -73,8 +75,8 @@ public static class ImposterReport
         return text.ToString();
     }
 
-    /// Whether a checked copy is not the reference recording. A checked file with no reference and
-    /// a reference file with no copy say nothing about a copy, so neither counts.
+    /// Whether a checked copy is not confirmed as the reference recording. A checked file with no
+    /// reference and a reference file with no copy say nothing about a copy, so neither counts.
     public static bool HasFindings(ImposterResult result) =>
         result.Songs.Any(song => song.Copies.Any(copy => copy.Grade != CopyGrade.Confirmed));
 
@@ -92,5 +94,6 @@ public static class ImposterReport
         ReferenceSeconds: copy is null ? null : song?.Reference.Seconds,
         Best: song?.Best?.Winners.Contains(file.Path) == true,
         Quality: file.Row is null ? null : ImposterView.Quality(file.Row),
-        SameAudioAs: copy?.SameAudioAs);
+        SameAudioAs: copy?.SameAudioAs,
+        Similarity: copy is null || copy.Similarity == 0 ? null : Math.Round(copy.Similarity, 3));
 }

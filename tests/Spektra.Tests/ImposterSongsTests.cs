@@ -6,9 +6,8 @@ public sealed class ImposterSongsTests
 {
     private const string Rips = "/music/Rips", Old = "/music/Old", New = "/music/New";
     private static readonly string[] Checked = [Old, New];
-    private static readonly Func<string, string, double> NoSim = (_, _) => 0;
 
-    // For copies their audio group confirms, which must never be aligned.
+    // For copies an identical fingerprint confirms, which must never be aligned.
     private static readonly Func<string, string, SuspectVerdict?> NoAlignment =
         (_, _) => throw new InvalidOperationException("alignmentOf was called");
 
@@ -20,12 +19,25 @@ public sealed class ImposterSongsTests
 
     private static SuspectVerdict Aligned(double confidence) => new(SuspectLabeler.FromConfidence(confidence), confidence);
 
-    // Build over what Candidates finds in the same files, as the scan will call it.
+    // The scan's similarity when every audio group holds identical copies: all but identical inside a
+    // group, and nothing matched across groups.
+    private static Func<string, string, double> Identical(ScannedFile[] files)
+    {
+        var groupOf = files.ToDictionary(f => f.Path, f => f.Group);
+        return (a, b) => groupOf[a] is { } group && groupOf[b] == group ? 0.99 : 0;
+    }
+
+    // The scan's similarity for the pairs given, in either order, and 0 for every other pair.
+    private static Func<string, string, double> Similar(params (ScannedFile A, ScannedFile B, double Value)[] pairs) =>
+        (a, b) => pairs.FirstOrDefault(p => (p.A.Path, p.B.Path) == (a, b) || (p.A.Path, p.B.Path) == (b, a)).Value;
+
+    // Build over what Candidates finds in the same files, as the scan will call it. Unless a test
+    // passes its own similarity, every audio group holds identical copies.
     private static ImposterResult Build(
         ScannedFile[] files, Func<string, string, SuspectVerdict?> alignmentOf,
         Func<string, string, double>? similarity = null, string[]? roots = null) =>
         ImposterSongs.Build(
-            ImposterSongs.Candidates(files, Rips), files, Rips, roots ?? Checked, alignmentOf, similarity ?? NoSim, files.Length);
+            ImposterSongs.Candidates(files, Rips), files, Rips, roots ?? Checked, alignmentOf, similarity ?? Identical(files), files.Length);
 
     // A path as these tests name a file: below /music/.
     private static string Short(string path) => path["/music/".Length..];
@@ -184,54 +196,69 @@ public sealed class ImposterSongsTests
     }
 
     [Test]
-    public async Task Grade_ASharedAudioGroup_Confirms()
+    public async Task Grade_AnIdenticalFingerprint_Confirms()
     {
-        await Assert.That(ImposterSongs.Grade(true, null, 200, 200)).IsEqualTo(CopyGrade.Confirmed);
-        await Assert.That(ImposterSongs.Grade(true, Aligned(0.1), 200, 320)).IsEqualTo(CopyGrade.Confirmed);
+        // All but identical across the whole length, whatever the alignment and the lengths say.
+        await Assert.That(ImposterSongs.Grade(0.98, false, null, 200, 200)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0.98, true, Aligned(0.1), 200, 320)).IsEqualTo(CopyGrade.Confirmed);
+    }
+
+    [Test]
+    public async Task Grade_ASharedGroupNeverConfirmsAlone()
+    {
+        // The fingerprints match, which says only the same song and arrangement, so the alignment
+        // decides: a copy whose opening does not line up is the same by fingerprint, and a copy that
+        // cannot be compared stays so.
+        await Assert.That(ImposterSongs.Grade(0.6, true, Aligned(0.2), 200, 200)).IsEqualTo(CopyGrade.SameByFingerprint);
+        await Assert.That(ImposterSongs.Grade(0.6, true, Aligned(0.6), 200, 200)).IsEqualTo(CopyGrade.SameByFingerprint);
+        await Assert.That(ImposterSongs.Grade(0.6, true, Aligned(0.93), 200, 200)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0.6, true, Aligned(0.93), 174, 424)).IsEqualTo(CopyGrade.OtherLength);
+        await Assert.That(ImposterSongs.Grade(0.6, true, new SuspectVerdict(SuspectLabel.CantCompare, null), 200, 200))
+            .IsEqualTo(CopyGrade.CantCompare);
     }
 
     [Test]
     public async Task Grade_LinesUpAndTheLengthsAgree_Confirms()
     {
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.93), 200, 204)).IsEqualTo(CopyGrade.Confirmed);
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.93), 200, 209.9)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.93), 200, 204)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.93), 200, 209.9)).IsEqualTo(CopyGrade.Confirmed);
     }
 
     [Test]
     public async Task Grade_LinesUpButTheLengthsDiffer_IsOtherLength()
     {
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.93), 174, 424)).IsEqualTo(CopyGrade.OtherLength);
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.93), 200, 210)).IsEqualTo(CopyGrade.OtherLength);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.93), 174, 424)).IsEqualTo(CopyGrade.OtherLength);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.93), 200, 210)).IsEqualTo(CopyGrade.OtherLength);
     }
 
     [Test]
     public async Task Grade_AnUnknownLength_IsNoGap()
     {
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.93), null, 424)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.93), null, 424)).IsEqualTo(CopyGrade.Confirmed);
     }
 
     [Test]
     public async Task Grade_FollowsTheAlignmentBands()
     {
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.6), 200, 200)).IsEqualTo(CopyGrade.PartlySame);
-        await Assert.That(ImposterSongs.Grade(false, Aligned(0.2), 200, 200)).IsEqualTo(CopyGrade.DoesntLineUp);
-        await Assert.That(ImposterSongs.Grade(false, new SuspectVerdict(SuspectLabel.CantCompare, null), 200, 200))
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.6), 200, 200)).IsEqualTo(CopyGrade.PartlySame);
+        await Assert.That(ImposterSongs.Grade(0, false, Aligned(0.2), 200, 200)).IsEqualTo(CopyGrade.DoesntLineUp);
+        await Assert.That(ImposterSongs.Grade(0, false, new SuspectVerdict(SuspectLabel.CantCompare, null), 200, 200))
             .IsEqualTo(CopyGrade.CantCompare);
-        await Assert.That(ImposterSongs.Grade(false, null, 200, 200)).IsEqualTo(CopyGrade.CantCompare);
+        await Assert.That(ImposterSongs.Grade(0, false, null, 200, 200)).IsEqualTo(CopyGrade.CantCompare);
     }
 
     [Test]
-    public async Task PairsToAlign_SkipsACopyWithAGroupMateAmongItsCandidates()
+    public async Task PairsToAlign_SkipsOnlyACopyWithAnIdenticalCandidate()
     {
-        // Old's copy shares group 3 with the plain reference file, which settles it whatever the
-        // collaboration would say. New's copy is in no group, so both its candidates are aligned.
-        var pairs = ImposterSongs.PairsToAlign(ImposterSongs.Candidates(
-        [
-            F(Rips, "Artist Name - Song Title.m4a", 3),
-            F(Rips, "Artist Name; Guest Two - Song Title.m4a"),
-            F(Old, "Artist Name - Song Title.flac", 3),
-            F(New, "Artist Name - Song Title.flac"),
-        ], Rips));
+        // Old's copy is all but identical to the plain reference file, which settles it whatever the
+        // collaboration would say. New's copy shares that file's audio group without being identical
+        // to it, so both its candidates are aligned.
+        var plain = F(Rips, "Artist Name - Song Title.m4a", 3);
+        var oldCopy = F(Old, "Artist Name - Song Title.flac", 3);
+        var newCopy = F(New, "Artist Name - Song Title.flac", 3);
+        var pairs = ImposterSongs.PairsToAlign(
+            ImposterSongs.Candidates([plain, F(Rips, "Artist Name; Guest Two - Song Title.m4a"), oldCopy, newCopy], Rips),
+            Similar((plain, oldCopy, 0.99), (plain, newCopy, 0.6)));
 
         await Assert.That(string.Join(" | ", pairs.Select(p => $"{Short(p.Reference.Path)} ~ {Short(p.Copy.Path)}"))).IsEqualTo(
             "Rips/Artist Name - Song Title.m4a ~ New/Artist Name - Song Title.flac"
@@ -239,12 +266,70 @@ public sealed class ImposterSongsTests
     }
 
     [Test]
-    public async Task Build_ACopyInTheReferencesGroup_IsConfirmedWithoutAnAlignment()
+    public async Task Build_AnIdenticalCopy_IsConfirmedWithoutAnAlignment()
     {
         var result = Build([F(Rips, "Artist Name - Song Title.m4a", 1), F(Old, "Artist Name - Song Title.flac", 1)], NoAlignment);
 
         await Assert.That(Show(result)).IsEqualTo("Rips/Artist Name - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
         await Assert.That(result.Songs[0].Copies[0].AlignConfidence).IsNull();
+        await Assert.That(result.Songs[0].Copies[0].Similarity).IsEqualTo(0.99);
+    }
+
+    [Test]
+    public async Task Build_ACopySharingOnlyAGroup_IsSameByFingerprint()
+    {
+        // The scan grouped the two by their fingerprints, but not as all but identical, and the
+        // openings don't line up. The copy is not confirmed, so the song is not all clear, and the
+        // copy is not ranked although it is lossless.
+        var reference = F(Rips, "Artist Name - Song Title.m4a", 1, row: Row("aac", "Lossy", 19_500, 256_000));
+        var copy = F(Old, "Artist Name - Song Title.flac", 1, row: Row("flac", "Lossless", null));
+        var result = Build([reference, copy], (_, _) => Aligned(0.2), Similar((reference, copy, 0.6)));
+
+        await Assert.That(Show(result)).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (NoneConfirmed): Old/Artist Name - Song Title.flac SameByFingerprint");
+        await Assert.That(result.Songs[0].Copies[0].AlignConfidence).IsEqualTo(0.2);
+        await Assert.That(result.Songs[0].Copies[0].Similarity).IsEqualTo(0.6);
+        await Assert.That(Winners(result)).IsEqualTo("Rips/Artist Name - Song Title.m4a");
+    }
+
+    [Test]
+    public async Task Build_SameAudioAs_NeverNamesTheReferenceFileTheCopyJoined()
+    {
+        // Old's copy is the same by fingerprint as its reference file, which its grade already says,
+        // so the note names the other file of the group, though a reference file would come first.
+        var reference = F(Rips, "Artist Name - Song Title.m4a", 1);
+        var copy = F(Old, "Artist Name - Song Title.flac", 1);
+        ScannedFile[] files = [reference, copy, F(New, "Someone Else - Third Song.flac", 1)];
+
+        await Assert.That(Show(Build(files, (_, _) => Aligned(0.2), Similar((reference, copy, 0.6))))).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (NoneConfirmed): Old/Artist Name - Song Title.flac SameByFingerprint = New/Someone Else - Third Song.flac");
+
+        // With only itself and its reference file in the group, there is nothing to name.
+        await Assert.That(Show(Build(files[..2], (_, _) => Aligned(0.2), Similar((reference, copy, 0.6))))).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (NoneConfirmed): Old/Artist Name - Song Title.flac SameByFingerprint");
+    }
+
+    [Test]
+    public async Task Build_SameByFingerprint_ComesRightAfterConfirmed()
+    {
+        // The plain name lines up best but runs a minute longer, so it is only another length. The
+        // collaboration shares the copy's audio group without lining up, and the copy keeps it,
+        // though it lines up worse and comes later by path.
+        var plain = F(Rips, "Artist Name - Song Title.m4a", seconds: 260);
+        var two = F(Rips, "Artist Name; Guest Two - Song Title.m4a", 1);
+        var copy = F(Old, "Artist Name - Song Title.flac", 1);
+
+        await Assert.That(Show(Build(
+                [plain, two, copy], (reference, _) => Aligned(reference == plain.Path ? 0.95 : 0.3), Similar((two, copy, 0.6)))))
+            .IsEqualTo("Rips/Artist Name; Guest Two - Song Title.m4a (NoneConfirmed): Old/Artist Name - Song Title.flac SameByFingerprint");
+
+        // A third reference file that lines up and agrees in length confirms the copy, ahead of both.
+        var three = F(Rips, "Artist Name; Guest Three - Song Title.m4a");
+        await Assert.That(Show(Build(
+                [plain, two, three, copy],
+                (reference, _) => Aligned(reference == plain.Path ? 0.95 : reference == three.Path ? 0.85 : 0.3),
+                Similar((two, copy, 0.6)))))
+            .IsEqualTo("Rips/Artist Name; Guest Three - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
     }
 
     [Test]
@@ -292,13 +377,15 @@ public sealed class ImposterSongsTests
         // The reference folder holds the copy's recording under two names. The scan found the copy
         // closer to the collaboration, so it joins that one, though the plain name comes first by path.
         var collab = F(Rips, "Artist Name; Guest Two - Song Title.m4a", 1);
-        var result = Build(
-            [F(Rips, "Artist Name - Song Title.m4a", 1), collab, F(Old, "Artist Name - Song Title.flac", 1)],
-            NoAlignment,
-            (a, b) => a == collab.Path || b == collab.Path ? 0.99 : 0.9);
+        ScannedFile[] files = [F(Rips, "Artist Name - Song Title.m4a", 1), collab, F(Old, "Artist Name - Song Title.flac", 1)];
+        var result = Build(files, NoAlignment, (a, b) => a == collab.Path || b == collab.Path ? 0.995 : 0.985);
 
         await Assert.That(Show(result)).IsEqualTo(
             "Rips/Artist Name; Guest Two - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
+
+        // Equally similar, the lower path is chosen.
+        await Assert.That(Show(Build(files, NoAlignment, (_, _) => 0.99))).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
     }
 
     [Test]
@@ -377,7 +464,7 @@ public sealed class ImposterSongsTests
             F(Rips, "Artist Name - Song Title.m4a", 1, row: Row("aac", "Lossy", 19_500, 256_000)),
             F(Old, "Artist Name - Song Title.flac", 1, row: Row("flac", "Lossless", null)),
             F(New, "Artist Name - Song Title.flac", 1, row: Row("flac", "Lossless", null)),
-        ], NoAlignment, (a, b) => a.EndsWith(".flac") && b.EndsWith(".flac") ? 1 : 0);
+        ], NoAlignment);
 
         await Assert.That(Winners(result)).IsEqualTo("New/Artist Name - Song Title.flac, Old/Artist Name - Song Title.flac");
     }

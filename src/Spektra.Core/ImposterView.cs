@@ -10,13 +10,14 @@ public static class ImposterView
 {
     /// What a grade can and cannot tell.
     public const string GradeLimit =
-        "A grade describes evidence, never a verdict on the file. A copy is confirmed when its fingerprint matches the reference file's across the whole length, or when their first 10 s line up and their lengths agree. Another master, another intro or a larger offset also reads as doesn't line up.";
+        "A grade describes evidence, never a verdict on the file. A copy is confirmed when its fingerprint is all but identical to the reference file's, or when their first 10 s line up and their lengths agree. A fingerprint that only matches says the same song and arrangement, which another master and a careful re-recording both give. Another intro or a larger offset also reads as doesn't line up.";
 
     /// A grade as a row shows it: the evidence, never a verdict. Every grade is named here and any
     /// other value throws, so a grade added later is worded on purpose.
     public static string GradeText(CopyGrade grade) => grade switch
     {
         CopyGrade.Confirmed => "The reference recording",
+        CopyGrade.SameByFingerprint => "Same by fingerprint, but the openings don't line up: another master, an edit, or a re-recording",
         CopyGrade.OtherLength => "Same opening, another length: an edit, another cut, or a cut-off file",
         CopyGrade.PartlySame => "Partly the same: another mix or edit",
         CopyGrade.DoesntLineUp => "Doesn't line up: a cover, another song, or another master",
@@ -28,6 +29,7 @@ public static class ImposterView
     public static string ShortGrade(CopyGrade grade) => grade switch
     {
         CopyGrade.Confirmed => "reference recording",
+        CopyGrade.SameByFingerprint => "same by fingerprint",
         CopyGrade.OtherLength => "other length",
         CopyGrade.PartlySame => "partly the same",
         CopyGrade.DoesntLineUp => "doesn't line up",
@@ -38,9 +40,9 @@ public static class ImposterView
     /// What a song's copies add up to.
     public static string VerdictText(SongVerdict verdict) => verdict switch
     {
-        SongVerdict.AllConfirmed => "Every copy is the reference recording",
-        SongVerdict.SomeConfirmed => "A copy differs from the reference recording",
-        SongVerdict.NoneConfirmed => "No copy is the reference recording",
+        SongVerdict.AllConfirmed => "Every copy is confirmed as the reference recording",
+        SongVerdict.SomeConfirmed => "A copy is not confirmed as the reference recording",
+        SongVerdict.NoneConfirmed => "No copy is confirmed as the reference recording",
         _ => throw new ArgumentOutOfRangeException(nameof(verdict), verdict, null),
     };
 
@@ -184,7 +186,8 @@ public static class ImposterView
         CopyGrade.CantCompare => 1,
         CopyGrade.PartlySame => 2,
         CopyGrade.OtherLength => 3,
-        CopyGrade.Confirmed => 4,
+        CopyGrade.SameByFingerprint => 4,
+        CopyGrade.Confirmed => 5,
         _ => throw new ArgumentOutOfRangeException(nameof(grade), grade, null),
     };
 

@@ -4,8 +4,8 @@ using static Spektra.Tests.TestAudio;
 namespace Spektra.Tests;
 
 /// Runs the Imposter Buster scan over ImposterLibrary once for the class: the duplicate scan over the
-/// reference folder and the folders to check, the alignment of the pairs no audio group settles, and
-/// the rule over both. ImposterSongsTests pins the rule; this pins the wiring around it.
+/// reference folder and the folders to check, the alignment of the pairs no identical fingerprint
+/// settles, and the rule over both. ImposterSongsTests pins the rule; this pins the wiring around it.
 public sealed class ImposterScanTests
 {
     private static ImposterLibrary _lib = null!;
@@ -35,14 +35,19 @@ public sealed class ImposterScanTests
     public async Task Run_GradesEachCopyAgainstItsReferenceFile()
     {
         await Assert.That(string.Join(", ", _result.Songs.Select(s => Short(s.Reference.Path)))).IsEqualTo(
-            "Rips/Artist Name - Song Four.wav, Rips/Artist Name - Song One.mp3, Rips/Artist Name - Song Three.wav, Rips/Artist Name - Song Two.wav");
-        var (four, one, three, two) = (_result.Songs[0], _result.Songs[1], _result.Songs[2], _result.Songs[3]);
+            "Rips/Artist Name - Song Five.wav, Rips/Artist Name - Song Four.wav, Rips/Artist Name - Song One.mp3, "
+            + "Rips/Artist Name - Song Three.wav, Rips/Artist Name - Song Two.wav");
+        var (five, four, one, three, two) = (_result.Songs[0], _result.Songs[1], _result.Songs[2], _result.Songs[3], _result.Songs[4]);
 
-        // Old's copy shares its audio group with the reference, so no alignment stands behind it. New's
-        // copy is another sound under the same name.
+        // The reference file is a lossy encode of Old's copy: the scan matches the two, but short of
+        // all but identical, so the alignment confirms the copy. New's copy is another sound under
+        // the same name.
         await Assert.That(Show(one)).IsEqualTo(
             "SomeConfirmed: Old/Artist Name - Song One.wav Confirmed, New/Artist Name - Song One.wav DoesntLineUp");
-        await Assert.That(one.Copies[0].AlignConfidence).IsNull();
+        await Assert.That(one.Copies[0].Similarity).IsGreaterThan(0);
+        await Assert.That(one.Copies[0].Similarity).IsLessThan(ImposterSongs.IdenticalFrom);
+        await Assert.That(one.Copies[0].AlignConfidence).IsNotNull();
+        await Assert.That(one.Copies[0].AlignConfidence!.Value).IsGreaterThanOrEqualTo(SuspectLabeler.SamePerformanceFrom);
         await Assert.That(one.Copies[1].AlignConfidence).IsNotNull();
         await Assert.That(one.Copies[1].AlignConfidence!.Value).IsLessThan(SuspectLabeler.LinesUpFrom);
         await Assert.That(one.Best).IsNotNull();
@@ -60,6 +65,17 @@ public sealed class ImposterScanTests
         await Assert.That(Show(four)).IsEqualTo("NoneConfirmed: New/Artist Name - Song Four.wav CantCompare");
         await Assert.That(four.Copies[0].AlignConfidence).IsNull();
         await Assert.That(four.Copies[0].File.Row).IsNull();
+
+        // New's copy is the reference file byte for byte, confirmed by its fingerprint with no
+        // alignment. Old's opens with 5 s of silence, further than the alignment reaches: the
+        // fingerprints still match, but the openings line up only in part, so it is the same by
+        // fingerprint, and its note names New's copy, never the reference file it joined.
+        await Assert.That(Show(five)).IsEqualTo(
+            "SomeConfirmed: Old/Artist Name - Song Five.wav SameByFingerprint, New/Artist Name - Song Five.wav Confirmed");
+        await Assert.That(five.Copies[1].AlignConfidence).IsNull();
+        await Assert.That(five.Copies[1].Similarity).IsGreaterThanOrEqualTo(ImposterSongs.IdenticalFrom);
+        await Assert.That(five.Copies[0].AlignConfidence).IsNotNull();
+        await Assert.That(five.Copies[0].SameAudioAs).IsEqualTo(five.Copies[1].File.Path);
     }
 
     [Test]
@@ -82,7 +98,7 @@ public sealed class ImposterScanTests
         var phases = reports.Where((r, i) => i == 0 || r.Phase != reports[i - 1].Phase).Select(r => r.Phase);
         await Assert.That(string.Join(", ", phases)).IsEqualTo("Analyzing, Matching, Checking");
         var checking = reports.Where(r => r.Phase == "Checking").ToArray();
-        await Assert.That(string.Join(", ", checking.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("1/4, 2/4, 3/4, 4/4");
+        await Assert.That(string.Join(", ", checking.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("1/6, 2/6, 3/6, 4/6, 5/6, 6/6");
         await Assert.That(checking[^1].Fraction).IsEqualTo(1.0);
     }
 
