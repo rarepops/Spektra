@@ -269,23 +269,30 @@ public partial class ImposterWindow : Window
     }
 
     // Every row of the scan, whatever the view and the filter, the same rows `spektra-cli
-    // imposters` writes. The Tag carries the extension, so the save dialog offers that one type.
+    // imposters` writes; or, for the Tag "best", the best copy of every song as a plain list of
+    // paths to build a library from. The save dialog offers the one type chosen.
     private async void OnExportFormatClicked(object? sender, RoutedEventArgs e)
     {
         if (_vm.LastResult is not { } result) return;
         if ((sender as MenuItem)?.Tag is not string fmt) return;
+        var best = fmt == "best";
+        var ext = best ? "txt" : fmt;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export the Imposter Buster report",
-            SuggestedFileName = $"imposter-buster-report.{fmt}",
-            DefaultExtension = fmt,
-            FileTypeChoices = [new FilePickerFileType($"{fmt.ToUpperInvariant()} report") { Patterns = [$"*.{fmt}"] }],
+            Title = best ? "Export the best copies" : "Export the Imposter Buster report",
+            SuggestedFileName = best ? "imposter-buster-best-copies.txt" : $"imposter-buster-report.{ext}",
+            DefaultExtension = ext,
+            FileTypeChoices = [new FilePickerFileType(best ? "Text list" : $"{ext.ToUpperInvariant()} report") { Patterns = [$"*.{ext}"] }],
         });
         if (file is null) return;
         try
         {
-            var rows = ImposterReport.Rows(result);
-            var text = fmt == "json" ? Reporting.ToJson(rows) : Reporting.ToCsv(rows);
+            var text = fmt switch
+            {
+                "best" => ImposterView.BestCopiesList(result),
+                "json" => Reporting.ToJson(ImposterReport.Rows(result)),
+                _ => Reporting.ToCsv(ImposterReport.Rows(result)),
+            };
             await using var stream = await file.OpenWriteAsync();
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(text);
@@ -294,7 +301,7 @@ public partial class ImposterWindow : Window
         {
             // async void handler: an unguarded write failure would crash the app instead of
             // reporting, as in the other windows' exports.
-            _vm.SetError($"Could not export the report: {ex.Message}");
+            _vm.SetError($"Could not export {(best ? "the best copies" : "the report")}: {ex.Message}");
         }
     }
 

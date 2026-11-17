@@ -258,4 +258,40 @@ public sealed class ImposterViewTests
         await Assert.That(ImposterView.ShortVerdict(SongVerdict.SomeConfirmed)).IsEqualTo("A copy differs");
         await Assert.That(ImposterView.ShortVerdict(SongVerdict.AllConfirmed)).IsEqualTo("All clear");
     }
+
+    [Test]
+    public async Task BestCopiesList_HoldsOnePathPerSongInSongOrder()
+    {
+        // The songs in no sorted order, which the list keeps. Charlie's two confirmed copies tie and
+        // the ranker put New's first, so only New's is listed. Alpha's confirmed copy wins, Echo has
+        // nothing ranked and no line, the reference file is Delta's best copy, and Foxtrot's name
+        // holds ？ and é, kept exactly.
+        static ImposterSong Ranked(ImposterSong song, params string[] winners) =>
+            song with { Best = new QualityRanking(winners, "High", "", winners) };
+        var charlie = Ranked(
+            Song(
+                F(Rips, "Charlie.m4a", 3), SongVerdict.AllConfirmed,
+                (F(Old, "Charlie.flac", 3), CopyGrade.Confirmed), (F(New, "Charlie.flac", 3), CopyGrade.Confirmed)),
+            $"{New}/Charlie.flac", $"{Old}/Charlie.flac");
+        var alpha = Ranked(
+            Song(
+                F(Rips, "Alpha.m4a", 1), SongVerdict.SomeConfirmed,
+                (F(Old, "Alpha.flac", 1), CopyGrade.Confirmed), (F(New, "Alpha.flac"), CopyGrade.DoesntLineUp)),
+            $"{Old}/Alpha.flac");
+        var echo = Song(F(Rips, "Echo.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Echo.flac"), CopyGrade.CantCompare));
+        var delta = Ranked(
+            Song(F(Rips, "Delta.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Delta.flac"), CopyGrade.DoesntLineUp)),
+            $"{Rips}/Delta.m4a");
+        var foxtrot = Ranked(
+            Song(
+                F(Rips, "Artist Name - How Much Is It？ Café.m4a", 6), SongVerdict.AllConfirmed,
+                (F(Old, "Artist Name - How Much Is It？ Café.flac", 6), CopyGrade.Confirmed)),
+            $"{Old}/Artist Name - How Much Is It？ Café.flac");
+        var result = new ImposterResult(Rips, Checked, [charlie, alpha, echo, delta, foxtrot], [], [], 11);
+
+        await Assert.That(ImposterView.BestCopiesList(result)).IsEqualTo(
+            "/music/New/Charlie.flac\n/music/Old/Alpha.flac\n/music/Rips/Delta.m4a\n/music/Old/Artist Name - How Much Is It？ Café.flac\n");
+        // With no song ranked there is no line at all, not even an empty one.
+        await Assert.That(ImposterView.BestCopiesList(result with { Songs = [echo] })).IsEqualTo("");
+    }
 }

@@ -115,11 +115,12 @@
                 HorizontalAlignment="Stretch" />
         <DropDownButton Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         IsEnabled="{Binding CanExport}" PointerEntered="OnExportHover"
-                        ToolTip.Tip="Hover to pick CSV or JSON · every row of the scan, whatever the view and the filter">
+                        ToolTip.Tip="Hover to pick CSV, JSON, or the best copies · every row of the scan, whatever the view and the filter">
           <DropDownButton.Flyout>
             <MenuFlyout>
               <MenuItem Header="CSV rows" Tag="csv" Click="OnExportFormatClicked" />
               <MenuItem Header="JSON rows" Tag="json" Click="OnExportFormatClicked" />
+              <MenuItem Header="Best copies (paths)" Tag="best" Click="OnExportFormatClicked" />
             </MenuFlyout>
           </DropDownButton.Flyout>
         </DropDownButton>

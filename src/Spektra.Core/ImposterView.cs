@@ -153,6 +153,20 @@ public static class ImposterView
         return text.ToString();
     }
 
+    /// The best copy of every song as a plain list of paths, to build a library from: one line per
+    /// song with a best copy, in the order of result.Songs, each the first of the song's winners
+    /// (the ranker's own order settles a tie, so each song gives exactly one file). The reference
+    /// file is listed where it is the best copy; a song with nothing ranked has no line. Paths are
+    /// written as the result holds them and lines end in \n; the caller writes it as UTF-8 without
+    /// a byte-order mark.
+    public static string BestCopiesList(ImposterResult result)
+    {
+        var text = new StringBuilder();
+        foreach (var song in result.Songs)
+            if (song.Best?.Winners.FirstOrDefault() is { } best) text.Append(best).Append('\n');
+        return text.ToString();
+    }
+
     // Each verdict's and grade's place is written out, never read off the enum's order, and any
     // other value throws, so one added later takes the place it should. What most needs a listen
     // comes first.
