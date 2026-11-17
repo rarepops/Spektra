@@ -102,4 +102,58 @@ public sealed class QualityRankerTests
         await Assert.That(r.Reason).Contains("runner-up");
         await Assert.That(r.Confidence).IsEqualTo("High");
     }
+
+    [Test]
+    public async Task MixedFlac_LosesToHonestLossy()
+    {
+        // A lossy wall in part of the file puts it with the transcodes, below an honest lossy file.
+        var r = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", 16_000)),
+                                    ("honest.mp3", Row("mp3", "Lossy", 16_000, bitrateBps: 128_000))], NoSim);
+        await Assert.That(r.Winners.Single()).IsEqualTo("honest.mp3");
+    }
+
+    [Test]
+    public async Task MixedFlac_BeatsAFileThatCouldNotBeJudged()
+    {
+        // One class apart, so the ranking is Medium; two files that could not be judged would share class 1 and read Low.
+        var r = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", 16_000)),
+                                    ("unknown.flac", Row("flac", "Unknown", null))], NoSim);
+        await Assert.That(r.Winners.Single()).IsEqualTo("mixed.flac");
+        await Assert.That(r.Confidence).IsEqualTo("Medium");
+    }
+
+    [Test]
+    public async Task MixedFlac_RanksWithTheTranscodes_ByCutoff()
+    {
+        var mixedHigher = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", 16_000)),
+                                              ("fake.flac", Row("flac", "Lossy", 15_000))], NoSim);
+        await Assert.That(mixedHigher.Winners.Single()).IsEqualTo("mixed.flac");
+
+        var fakeHigher = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", 16_000)),
+                                             ("fake.flac", Row("flac", "Lossy", 17_000))], NoSim);
+        await Assert.That(fakeHigher.Winners.Single()).IsEqualTo("fake.flac");
+    }
+
+    [Test]
+    public async Task Describe_WordsAMixedVerdict()
+    {
+        var r = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", 16_000)),
+                                    ("honest.mp3", Row("mp3", "Lossy", 16_000, bitrateBps: 128_000))], NoSim);
+        await Assert.That(r.Reason).Contains("flac with a lossy wall near 16.0 kHz in part of the file");
+        await Assert.That(r.Reason).DoesNotContain("unjudgeable");
+
+        // With no cutoff on the row the "near" clause drops out whole, leaving no dangling word or double space.
+        var noCutoff = QualityRanker.Rank([("mixed.flac", Row("flac", "Mixed", null)),
+                                           ("honest.mp3", Row("mp3", "Lossy", 16_000, bitrateBps: 128_000))], NoSim);
+        await Assert.That(noCutoff.Reason).Contains("flac with a lossy wall in part of the file");
+    }
+
+    [Test]
+    public async Task MixedLossy_RanksBelowAnHonestLossyFile()
+    {
+        // The honest file wins although its cutoff is lower: a Mixed verdict on a lossy file found a re-encoded stretch.
+        var r = QualityRanker.Rank([("mixed.mp3", Row("mp3", "Mixed", 20_000, bitrateBps: 320_000)),
+                                    ("honest.mp3", Row("mp3", "Lossy", 19_600, bitrateBps: 320_000))], NoSim);
+        await Assert.That(r.Winners.Single()).IsEqualTo("honest.mp3");
+    }
 }

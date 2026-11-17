@@ -6,8 +6,9 @@ public sealed record QualityRanking(
 /// Ranks a duplicate group's members by a quality ladder built on audit facts,
 /// and says how sure the ranking is. Ladder (see the spec): full-band lossless,
 /// then lossless with the 20 kHz suspicious wall, then honest lossy by cutoff,
-/// then proven transcodes and upsampled containers, then unjudgeable; corrupt
-/// members drop to the bottom outright, suspect integrity costs one class.
+/// then proven transcodes, upsampled containers and Mixed verdicts (a lossy wall
+/// in part of the file), then unjudgeable; corrupt members drop to the bottom
+/// outright, suspect integrity costs one class.
 public static class QualityRanker
 {
     /// Members at least this similar and in the same class are the same audio:
@@ -73,13 +74,16 @@ public static class QualityRanker
                 "Lossless" => 6,
                 "Suspicious" when row.CutoffHz >= CutoffAnalyzer.HighCutoffSuspicionHz => HighWallClass,
                 "Suspicious" => 3, // gradual rolloff in a lossless container: rank with honest lossy
-                "Lossy" or "Upsampled" => 2,
+                "Lossy" or "Upsampled" or "Mixed" => 2,
                 _ => 1,
             }
             : row.Bandwidth switch
             {
                 "Lossy" when TranscodeCheck.IsSuspectLossy(
                     row.Codec, row.BitrateBps, row.Channels, row.CutoffHz) => 2, // re-encoded lossy
+                // A re-encoded stretch inside a lossy file is what the Mixed verdict found,
+                // so it ranks with the proven transcodes.
+                "Mixed" => 2,
                 "Unknown" => 1,
                 _ => 3, // an honest lossy file, whatever its verdict wording
             };
@@ -106,6 +110,9 @@ public static class QualityRanker
             "Suspicious" => $"{codec} rolling off near {khz}",
             "Lossy" => $"{codec} cut at {khz}",
             "Upsampled" => $"upsampled {codec} (true bandwidth {khz})",
+            "Mixed" => row.CutoffHz is null
+                ? $"{codec} with a lossy wall in part of the file"
+                : $"{codec} with a lossy wall near {khz} in part of the file",
             _ => $"{codec} with unjudgeable bandwidth",
         };
         return row.Integrity switch
