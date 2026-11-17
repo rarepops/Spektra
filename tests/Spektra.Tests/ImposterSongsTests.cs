@@ -120,6 +120,70 @@ public sealed class ImposterSongsTests
     }
 
     [Test]
+    public async Task Candidates_ATwoWordNameFindsItsAllArtistsReference()
+    {
+        // The names share two words, too few for a twin by words alone, but the title is the same
+        // and one artist list is inside the other.
+        var found = ImposterSongs.Candidates([F(Rips, "Solo, Guest - Song.m4a"), F(Old, "Solo - Song.flac")], Rips);
+        await Assert.That(Show(found)).IsEqualTo("Old/Solo - Song.flac <- Rips/Solo, Guest - Song.m4a");
+
+        // The other way round: the reference file is the short name.
+        var reverse = ImposterSongs.Candidates([F(Rips, "Solo - Song.m4a"), F(Old, "Solo, Guest - Song.flac")], Rips);
+        await Assert.That(Show(reverse)).IsEqualTo("Old/Solo, Guest - Song.flac <- Rips/Solo - Song.m4a");
+    }
+
+    [Test]
+    public async Task Candidates_ANameWithNoArtistNeverPairsOnItsTitleAlone()
+    {
+        // A name with no " - " has no artists, so a file called only Song would otherwise pair with
+        // every Artist - Song.
+        var found = ImposterSongs.Candidates([F(Rips, "Solo - Song.m4a"), F(Old, "Song.flac")], Rips);
+        await Assert.That(Show(found)).IsEqualTo("");
+        await Assert.That(Names(found.NoReference)).IsEqualTo("Old/Song.flac");
+
+        // Nor does a reference file with no artists.
+        var reverse = ImposterSongs.Candidates([F(Rips, "Song.m4a"), F(Old, "Solo - Song.flac")], Rips);
+        await Assert.That(Show(reverse)).IsEqualTo("");
+    }
+
+    [Test]
+    public async Task Candidates_ANameWithNoArtist_PairsWithArtistAndTitleFromThreeTitleWords()
+    {
+        // With no artists, the name can only twin by its words, which takes three: a title of three
+        // words finds Artist - <that title>, and one of two words does not.
+        var three = ImposterSongs.Candidates([F(Rips, "Solo - Long Song Title.m4a"), F(Old, "Long Song Title.flac")], Rips);
+        await Assert.That(Show(three)).IsEqualTo("Old/Long Song Title.flac <- Rips/Solo - Long Song Title.m4a");
+
+        var two = ImposterSongs.Candidates([F(Rips, "Solo - Song Title.m4a"), F(Old, "Song Title.flac")], Rips);
+        await Assert.That(Show(two)).IsEqualTo("");
+    }
+
+    [Test]
+    public async Task Candidates_OtherArtistsWithOneTitle_DoNotPair()
+    {
+        var found = ImposterSongs.Candidates([F(Rips, "Other - Song.m4a"), F(Old, "Solo - Song.flac")], Rips);
+
+        await Assert.That(Show(found)).IsEqualTo("");
+        await Assert.That(Names(found.NoReference)).IsEqualTo("Old/Solo - Song.flac");
+    }
+
+    [Test]
+    public async Task Candidates_EachPairAppearsOnce()
+    {
+        // Both rules find both pairs: the same name, and a collaboration that shares four words with
+        // the copy's name, its title and its artists.
+        var found = ImposterSongs.Candidates(
+        [
+            F(Rips, "Artist Name - Song Title.m4a"),
+            F(Rips, "Artist Name; Guest Two - Song Title.m4a"),
+            F(Old, "Artist Name - Song Title.flac"),
+        ], Rips);
+
+        await Assert.That(Show(found)).IsEqualTo(
+            "Old/Artist Name - Song Title.flac <- Rips/Artist Name - Song Title.m4a, Rips/Artist Name; Guest Two - Song Title.m4a");
+    }
+
+    [Test]
     public async Task Grade_ASharedAudioGroup_Confirms()
     {
         await Assert.That(ImposterSongs.Grade(true, null, 200, 200)).IsEqualTo(CopyGrade.Confirmed);

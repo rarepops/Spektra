@@ -137,7 +137,7 @@ public static class TitleTwin
             && (artistsA.IsSubsetOf(artistsB) || artistsB.IsSubsetOf(artistsA)) ? 1 : 2;
     }
 
-    private static (IReadOnlySet<string> Artists, IReadOnlySet<string> Title) ArtistsAndTitle(string path)
+    internal static (IReadOnlySet<string> Artists, IReadOnlySet<string> Title) ArtistsAndTitle(string path)
     {
         const string separator = " - ";
         var name = System.IO.Path.GetFileNameWithoutExtension(path);

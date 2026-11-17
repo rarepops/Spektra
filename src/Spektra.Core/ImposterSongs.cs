@@ -43,27 +43,50 @@ public static class ImposterSongs
     /// decides which of them it is, not the closer name. Rank 2 never counts, because a version word
     /// apart (a radio edit against an extended mix) names another recording.
     ///
+    /// A twin with one name inside the other must share three words, which shuts out a short name
+    /// such as Artist - Title against the reference file that credits every artist. So a checked
+    /// file and a reference file are candidates too, however few words they share, when both names
+    /// have artists and a title, the titles hold the same words and one artist list is inside the
+    /// other. A name with no artists never pairs this way: a file called only Intro is not a copy of
+    /// every Artist - Intro.
+    ///
     /// Copies lists the checked files that have a candidate, in the order of files, each with its
-    /// references in ordinal path order. NoReference lists the checked files with none, and
-    /// ReferenceFiles every reference file, both in the order of files.
+    /// references in ordinal path order, each once whichever rule found it. NoReference lists the
+    /// checked files with none, and ReferenceFiles every reference file, both in the order of files.
     public static ImposterCandidates Candidates(IReadOnlyList<ScannedFile> files, string referenceRoot)
     {
-        var references = files.Select(_ => new List<ScannedFile>()).ToArray();
+        // Indexes into files, as (copy, reference).
+        var pairs = new HashSet<(int Copy, int Reference)>();
         foreach (var (a, b) in TitleTwin.CrossRootTwins([.. files.Select(f => (f.Path, f.Root))]))
         {
             // Twins never share a root, so a pair holds at most one reference file. A pair of two
             // checked files is skipped: a copy is judged against the reference folder only.
             var (r, c) = IsReference(files[a], referenceRoot) ? (a, b) : (b, a);
             if (IsReference(files[r], referenceRoot) && TitleTwin.NameRank(files[r].Path, files[c].Path) <= 1)
-                references[c].Add(files[r]);
+                pairs.Add((c, r));
         }
 
+        // The reference files by their title, so a checked file meets only those with its own.
+        var names = files.Select(f => TitleTwin.ArtistsAndTitle(f.Path)).ToArray();
+        var byTitle = Enumerable.Range(0, files.Count)
+            .Where(i => IsReference(files[i], referenceRoot) && names[i].Artists.Count > 0 && names[i].Title.Count > 0)
+            .ToLookup(i => TitleKey(names[i].Title));
+        for (var c = 0; c < files.Count; c++)
+        {
+            var (artists, title) = names[c];
+            if (IsReference(files[c], referenceRoot) || artists.Count == 0 || title.Count == 0) continue;
+            foreach (var r in byTitle[TitleKey(title)])
+                if (artists.IsSubsetOf(names[r].Artists) || names[r].Artists.IsSubsetOf(artists))
+                    pairs.Add((c, r));
+        }
+
+        var references = pairs.ToLookup(p => p.Copy, p => files[p.Reference]);
         var copies = new List<CopyCandidates>();
         var noReference = new List<ScannedFile>();
         for (var i = 0; i < files.Count; i++)
         {
             if (IsReference(files[i], referenceRoot)) continue;
-            if (references[i].Count == 0) noReference.Add(files[i]);
+            if (!references[i].Any()) noReference.Add(files[i]);
             else copies.Add(new CopyCandidates(files[i], [.. references[i].OrderBy(f => f.Path, StringComparer.Ordinal)]));
         }
         return new ImposterCandidates(copies, noReference, [.. files.Where(f => IsReference(f, referenceRoot))]);
@@ -208,6 +231,10 @@ public static class ImposterSongs
 
     /// Two files in no group never share one.
     private static bool SameGroup(ScannedFile a, ScannedFile b) => a.Group is { } group && b.Group == group;
+
+    /// A title as one string, its words in ordinal order. Two titles hold the same words exactly when
+    /// their keys are equal, because a word is letters and digits only.
+    private static string TitleKey(IReadOnlySet<string> title) => string.Join(' ', title.Order(StringComparer.Ordinal));
 
     /// The place of a root in the list the caller gave, counted as the roots before it: all of them
     /// when it is not listed, so it goes last.
