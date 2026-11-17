@@ -27,8 +27,9 @@ public sealed record ImageArgs(
 /// Playlist (only with Diff) and Html (only without it) name a file to write.
 public sealed record DupesArgs(IReadOnlyList<string> Roots, bool Fresh, bool Diff, string? Html, string? Playlist);
 
-/// What `imposters` was asked for. Reference is null when --reference was not given.
-public sealed record ImposterArgs(string? Reference, IReadOnlyList<string> Roots, bool Fresh, string? Playlist);
+/// What `imposters` was asked for. Reference is always set: ParseImposters refuses a command
+/// line without --reference.
+public sealed record ImposterArgs(string Reference, IReadOnlyList<string> Roots, bool Fresh, string? Playlist);
 
 /// What a verb that takes "one folder or some files" was given. Folder is set
 /// (and Files empty) when the one argument is a folder to search; otherwise
