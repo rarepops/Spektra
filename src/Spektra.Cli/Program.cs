@@ -233,11 +233,11 @@ internal static partial class Program
             file under a lossless name such as .flac), an upsample, corruption, or an
             unreadable file - an honest lossy file is not a problem; dupes: one or more
             duplicate groups found, or with --diff anything that differs; imposters: a
-            checked copy is not the reference recording; loudness: a file could not be
-            measured; diff: the files differ), 2 on setup errors (an unknown or
-            malformed option, no file or folder given, a path that does not exist, a
-            folder given together with other paths, or image: the default output file
-            already exists).
+            checked copy is not confirmed as the reference recording; loudness: a file
+            could not be measured; diff: the files differ), 2 on setup errors (an
+            unknown or malformed option, no file or folder given, a path that does not
+            exist, a folder given together with other paths, or image: the default
+            output file already exists).
             Requires ffmpeg + ffprobe on PATH.
             """);
         return exitCode;
