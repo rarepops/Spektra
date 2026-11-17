@@ -65,21 +65,20 @@ public sealed class ImposterViewModelTests
     {
         var vm = await ScanTheLibrary();
 
-        // ImposterView's order with the all-clear song left out: the songs with no copy confirmed,
-        // the copy that cannot be compared first, then the songs where a copy is not confirmed, the
-        // copy that doesn't line up first.
+        // ImposterView's order with the all-clear songs (Two and Five) left out: the songs with no
+        // copy confirmed, the copy that cannot be compared first, then the songs where a copy is not
+        // confirmed, the copy that doesn't line up first.
         await Assert.That(Listed(vm.Rows)).IsEqualTo(
             "reference Rips/Artist Name - Song Four.wav, copy New/Artist Name - Song Four.wav, "
             + "reference Rips/Artist Name - Song Three.wav, copy Old/Artist Name - Song Three.wav, "
             + "reference Rips/Artist Name - Song One.mp3, copy Old/Artist Name - Song One.wav, "
-            + "copy New/Artist Name - Song One.wav, "
-            + "reference Rips/Artist Name - Song Five.wav, copy Old/Artist Name - Song Five.wav, "
-            + "copy New/Artist Name - Song Five.wav");
+            + "copy New/Artist Name - Song One.wav");
 
         var reference = vm.Rows[0];
         await Assert.That(reference.Grade).IsEqualTo("reference");
         await Assert.That(reference.CanCompare).IsFalse();
-        // Old's copy lines up with the reference file; New's is another sound under the name.
+        // Old's copy is the reference file's audio, which the scan reads all but identical; New's is
+        // another sound under the name.
         await Assert.That(RowOf(vm, _lib.Old, "Artist Name - Song One.wav").IsConfirmed).IsTrue();
         await Assert.That(RowOf(vm, _lib.New, "Artist Name - Song One.wav").IsConfirmed).IsFalse();
         await Assert.That(vm.FooterText).IsEqualTo(ImposterView.Summary(vm.LastResult!));
@@ -89,7 +88,7 @@ public sealed class ImposterViewModelTests
     public async Task TheLabelsCountTheWholeResult()
     {
         var vm = await ScanTheLibrary();
-        const string Counted = "To hear · 4 | All clear · 1 | No reference · 1 | Not in the checked folders · 1";
+        const string Counted = "To hear · 3 | All clear · 2 | No reference · 1 | Not in the checked folders · 1";
 
         await Assert.That(Labels(vm)).IsEqualTo(Counted);
 
@@ -107,7 +106,9 @@ public sealed class ImposterViewModelTests
 
         vm.ShowAllClear = true;
         await Assert.That(Listed(vm.Rows)).IsEqualTo(
-            "reference Rips/Artist Name - Song Two.wav, copy Old/Artist Name - Song Two.wav");
+            "reference Rips/Artist Name - Song Five.wav, copy Old/Artist Name - Song Five.wav, "
+            + "copy New/Artist Name - Song Five.wav, "
+            + "reference Rips/Artist Name - Song Two.wav, copy Old/Artist Name - Song Two.wav");
 
         vm.ShowNoReference = true;
         await Assert.That(Listed(vm.Rows)).IsEqualTo("no-reference Old/Bonus Track.wav");
@@ -160,8 +161,9 @@ public sealed class ImposterViewModelTests
 
         await Assert.That(playlist).Contains(Path.Combine(_lib.New, "Artist Name - Song One.wav"));
         await Assert.That(playlist).Contains(Path.Combine(_lib.Rips, "Artist Name - Song One.mp3"));
-        // A copy the same by fingerprint is not confirmed, so it is there to hear.
-        await Assert.That(playlist).Contains(Path.Combine(_lib.Old, "Artist Name - Song Five.wav"));
+        // Both of Song Five's copies are confirmed, Old's by its fingerprint though it opens 5 s
+        // late, so neither is there to hear, and nor is Song Two's, confirmed by the alignment.
+        await Assert.That(playlist).DoesNotContain("Song Five");
         await Assert.That(playlist).DoesNotContain("Song Two");
         await Assert.That(vm.CanSavePlaylist).IsTrue();
     }

@@ -39,15 +39,13 @@ public sealed class ImposterScanTests
             + "Rips/Artist Name - Song Three.wav, Rips/Artist Name - Song Two.wav");
         var (five, four, one, three, two) = (_result.Songs[0], _result.Songs[1], _result.Songs[2], _result.Songs[3], _result.Songs[4]);
 
-        // The reference file is a lossy encode of Old's copy: the scan matches the two, but short of
-        // all but identical, so the alignment confirms the copy. New's copy is another sound under
-        // the same name.
+        // The reference file is a lossy encode of Old's copy: the scan groups the two and reads them
+        // at about 0.94, which the shortcut accepts inside an audio group, so the copy is confirmed
+        // with no alignment. New's copy is another sound under the same name.
         await Assert.That(Show(one)).IsEqualTo(
             "SomeConfirmed: Old/Artist Name - Song One.wav Confirmed, New/Artist Name - Song One.wav DoesntLineUp");
-        await Assert.That(one.Copies[0].Similarity).IsGreaterThan(0);
-        await Assert.That(one.Copies[0].Similarity).IsLessThan(ImposterSongs.IdenticalFrom);
-        await Assert.That(one.Copies[0].AlignConfidence).IsNotNull();
-        await Assert.That(one.Copies[0].AlignConfidence!.Value).IsGreaterThanOrEqualTo(SuspectLabeler.SamePerformanceFrom);
+        await Assert.That(one.Copies[0].Similarity).IsGreaterThanOrEqualTo(ImposterSongs.IdenticalFrom);
+        await Assert.That(one.Copies[0].AlignConfidence).IsNull();
         await Assert.That(one.Copies[1].AlignConfidence).IsNotNull();
         await Assert.That(one.Copies[1].AlignConfidence!.Value).IsLessThan(SuspectLabeler.LinesUpFrom);
         await Assert.That(one.Best).IsNotNull();
@@ -67,15 +65,17 @@ public sealed class ImposterScanTests
         await Assert.That(four.Copies[0].File.Row).IsNull();
 
         // New's copy is the reference file byte for byte, confirmed by its fingerprint with no
-        // alignment. Old's opens with 5 s of silence, further than the alignment reaches: the
-        // fingerprints still match, but the openings line up only in part, so it is the same by
-        // fingerprint, and its note names New's copy, never the reference file it joined.
+        // alignment. Old's opens with 5 s of silence, further than the alignment reaches, yet it is
+        // the same recording behind another lead-in: its fingerprint matches across the whole length
+        // (about 0.98), so it is confirmed by its fingerprint too, where the alignment alone could
+        // not reach it. Neither copy is aligned, and a confirmed copy names no other file.
         await Assert.That(Show(five)).IsEqualTo(
-            "SomeConfirmed: Old/Artist Name - Song Five.wav SameByFingerprint, New/Artist Name - Song Five.wav Confirmed");
+            "AllConfirmed: Old/Artist Name - Song Five.wav Confirmed, New/Artist Name - Song Five.wav Confirmed");
         await Assert.That(five.Copies[1].AlignConfidence).IsNull();
         await Assert.That(five.Copies[1].Similarity).IsGreaterThanOrEqualTo(ImposterSongs.IdenticalFrom);
-        await Assert.That(five.Copies[0].AlignConfidence).IsNotNull();
-        await Assert.That(five.Copies[0].SameAudioAs).IsEqualTo(five.Copies[1].File.Path);
+        await Assert.That(five.Copies[0].AlignConfidence).IsNull();
+        await Assert.That(five.Copies[0].Similarity).IsGreaterThanOrEqualTo(ImposterSongs.IdenticalFrom);
+        await Assert.That(five.Copies[0].SameAudioAs).IsNull();
     }
 
     [Test]
@@ -98,7 +98,7 @@ public sealed class ImposterScanTests
         var phases = reports.Where((r, i) => i == 0 || r.Phase != reports[i - 1].Phase).Select(r => r.Phase);
         await Assert.That(string.Join(", ", phases)).IsEqualTo("Analyzing, Matching, Checking");
         var checking = reports.Where(r => r.Phase == "Checking").ToArray();
-        await Assert.That(string.Join(", ", checking.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("1/6, 2/6, 3/6, 4/6, 5/6, 6/6");
+        await Assert.That(string.Join(", ", checking.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("1/4, 2/4, 3/4, 4/4");
         await Assert.That(checking[^1].Fraction).IsEqualTo(1.0);
     }
 

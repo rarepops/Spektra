@@ -39,9 +39,14 @@ public sealed record ImposterResult(
 /// PairsToAlign, so it decodes no audio and touches no file.
 public static class ImposterSongs
 {
-    /// From this fingerprint similarity a copy is the reference file's audio across its whole
-    /// length, and is confirmed without an alignment.
-    public const double IdenticalFrom = QualityRanker.IdenticalSimilarity;
+    /// From this fingerprint similarity, between two files of one audio group, a copy is the
+    /// reference file's audio across its whole length, and is confirmed without an alignment. In the
+    /// 2026-11-17 calibration (6,052 real copies with both a similarity and an alignment) every one
+    /// of the 4,682 at 0.93 or more also lined up (the lowest alignment read 0.90), and the most
+    /// similar copy that matched by fingerprint without lining up read 0.917. A lossless file
+    /// against a lossy encode of itself typically reads 0.94, so the duplicate ranker's 0.98 left
+    /// nearly every such pair to the alignment.
+    public const double IdenticalFrom = 0.93;
 
     /// The reference files each checked file may be a copy of. A file is a reference file when its
     /// root is the reference root, ignoring case, and a checked file otherwise. A checked file's
@@ -102,10 +107,13 @@ public static class ImposterSongs
         return new ImposterCandidates(copies, noReference, [.. files.Where(f => IsReference(f, referenceRoot))]);
     }
 
-    /// The alignments Build needs, as (reference, copy) pairs: every candidate of each copy none of
-    /// whose candidates reaches IdenticalFrom in similarity(reference path, copy path), in the order
-    /// of Copies and References. A copy with an identical candidate is that recording already and
-    /// costs no audio work.
+    /// The alignments Build needs, as (reference, copy) pairs: every candidate of each copy that has
+    /// no identical candidate, in the order of Copies and References. A copy with an identical
+    /// candidate is that recording already and costs no audio work. A candidate is identical only
+    /// when it shares the copy's audio group and reaches IdenticalFrom in similarity(reference path,
+    /// copy path): the similarity can be high over a stretch two different files share, and only a
+    /// pair the grouper put in one group matched across the whole length, so a high similarity
+    /// outside the group is aligned like any other pair.
     public static IReadOnlyList<(ScannedFile Reference, ScannedFile Copy)> PairsToAlign(
         ImposterCandidates candidates, Func<string, string, double> similarity) =>
         [.. candidates.Copies
@@ -113,20 +121,23 @@ public static class ImposterSongs
             .SelectMany(c => c.References.Select(r => (r, c.Copy)))];
 
     /// How a copy compares with one reference file. A fingerprint similarity of IdenticalFrom or more
-    /// confirms the copy whatever else is passed: the two hold the same audio across their whole
-    /// length. Otherwise the alignment label decides, and no alignment at all cannot compare.
-    /// Alignment reads only the first seconds, so a copy that lines up as the same performance while
-    /// its length differs by SuspectView.LengthGapSeconds or more is OtherLength (an edit, say), not
-    /// confirmed. An unknown length is no gap.
+    /// in a shared audio group confirms the copy whatever else is passed: the two hold the same audio
+    /// across their whole length. The group is part of the rule because the scan's similarity can be
+    /// high over a stretch two different files share, and only a pair the grouper put in one group
+    /// matched across the whole length, so a high similarity outside the group proves nothing and the
+    /// alignment decides, as for any other pair. Otherwise the alignment label decides, and no
+    /// alignment at all cannot compare. Alignment reads only the first seconds, so a copy that lines
+    /// up as the same performance while its length differs by SuspectView.LengthGapSeconds or more is
+    /// OtherLength (an edit, say), not confirmed. An unknown length is no gap.
     ///
-    /// A shared audio group says only that the fingerprints match: the same song and arrangement,
-    /// which another master and a careful re-recording both give. So it never confirms a copy and
-    /// never hides one that cannot be compared: it only turns an opening that lines up in part or
-    /// not at all into SameByFingerprint.
+    /// A shared audio group alone says only that the fingerprints match: the same song and
+    /// arrangement, which another master and a careful re-recording both give. So below IdenticalFrom
+    /// it never confirms a copy and never hides one that cannot be compared: it only turns an opening
+    /// that lines up in part or not at all into SameByFingerprint.
     public static CopyGrade Grade(
         double similarity, bool sameGroup, SuspectVerdict? alignment, double? copySeconds, double? referenceSeconds)
     {
-        if (similarity >= IdenticalFrom) return CopyGrade.Confirmed;
+        if (sameGroup && similarity >= IdenticalFrom) return CopyGrade.Confirmed;
         // Every label is named and any other value throws, so a label added later is graded on purpose.
         return alignment?.Label switch
         {
@@ -144,9 +155,12 @@ public static class ImposterSongs
     /// Each copy joins one reference file and is graded against it, and each reference file a copy
     /// joined is a song.
     ///
-    /// A copy with a candidate that reaches IdenticalFrom in similarity is Confirmed against the most
-    /// similar such candidate (then the lowest ordinal path), and alignmentOf is never called for it.
-    /// Any other copy is graded against each candidate from alignmentOf(reference path, copy path),
+    /// A copy with a candidate that shares its audio group and reaches IdenticalFrom in similarity is
+    /// Confirmed against the most similar such candidate (then the lowest ordinal path), and
+    /// alignmentOf is never called for it. A candidate outside the group never counts, however
+    /// similar: the scan's similarity can be high over a stretch two different files share, and only
+    /// a pair the grouper put in one group matched across the whole length. Any other copy is graded
+    /// against each candidate from alignmentOf(reference path, copy path),
     /// their similarity and whether they share an audio group, and keeps the best: the better grade,
     /// then the higher confidence, then the lowest ordinal path. A copy's Similarity is the one with
     /// the reference file it joined.
@@ -207,13 +221,16 @@ public static class ImposterSongs
             .First();
     }
 
-    /// The candidate a copy is all but identical to: the most similar of those that reach
-    /// IdenticalFrom, then the lowest ordinal path; null when none does. PairsToAlign and Build both
-    /// ask here, so the copies one leaves out are exactly the ones the other confirms unaligned.
+    /// The candidate a copy is all but identical to: the most similar of those in the copy's audio
+    /// group that reach IdenticalFrom, then the lowest ordinal path; null when none does. The group
+    /// is required because the scan's similarity can be high over a stretch two different files
+    /// share, and only a pair the grouper put in one group matched across the whole length.
+    /// PairsToAlign and Build both ask here, so the copies one leaves out are exactly the ones the
+    /// other confirms unaligned.
     private static ScannedFile? IdenticalReference(CopyCandidates candidates, Func<string, string, double> similarity) =>
         candidates.References
             .Select(r => (Reference: r, Similarity: similarity(r.Path, candidates.Copy.Path)))
-            .Where(x => x.Similarity >= IdenticalFrom)
+            .Where(x => SameGroup(x.Reference, candidates.Copy) && x.Similarity >= IdenticalFrom)
             .OrderByDescending(x => x.Similarity)
             .ThenBy(x => x.Reference.Path, StringComparer.Ordinal)
             .Select(x => x.Reference)

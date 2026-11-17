@@ -198,9 +198,23 @@ public sealed class ImposterSongsTests
     [Test]
     public async Task Grade_AnIdenticalFingerprint_Confirms()
     {
-        // All but identical across the whole length, whatever the alignment and the lengths say.
-        await Assert.That(ImposterSongs.Grade(0.98, false, null, 200, 200)).IsEqualTo(CopyGrade.Confirmed);
-        await Assert.That(ImposterSongs.Grade(0.98, true, Aligned(0.1), 200, 320)).IsEqualTo(CopyGrade.Confirmed);
+        // All but identical across the whole length, in one audio group, whatever the alignment and
+        // the lengths say.
+        await Assert.That(ImposterSongs.Grade(0.93, true, null, 200, 200)).IsEqualTo(CopyGrade.Confirmed);
+        await Assert.That(ImposterSongs.Grade(0.93, true, Aligned(0.1), 200, 320)).IsEqualTo(CopyGrade.Confirmed);
+
+        // Just under the shortcut the alignment decides, and this opening does not line up.
+        await Assert.That(ImposterSongs.Grade(0.929, true, Aligned(0.3), 200, 200)).IsEqualTo(CopyGrade.SameByFingerprint);
+    }
+
+    [Test]
+    public async Task Grade_AHighSimilarityOutsideTheGroup_DoesNotConfirm()
+    {
+        // The scan's similarity can be high over a stretch two different files share, and only a pair
+        // in one audio group matched across the whole length, so the alignment decides.
+        await Assert.That(ImposterSongs.Grade(0.99, false, Aligned(0.2), 200, 200)).IsEqualTo(CopyGrade.DoesntLineUp);
+        await Assert.That(ImposterSongs.Grade(0.99, false, null, 200, 200)).IsEqualTo(CopyGrade.CantCompare);
+        await Assert.That(ImposterSongs.Grade(0.99, false, Aligned(0.93), 200, 200)).IsEqualTo(CopyGrade.Confirmed);
     }
 
     [Test]
@@ -266,6 +280,22 @@ public sealed class ImposterSongsTests
     }
 
     [Test]
+    public async Task PairsToAlign_AHighSimilarityOutsideTheGroup_IsStillAligned()
+    {
+        // Both copies read 0.99 with the reference file, but only Old's holds its audio group: the
+        // scan's similarity can be high over a stretch two different files share, so New's is aligned.
+        var reference = F(Rips, "Artist Name - Song Title.m4a", 3);
+        var oldCopy = F(Old, "Artist Name - Song Title.flac", 3);
+        var newCopy = F(New, "Artist Name - Song Title.flac", 4);
+        var pairs = ImposterSongs.PairsToAlign(
+            ImposterSongs.Candidates([reference, oldCopy, newCopy], Rips),
+            Similar((reference, oldCopy, 0.99), (reference, newCopy, 0.99)));
+
+        await Assert.That(string.Join(" | ", pairs.Select(p => $"{Short(p.Reference.Path)} ~ {Short(p.Copy.Path)}"))).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a ~ New/Artist Name - Song Title.flac");
+    }
+
+    [Test]
     public async Task Build_AnIdenticalCopy_IsConfirmedWithoutAnAlignment()
     {
         var result = Build([F(Rips, "Artist Name - Song Title.m4a", 1), F(Old, "Artist Name - Song Title.flac", 1)], NoAlignment);
@@ -273,6 +303,38 @@ public sealed class ImposterSongsTests
         await Assert.That(Show(result)).IsEqualTo("Rips/Artist Name - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
         await Assert.That(result.Songs[0].Copies[0].AlignConfidence).IsNull();
         await Assert.That(result.Songs[0].Copies[0].Similarity).IsEqualTo(0.99);
+    }
+
+    [Test]
+    public async Task Build_AHighSimilarityOutsideTheGroup_IsGradedFromTheAlignment()
+    {
+        // The scan read the two at 0.99 but did not group them, which is no proof they hold the same
+        // audio across the whole length, so the alignment is asked for and decides.
+        var reference = F(Rips, "Artist Name - Song Title.m4a", 1);
+        var copy = F(Old, "Artist Name - Song Title.flac", 2);
+        var asked = new List<string>();
+        var result = Build(
+            [reference, copy],
+            (referencePath, copyPath) =>
+            {
+                asked.Add($"{Short(referencePath)} ~ {Short(copyPath)}");
+                return Aligned(0.2);
+            },
+            Similar((reference, copy, 0.99)));
+
+        await Assert.That(Show(result)).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (NoneConfirmed): Old/Artist Name - Song Title.flac DoesntLineUp");
+        await Assert.That(string.Join(" | ", asked)).IsEqualTo("Rips/Artist Name - Song Title.m4a ~ Old/Artist Name - Song Title.flac");
+        await Assert.That(result.Songs[0].Copies[0].AlignConfidence).IsEqualTo(0.2);
+        await Assert.That(result.Songs[0].Copies[0].Similarity).IsEqualTo(0.99);
+
+        // A copy that lines up is confirmed by the alignment, so its confidence is kept, where the
+        // shortcut leaves it null.
+        var lined = Build([reference, copy], (_, _) => Aligned(0.93), Similar((reference, copy, 0.99)));
+
+        await Assert.That(Show(lined)).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
+        await Assert.That(lined.Songs[0].Copies[0].AlignConfidence).IsEqualTo(0.93);
     }
 
     [Test]
