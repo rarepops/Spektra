@@ -18,7 +18,9 @@ public sealed class ImposterRowItem : IFileItem
         Kind = kind;
         Song = song is null ? "" : ImposterView.SongName(song);
         Verdict = song is null ? "" : ImposterView.VerdictText(song.Verdict);
+        VerdictShort = song is null ? "" : ImposterView.ShortVerdict(song.Verdict);
         Folder = ImposterView.FolderLabel(file.Root, result.ReferenceRoot, result.Roots);
+        FolderPath = file.Root;
         File = FolderDiffView.RelativePath(file.Path, file.Root);
         Path = file.Path;
         Grade = copy is not null ? ImposterView.GradeText(copy.Grade) : song is not null ? "reference" : "";
@@ -29,6 +31,9 @@ public sealed class ImposterRowItem : IFileItem
         Size = Reporting.FormatBytes(file.SizeBytes);
         IsBest = song?.Best?.Winners.Contains(file.Path) == true;
         Note = copy is null ? "" : ImposterView.SameAudioNote(copy, result.ReferenceRoot, result.Roots) ?? "";
+        GradeTip = Grade.Length == 0 ? ""
+            : Note.Length == 0 ? $"{Grade}\n{ImposterView.GradeLimit}"
+            : $"{Grade}\n{Note}\n{ImposterView.GradeLimit}";
         ReferencePath = copy is null ? null : song?.Reference.Path;
         IsConfirmed = song is not null && (copy is null || copy.Grade == CopyGrade.Confirmed);
         HasLengthGap = copy is not null && song is not null && ImposterView.HasLengthGap(copy, song);
@@ -37,7 +42,12 @@ public sealed class ImposterRowItem : IFileItem
     public string Kind { get; }
     public string Song { get; }
     public string Verdict { get; }
+    /// The verdict as the grid's column shows it, where the full sentence would not fit; Verdict is
+    /// its tooltip. "" on the two kinds that belong to no song.
+    public string VerdictShort { get; }
     public string Folder { get; }
+    /// The full path of the folder the file was found under: the Folder cell's tooltip.
+    public string FolderPath { get; }
     public string File { get; }
     public string Path { get; }
     public string Grade { get; }
@@ -50,8 +60,11 @@ public sealed class ImposterRowItem : IFileItem
     /// The size in bytes, for the grid to sort the Size column by.
     public long SizeBytes { get; }
     public bool IsBest { get; }
-    /// The grid shows it in the Grade cell's tooltip and in a Note column.
+    /// The grid shows it in a Note column, and under the grade in the Grade cell's tooltip.
     public string Note { get; }
+    /// The Grade cell's tooltip: the grade, the note when there is one, then what a grade can and
+    /// cannot tell. "" on a row with no grade, so its cell shows no tooltip.
+    public string GradeTip { get; }
     /// A copy's reference file, null on every other kind.
     public string? ReferencePath { get; }
     public bool CanCompare => ReferencePath is not null;

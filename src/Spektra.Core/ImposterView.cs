@@ -44,6 +44,15 @@ public static class ImposterView
         _ => throw new ArgumentOutOfRangeException(nameof(verdict), verdict, null),
     };
 
+    /// What a song's copies add up to, short enough for a grid column; VerdictText is the sentence.
+    public static string ShortVerdict(SongVerdict verdict) => verdict switch
+    {
+        SongVerdict.NoneConfirmed => "No copy confirmed",
+        SongVerdict.SomeConfirmed => "A copy differs",
+        SongVerdict.AllConfirmed => "All clear",
+        _ => throw new ArgumentOutOfRangeException(nameof(verdict), verdict, null),
+    };
+
     /// The song as the reference folder names it: its reference file's name without the extension.
     public static string SongName(ImposterSong song) => Path.GetFileNameWithoutExtension(song.Reference.Path);
 

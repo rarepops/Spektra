@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -27,6 +28,12 @@ public partial class ImposterWindow : Window
         _vm = vm;
         _settings = settings;
         DataContext = vm;
+        ShowRows();
+        // Rows is replaced as a whole and never edited, so a new list is the one change to follow.
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ImposterViewModel.Rows)) ShowRows();
+        };
         ApplyColumnWidths();
         if (settings.ImposterWindow is { } p)
         {
@@ -84,6 +91,27 @@ public partial class ImposterWindow : Window
             if (!SettingsStore.Save(SettingsStore.DefaultPath, _settings))
                 _vm.SetError("Could not save the Imposter Buster settings.");
         };
+    }
+
+    /// Rows is replaced on every view switch, filter edit and scan, and bound straight to the grid
+    /// each new list would come up unsorted. So the grid gets each list in a view of its own, as
+    /// the folder grid does, and the sort on the outgoing view (its first column, if the user
+    /// sorted by several) is put back through that column's own Sort, the path a header click
+    /// takes, so the header shows it too. A sort that cannot be carried over is dropped, never
+    /// fatal: the list shows unsorted.
+    private void ShowRows()
+    {
+        var sort = (RowsGrid.ItemsSource as DataGridCollectionView)?.SortDescriptions.FirstOrDefault();
+        RowsGrid.ItemsSource = new DataGridCollectionView(_vm.Rows);
+        if (sort is not { HasPropertyPath: true }) return;
+        try
+        {
+            RowsGrid.Columns.FirstOrDefault(c => c.SortMemberPath == sort.PropertyPath)?.Sort(sort.Direction);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            RowsGrid.ItemsSource = new DataGridCollectionView(_vm.Rows);
+        }
     }
 
     /// Saved widths are keyed by header, as the folder grid's are. A header with no saved width

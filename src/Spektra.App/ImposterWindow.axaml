@@ -2,13 +2,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:core="clr-namespace:Spektra.Core;assembly=Spektra.Core"
         x:Class="Spektra.App.ImposterWindow"
-        Title="Imposter Buster" Width="980" Height="680"
+        Title="Imposter Buster" Width="1180" Height="700"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
         DragDrop.AllowDrop="True">
   <Window.Styles>
+    <!-- Every text cell trims to its column and keeps the whole value in its
+         tooltip, so a narrow column hides nothing for good. -->
     <Style Selector="TextBlock.cell">
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="#CCCCCC" />
+      <Setter Property="Margin" Value="12,0" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
     <!-- A copy 10 s or more off its reference file's length takes the warning
          colour Duplicate Detective gives the same gap. -->
@@ -166,10 +170,16 @@
     <!-- Splits the results from the footer, mirroring the top-bar divider. -->
     <Border DockPanel.Dock="Bottom" Height="1" Background="#2A2A2A" Margin="-12,8,-12,0" />
 
-    <!-- Every column resizes by its header edge and the widths are remembered
-         by header (ApplyColumnWidths, HarvestColumnWidths). File is the only
-         star column, so it takes the slack the others leave. -->
-    <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" IsReadOnly="True" AutoGenerateColumns="False"
+    <!-- No star column: with one, the grid squeezed the columns after it to
+         slivers rather than scroll. Every column has a width of its own, so a
+         window narrower than the columns scrolls the grid sideways; every
+         column resizes by its header edge, and the widths are remembered by
+         header (ApplyColumnWidths, HarvestColumnWidths). The rows come from
+         ShowRows rather than a binding, so the sort the user chose survives a
+         new list; ShowRows finds the sorted column by its SortMemberPath,
+         which every column therefore names. A tooltip with nothing to say is
+         switched off rather than shown empty. -->
+    <DataGrid x:Name="RowsGrid" IsReadOnly="True" AutoGenerateColumns="False"
               CanUserSortColumns="True" CanUserReorderColumns="False"
               CanUserResizeColumns="True" SelectionMode="Single"
               Background="#111111" FontSize="12"
@@ -185,35 +195,68 @@
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Song" Binding="{Binding Song}" Width="Auto" />
-        <DataGridTextColumn Header="Verdict" Binding="{Binding Verdict}" Width="Auto" />
-        <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="Auto" />
-        <DataGridTemplateColumn Header="File" SortMemberPath="File" Width="*" MinWidth="160">
+        <DataGridTemplateColumn Header="Song" SortMemberPath="Song" Width="200">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Classes="cell" Text="{Binding File}" Margin="12,0"
-                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+              <TextBlock Classes="cell" Text="{Binding Song}" ToolTip.Tip="{Binding Song}"
+                         ToolTip.ServiceEnabled="{Binding Song, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="Grade" SortMemberPath="Grade" Width="Auto">
+        <DataGridTemplateColumn Header="Folder" SortMemberPath="Folder" Width="150">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Classes="cell" Text="{Binding Grade}" Margin="12,0"
-                         ToolTip.Tip="{x:Static core:ImposterView.GradeLimit}" />
+              <TextBlock Classes="cell" Text="{Binding Folder}" ToolTip.Tip="{Binding FolderPath}" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Note" Binding="{Binding Note}" Width="Auto" />
+        <DataGridTemplateColumn Header="Grade" SortMemberPath="Grade" Width="230">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding Grade}" ToolTip.Tip="{Binding GradeTip}"
+                         ToolTip.ServiceEnabled="{Binding GradeTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Note" SortMemberPath="Note" Width="160">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding Note}" ToolTip.Tip="{Binding Note}"
+                         ToolTip.ServiceEnabled="{Binding Note, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
         <DataGridTemplateColumn Header="Length" SortMemberPath="Seconds" Width="Auto">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Classes="cell" Classes.lengthGap="{Binding HasLengthGap}"
-                         Text="{Binding Length}" Margin="12,0" />
+              <TextBlock Classes="cell" Classes.lengthGap="{Binding HasLengthGap}" Text="{Binding Length}" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Quality" Binding="{Binding Quality}" Width="Auto" />
+        <DataGridTemplateColumn Header="Quality" SortMemberPath="Quality" Width="170">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding Quality}" ToolTip.Tip="{Binding Quality}"
+                         ToolTip.ServiceEnabled="{Binding Quality, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <!-- The short form fits the column; the full sentence is its tooltip. -->
+        <DataGridTemplateColumn Header="Verdict" SortMemberPath="VerdictShort" Width="130">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding VerdictShort}" ToolTip.Tip="{Binding Verdict}"
+                         ToolTip.ServiceEnabled="{Binding Verdict, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="File" SortMemberPath="File" Width="200">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding File}" ToolTip.Tip="{Binding Path}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
         <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="SizeBytes" Width="Auto" />
       </DataGrid.Columns>
     </DataGrid>

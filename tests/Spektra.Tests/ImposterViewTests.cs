@@ -51,6 +51,7 @@ public sealed class ImposterViewTests
             .. Enum.GetValues<CopyGrade>().Select(ImposterView.GradeText),
             .. Enum.GetValues<CopyGrade>().Select(ImposterView.ShortGrade),
             .. Enum.GetValues<SongVerdict>().Select(ImposterView.VerdictText),
+            .. Enum.GetValues<SongVerdict>().Select(ImposterView.ShortVerdict),
             ImposterView.GradeLimit,
         ];
 
@@ -66,6 +67,7 @@ public sealed class ImposterViewTests
         await Assert.That(() => ImposterView.GradeText((CopyGrade)99)).ThrowsExactly<ArgumentOutOfRangeException>();
         await Assert.That(() => ImposterView.ShortGrade((CopyGrade)99)).ThrowsExactly<ArgumentOutOfRangeException>();
         await Assert.That(() => ImposterView.VerdictText((SongVerdict)99)).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => ImposterView.ShortVerdict((SongVerdict)99)).ThrowsExactly<ArgumentOutOfRangeException>();
 
         // Ordered places each verdict and each grade by name too.
         var song = Song(F(Rips, "Alpha.m4a"), SongVerdict.NoneConfirmed, (F(Old, "Alpha.flac"), CopyGrade.DoesntLineUp));
@@ -247,5 +249,13 @@ public sealed class ImposterViewTests
         var text = ImposterView.Playlist([Song(reference, SongVerdict.NoneConfirmed, (copy, CopyGrade.DoesntLineUp))], Rips, Checked);
 
         await Assert.That(text).Contains($"\n{Path.GetFullPath(copy.Path)}\n");
+    }
+
+    [Test]
+    public async Task ShortVerdict_HoldsTheExactCopy()
+    {
+        await Assert.That(ImposterView.ShortVerdict(SongVerdict.NoneConfirmed)).IsEqualTo("No copy confirmed");
+        await Assert.That(ImposterView.ShortVerdict(SongVerdict.SomeConfirmed)).IsEqualTo("A copy differs");
+        await Assert.That(ImposterView.ShortVerdict(SongVerdict.AllConfirmed)).IsEqualTo("All clear");
     }
 }

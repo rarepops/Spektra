@@ -249,4 +249,49 @@ public sealed class ImposterViewModelTests
         // The scan opened the cache it was given, never the user's.
         await Assert.That(File.Exists(ownCache)).IsTrue();
     }
+
+    [Test]
+    public async Task Rows_CarryTheShortVerdictAndTheFolderPath()
+    {
+        var vm = await ScanTheLibrary();
+
+        // Song One: Old's copy is the reference recording and New's is not, so a copy differs. Each
+        // row names the folder its own file was found under.
+        var reference = RowOf(vm, _lib.Rips, "Artist Name - Song One.mp3");
+        var copy = RowOf(vm, _lib.New, "Artist Name - Song One.wav");
+        await Assert.That(reference.VerdictShort).IsEqualTo("A copy differs");
+        await Assert.That(reference.FolderPath).IsEqualTo(_lib.Rips);
+        await Assert.That(copy.VerdictShort).IsEqualTo("A copy differs");
+        await Assert.That(copy.FolderPath).IsEqualTo(_lib.New);
+
+        // A file no reference file names belongs to no song, so it has no verdict, short or long.
+        vm.ShowNoReference = true;
+        var lone = vm.Rows.Single();
+        await Assert.That(lone.VerdictShort).IsEqualTo("");
+        await Assert.That(lone.FolderPath).IsEqualTo(_lib.Old);
+    }
+
+    [Test]
+    public async Task GradeTip_HoldsTheGradeThenAnyNoteThenWhatAGradeCanTell()
+    {
+        // Built by hand, because no copy in the library holds audio the scan found in another file:
+        // Old's copy holds Other Song's, so it carries a note.
+        const string Rips = "/music/Rips", Old = "/music/Old";
+        var referenceFile = new ScannedFile($"{Rips}/Artist Name - Song Title.m4a", Rips, null, 200);
+        var copyFile = new ScannedFile($"{Old}/Artist Name - Song Title.flac", Old, 9, 200);
+        var noted = new GradedCopy(copyFile, CopyGrade.DoesntLineUp, 0.2, $"{Rips}/Artist Name - Other Song.m4a");
+        var song = new ImposterSong(referenceFile, [noted], SongVerdict.NoneConfirmed, null);
+        var result = new ImposterResult(Rips, [Old], [song], [], [], 2);
+        const string Grade = "Doesn't line up: a cover, another song, or another master";
+
+        var withNote = new ImposterRowItem(result, "copy", copyFile, song, noted);
+        await Assert.That(withNote.GradeTip).IsEqualTo(
+            $"{Grade}\nthe same audio as Artist Name - Other Song.m4a in Rips\n{ImposterView.GradeLimit}");
+
+        var plain = new ImposterRowItem(result, "copy", copyFile, song, noted with { SameAudioAs = null });
+        await Assert.That(plain.GradeTip).IsEqualTo($"{Grade}\n{ImposterView.GradeLimit}");
+
+        // A row with no grade has no tip, so its cell shows none.
+        await Assert.That(new ImposterRowItem(result, "no-reference", copyFile).GradeTip).IsEqualTo("");
+    }
 }
