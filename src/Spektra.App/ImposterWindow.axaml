@@ -1,6 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:core="clr-namespace:Spektra.Core;assembly=Spektra.Core"
         x:Class="Spektra.App.ImposterWindow"
         Title="Imposter Buster" Width="1180" Height="700"
         Background="#111111" Foreground="#CCCCCC" FontSize="13"
