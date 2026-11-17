@@ -110,8 +110,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Parse's compare path returns early, so DupesRoot/ManifestRoot are
-        // structurally impossible alongside a Compare; these run only when
+        // Parse's compare path returns early, so DupesRoot/ManifestRoot/Imposters
+        // are structurally impossible alongside a Compare; these run only when
         // the block above did not already return.
         // Both target the one Duplicate Detective window, so a command line
         // naming each would have the second silently overwrite the first.
@@ -119,6 +119,7 @@ public partial class MainWindow : Window
         if (request.Diff is { } diff) EnsureDupesWindow(diff);
         else if (request.DupesRoot is { } dupesRoot) EnsureDupesWindow(dupesRoot);
         if (request.ManifestRoot is { } manifestRoot) EnsureManifestWindow(manifestRoot);
+        if (request.Imposters is { } imposters) EnsureImposterWindow(imposters);
 
         if (request.Files.Count > 0) _vm.OpenFiles(request.Files);
         foreach (var folder in request.Folders) _vm.OpenFolder(folder);

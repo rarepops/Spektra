@@ -136,6 +136,7 @@
           <MenuItem Header="{Binding DuplicatesHeader}" Click="OnDuplicateDetectiveClicked" />
           <MenuItem x:Name="CompareFoldersMenu" Header="{Binding CompareFoldersHeader}" />
           <MenuItem Header="{Binding ManifestHeader}" Click="OnFolderManifestClicked" />
+          <MenuItem Header="Imposter _Buster…" Click="OnImposterBusterClicked" />
         </MenuItem>
         <MenuItem Header="_Help">
           <MenuItem Header="_Controls" Click="OnControlsClicked" InputGesture="F1" />

@@ -8,6 +8,9 @@ public sealed record ComparePair(string PathA, string PathB, bool AutoAlign, str
 /// which is why this cannot ride on --dupes.
 public sealed record DiffPair(string FolderA, string FolderB);
 
+/// One `--imposters reference folder...` request: the reference folder, then the folders to check.
+public sealed record ImposterFolders(string Reference, IReadOnlyList<string> Folders);
+
 /// What a command line asked the GUI to open. Bare means "nothing targeted",
 /// which is the only case that restores the previous session's tabs.
 public sealed record LaunchRequest(
@@ -16,11 +19,13 @@ public sealed record LaunchRequest(
     ComparePair? Compare,
     string? DupesRoot,
     string? ManifestRoot,
-    DiffPair? Diff = null)
+    DiffPair? Diff = null,
+    ImposterFolders? Imposters = null)
 {
     public bool IsBare =>
         Files.Count == 0 && Folders.Count == 0
-        && Compare is null && DupesRoot is null && ManifestRoot is null && Diff is null;
+        && Compare is null && DupesRoot is null && ManifestRoot is null && Diff is null
+        && Imposters is null;
 }
 
 /// Parses the GUI's command line. Pure: the two existence predicates are
@@ -41,6 +46,7 @@ public static class LaunchArgs
 
         ComparePair? compare = null;
         DiffPair? diff = null;
+        ImposterFolders? imposters = null;
         string? dupesRoot = null;
         string? manifestRoot = null;
         var files = new List<string>();
@@ -81,12 +87,27 @@ public static class LaunchArgs
                 if (first is not null && second is not null) diff = new DiffPair(first, second);
                 continue;
             }
+            if (string.Equals(arg, "--imposters", StringComparison.Ordinal))
+            {
+                // Any number of folders to check follow the reference, so every argument up to
+                // the next switch is this switch's, and none of them opens as a tab. The real
+                // folders among them, in order, are the reference and then the folders to check;
+                // fewer than two is no check, for the reason half a diff is no diff.
+                var named = new List<string>();
+                while (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                {
+                    var candidate = args[++i];
+                    if (isDir(candidate)) named.Add(candidate);
+                }
+                if (named.Count >= 2) imposters = new ImposterFolders(named[0], [.. named.Skip(1)]);
+                continue;
+            }
             if (isFile(arg)) files.Add(arg);
             else if (isDir(arg)) folders.Add(arg);
             // Anything else (unknown flags, vanished paths) is dropped.
         }
 
-        return new LaunchRequest(files, folders, compare, dupesRoot, manifestRoot, diff);
+        return new LaunchRequest(files, folders, compare, dupesRoot, manifestRoot, diff, imposters);
     }
 
     /// Consumes the argument after a switch when it is a real folder. The index
