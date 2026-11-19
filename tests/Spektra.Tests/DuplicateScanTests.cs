@@ -471,6 +471,34 @@ public sealed class DuplicateScanTests
         }
     }
 
+    [Test]
+    public async Task Run_ListsEachFilesModifiedTime()
+    {
+        var rootA = Directory.CreateTempSubdirectory("mtime-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("mtime-b").FullName;
+        try
+        {
+            var (tonesWav, chirp, tonesMp3, broken) = CopyListedLibrary(rootA, rootB);
+
+            // A time of its own for each file, so one read from another file cannot pass.
+            string[] paths = [tonesWav, chirp, tonesMp3, broken];
+            for (var i = 0; i < paths.Length; i++)
+                File.SetLastWriteTimeUtc(paths[i], new DateTime(2021, 3, 4, 5, 6, 7, DateTimeKind.Utc).AddMinutes(i * 37 + 1));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Files.Count).IsEqualTo(4);
+            await Assert.That(result.Files.Select(f => f.MtimeTicks).Distinct().Count()).IsEqualTo(4);
+            foreach (var file in result.Files)
+                await Assert.That(file.MtimeTicks).IsEqualTo(File.GetLastWriteTimeUtc(file.Path).Ticks);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
     /// The library the listing and similarity tests share: one recording in
     /// two formats under unrelated names, a stranger, and a file no ffmpeg
     /// build decodes. corrupt.flac will not do for that last one: some builds

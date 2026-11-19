@@ -38,6 +38,10 @@ public sealed class AuditCache : IDisposable
     /// bumps must not throw fingerprints away, nor the reverse.
     public const int FingerprintVersion = 1;
 
+    /// Bump whenever TrackIds.FromTags reads tags differently, so cached IDs are read again.
+    /// Independent of AnalysisVersion and FingerprintVersion.
+    public const int TrackIdsVersion = 1;
+
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Spektra", "audit-cache.db");
@@ -130,6 +134,13 @@ public sealed class AuditCache : IDisposable
                     artist TEXT NULL,
                     title TEXT NULL,
                     fp BLOB NOT NULL);
+                CREATE TABLE IF NOT EXISTS track_ids(
+                    path TEXT PRIMARY KEY,
+                    size INTEGER NOT NULL,
+                    mtime_ticks INTEGER NOT NULL,
+                    ids_version INTEGER NOT NULL,
+                    spotify_id TEXT NULL,
+                    isrc TEXT NULL);
                 """;
             cmd.ExecuteNonQuery();
             return new AuditCache(db);
@@ -260,6 +271,52 @@ public sealed class AuditCache : IDisposable
         }
     }
 
+    /// The IDs cached for exactly this file (path, size, modified time) at TrackIdsVersion, or null
+    /// when there are none cached. A file known to carry no ID gives TrackIds.None, never null.
+    public TrackIds? TryGetTrackIds(AuditTarget target)
+    {
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                SELECT size, mtime_ticks, ids_version, spotify_id, isrc
+                FROM track_ids WHERE path = $path
+                """;
+            cmd.Parameters.AddWithValue("$path", target.Path);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            if (r.GetInt64(0) != target.SizeBytes
+                || r.GetInt64(1) != target.MtimeTicks
+                || r.GetInt32(2) != TrackIdsVersion)
+                return null;
+            return new TrackIds(
+                r.IsDBNull(3) ? null : r.GetString(3),
+                r.IsDBNull(4) ? null : r.GetString(4));
+        }
+    }
+
+    public void PutTrackIds(AuditTarget target, TrackIds ids)
+    {
+        lock (_gate)
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO track_ids(path, size, mtime_ticks, ids_version, spotify_id, isrc)
+                VALUES($path, $size, $mtime, $ver, $spotify, $isrc)
+                ON CONFLICT(path) DO UPDATE SET
+                    size = $size, mtime_ticks = $mtime, ids_version = $ver,
+                    spotify_id = $spotify, isrc = $isrc
+                """;
+            cmd.Parameters.AddWithValue("$path", target.Path);
+            cmd.Parameters.AddWithValue("$size", target.SizeBytes);
+            cmd.Parameters.AddWithValue("$mtime", target.MtimeTicks);
+            cmd.Parameters.AddWithValue("$ver", TrackIdsVersion);
+            cmd.Parameters.AddWithValue("$spotify", (object?)ids.SpotifyId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$isrc", (object?)ids.Isrc ?? DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
     /// Deletes rows for files under `folder` that no longer exist there
     /// (`livePaths` is the current enumeration). Rows for other folders are
     /// untouched, so entries for unmounted drives survive. Call only after a
@@ -269,7 +326,7 @@ public sealed class AuditCache : IDisposable
         var live = new HashSet<string>(livePaths, StringComparer.OrdinalIgnoreCase);
         lock (_gate)
         {
-            // One transaction for both tables. A per-row DELETE commits (and
+            // One transaction for all three tables. A per-row DELETE commits (and
             // flushes) on its own, measured at ~1.5 ms per row, so 2500 stale
             // rows took 3.7 s, paid inside the folder walk on every tab open
             // and every Refresh. Batching is safe here in a way batching Put is
@@ -278,6 +335,7 @@ public sealed class AuditCache : IDisposable
             using var txn = _db.BeginTransaction();
             PruneTable("files", folder, live, txn);
             PruneTable("fingerprints", folder, live, txn);
+            PruneTable("track_ids", folder, live, txn);
             txn.Commit();
         }
     }

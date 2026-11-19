@@ -355,6 +355,7 @@ public static class DuplicateScan
             {
                 Row = row,
                 SizeBytes = files[i].SizeBytes,
+                MtimeTicks = files[i].MtimeTicks,
             };
         }
         return scanned;

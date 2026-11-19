@@ -14,6 +14,10 @@ public sealed record ScannedFile(string Path, string Root, int? Group, double? S
 
     /// The file's size on disk, in bytes.
     public long SizeBytes { get; init; }
+
+    /// The file's last-write time in UTC ticks, as the scan read it: with the path and the size it is
+    /// the identity the cache keys on.
+    public long MtimeTicks { get; init; }
 }
 
 /// Two files under different roots whose names say they are the same track while their audio groups
