@@ -88,7 +88,7 @@ public sealed class ImposterViewModelTests
     public async Task TheLabelsCountTheWholeResult()
     {
         var vm = await ScanTheLibrary();
-        const string Counted = "To hear · 3 | All clear · 2 | No reference · 1 | Not in the checked folders · 1";
+        const string Counted = "To hear · 3 | All clear · 3 | No reference · 1 | Not in the checked folders · 1";
 
         await Assert.That(Labels(vm)).IsEqualTo(Counted);
 
@@ -108,7 +108,8 @@ public sealed class ImposterViewModelTests
         await Assert.That(Listed(vm.Rows)).IsEqualTo(
             "reference Rips/Artist Name - Song Five.wav, copy Old/Artist Name - Song Five.wav, "
             + "copy New/Artist Name - Song Five.wav, "
-            + "reference Rips/Artist Name - Song Two.wav, copy Old/Artist Name - Song Two.wav");
+            + "reference Rips/Artist Name - Song Two.wav, copy Old/Artist Name - Song Two.wav, "
+            + "reference Rips/Artist Name - Tagged Song.flac, copy Old/Track 06.flac, copy New/Download 1234.flac");
 
         vm.ShowNoReference = true;
         await Assert.That(Listed(vm.Rows)).IsEqualTo("no-reference Old/Bonus Track.wav");

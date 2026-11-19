@@ -53,6 +53,19 @@ internal sealed class ImposterLibrary : IDisposable
             Path.Combine(Old, "Artist Name - Song Five.wav"));
         File.Copy(Path.Combine(Rips, "Artist Name - Song Five.wav"), Path.Combine(New, "Artist Name - Song Five.wav"));
 
+        // The Tagged Song: no name pairs its copies with the reference file, only the IDs in their
+        // tags. Old's copy carries the ISRC, written with hyphens and in lower case, and New's a
+        // Spotify track link in its comment. All three hold the same audio, tones-a pitched up a
+        // major third so that it matches no other song.
+        Ffmpeg("-stream_loop", "9", "-i", Fixture("tones-a.wav"), "-af", "asetrate=55125,aresample=44100",
+            "-metadata", "SPOTID=6SpektraTaggedSong0000", "-metadata", "ISRC=ZZSPK2600001",
+            Path.Combine(Rips, "Artist Name - Tagged Song.flac"));
+        Ffmpeg("-i", Path.Combine(Rips, "Artist Name - Tagged Song.flac"), "-map_metadata", "-1", "-c", "copy",
+            "-metadata", "ISRC=zz-spk-26-00001", Path.Combine(Old, "Track 06.flac"));
+        Ffmpeg("-i", Path.Combine(Rips, "Artist Name - Tagged Song.flac"), "-map_metadata", "-1", "-c", "copy",
+            "-metadata", "comment=https://open.spotify.com/track/6SpektraTaggedSong0000?si=abc",
+            Path.Combine(New, "Download 1234.flac"));
+
         // A file to check that no reference file names, and a reference file that no copy names.
         Loop("sine-1khz.wav", 8, Path.Combine(Old, "Bonus Track.wav"));
         Loop("gap.wav", 8, Path.Combine(Rips, "Rips Only.wav"));

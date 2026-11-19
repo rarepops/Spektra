@@ -31,13 +31,21 @@ public sealed class ImposterSongsTests
     private static Func<string, string, double> Similar(params (ScannedFile A, ScannedFile B, double Value)[] pairs) =>
         (a, b) => pairs.FirstOrDefault(p => (p.A.Path, p.B.Path) == (a, b) || (p.A.Path, p.B.Path) == (b, a)).Value;
 
+    // Invented track IDs: a Spotify ID's 22 base62 characters, and an ISRC as TrackIds keeps it.
+    private const string SpotifyA = "6SpektraSongTitleA0000", SpotifyB = "6SpektraSongTitleB0000", IsrcA = "ZZSPK2600011";
+
+    // The IDs from (file, Spotify ID, ISRC) triples, keyed as the scan keys them: by path, ignoring case.
+    private static Dictionary<string, TrackIds> Ids(params (ScannedFile File, string? SpotifyId, string? Isrc)[] tagged) =>
+        tagged.ToDictionary(t => t.File.Path, t => new TrackIds(t.SpotifyId, t.Isrc), StringComparer.OrdinalIgnoreCase);
+
     // Build over what Candidates finds in the same files, as the scan will call it. Unless a test
-    // passes its own similarity, every audio group holds identical copies.
+    // passes its own similarity, every audio group holds identical copies, and unless it passes IDs,
+    // no file carries one.
     private static ImposterResult Build(
         ScannedFile[] files, Func<string, string, SuspectVerdict?> alignmentOf,
-        Func<string, string, double>? similarity = null, string[]? roots = null) =>
+        Func<string, string, double>? similarity = null, string[]? roots = null, IReadOnlyDictionary<string, TrackIds>? ids = null) =>
         ImposterSongs.Build(
-            ImposterSongs.Candidates(files, Rips), files, Rips, roots ?? Checked, alignmentOf, similarity ?? Identical(files), files.Length);
+            ImposterSongs.Candidates(files, Rips, ids), files, Rips, roots ?? Checked, alignmentOf, similarity ?? Identical(files), files.Length);
 
     // A path as these tests name a file: below /music/.
     private static string Short(string path) => path["/music/".Length..];
@@ -46,7 +54,12 @@ public sealed class ImposterSongsTests
 
     // Each copy that has a candidate, as "copy <- its references".
     private static string Show(ImposterCandidates found) =>
-        string.Join(" | ", found.Copies.Select(c => $"{Short(c.Copy.Path)} <- {Names(c.References)}"));
+        string.Join(" | ", found.Copies.Select(c => $"{Short(c.Copy.Path)} <- {Names(c.References.Select(r => r.Reference))}"));
+
+    // Each copy that has a candidate, as "copy <- reference by how, reference by how".
+    private static string Matched(ImposterCandidates found) =>
+        string.Join(" | ", found.Copies.Select(c =>
+            $"{Short(c.Copy.Path)} <- " + string.Join(", ", c.References.Select(r => $"{Short(r.Reference.Path)} by {r.MatchedBy}"))));
 
     // Each song as "reference (verdict): copy grade, copy grade", with a copy's SameAudioAs after an equals sign.
     private static string Show(ImposterResult result) =>
@@ -635,5 +648,181 @@ public sealed class ImposterSongsTests
         await Assert.That(Show(result)).IsEqualTo("");
         await Assert.That(Names(result.NoReference)).IsEqualTo("Old/Artist Name - Song Title.flac, New/Artist Name - Song Title.flac");
         await Assert.That(Names(result.ReferenceOnly)).IsEqualTo("Rips/Someone Else - Third Song.m4a");
+    }
+
+    [Test]
+    public async Task Candidates_PairsByASharedSpotifyId()
+    {
+        // The names share nothing, but both files' tags carry one Spotify track ID.
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "01 Track.flac");
+        var found = ImposterSongs.Candidates([reference, copy], Rips, Ids((reference, SpotifyA, null), (copy, SpotifyA, null)));
+
+        await Assert.That(Matched(found)).IsEqualTo("Old/01 Track.flac <- Rips/Artist Name - Song Title.m4a by SpotifyId");
+
+        // Without the IDs, nothing pairs the two.
+        await Assert.That(Names(ImposterSongs.Candidates([reference, copy], Rips).NoReference)).IsEqualTo("Old/01 Track.flac");
+    }
+
+    [Test]
+    public async Task Candidates_PairsByASharedIsrc()
+    {
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "01 Track.flac");
+        var found = ImposterSongs.Candidates([reference, copy], Rips, Ids((reference, null, IsrcA), (copy, null, IsrcA)));
+
+        await Assert.That(Matched(found)).IsEqualTo("Old/01 Track.flac <- Rips/Artist Name - Song Title.m4a by Isrc");
+    }
+
+    [Test]
+    public async Task Candidates_ComparesSpotifyIdsExactly()
+    {
+        // A Spotify ID is base62, so two that differ only in case name two tracks.
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "01 Track.flac");
+        var found = ImposterSongs.Candidates(
+            [reference, copy], Rips, Ids((reference, SpotifyA, null), (copy, SpotifyA.ToLowerInvariant(), null)));
+
+        await Assert.That(Matched(found)).IsEqualTo("");
+    }
+
+    [Test]
+    public async Task Candidates_NeverPairsTwoCheckedFilesByAnId()
+    {
+        // The two checked files share both IDs, which no reference file carries.
+        var oldFile = F(Old, "01 Track.flac");
+        var newFile = F(New, "Download 1.flac");
+        var found = ImposterSongs.Candidates(
+            [F(Rips, "Artist Name - Song Title.m4a"), oldFile, newFile], Rips,
+            Ids((oldFile, SpotifyA, IsrcA), (newFile, SpotifyA, IsrcA)));
+
+        await Assert.That(Names(found.NoReference)).IsEqualTo("Old/01 Track.flac, New/Download 1.flac");
+    }
+
+    [Test]
+    public async Task Candidates_AddsIdPairsToNamePairs()
+    {
+        // The copy is named like one reference file and carries another's Spotify ID: both are
+        // candidates, each matched the way it was found, in path order.
+        var named = F(Rips, "Artist Name - Song Title.m4a");
+        var tagged = F(Rips, "Another Band - Different Tune.m4a");
+        var copy = F(Old, "Artist Name - Song Title.flac");
+        var found = ImposterSongs.Candidates([named, tagged, copy], Rips, Ids((tagged, SpotifyB, null), (copy, SpotifyB, null)));
+
+        await Assert.That(Matched(found)).IsEqualTo(
+            "Old/Artist Name - Song Title.flac <- Rips/Another Band - Different Tune.m4a by SpotifyId, "
+            + "Rips/Artist Name - Song Title.m4a by Name");
+    }
+
+    [Test]
+    public async Task Candidates_APairFoundByNameAndId_IsMatchedByTheId()
+    {
+        // The names pair the two, and the strongest ID both carry says how: the reference file's
+        // Spotify ID counts only once the copy carries it too.
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "Artist Name - Song Title.flac");
+
+        await Assert.That(Matched(ImposterSongs.Candidates([reference, copy], Rips, Ids((reference, SpotifyA, IsrcA), (copy, null, IsrcA)))))
+            .IsEqualTo("Old/Artist Name - Song Title.flac <- Rips/Artist Name - Song Title.m4a by Isrc");
+        await Assert.That(Matched(ImposterSongs.Candidates([reference, copy], Rips, Ids((reference, SpotifyA, IsrcA), (copy, SpotifyA, IsrcA)))))
+            .IsEqualTo("Old/Artist Name - Song Title.flac <- Rips/Artist Name - Song Title.m4a by SpotifyId");
+    }
+
+    [Test]
+    public async Task Candidates_AnIsrcOnTwoReferenceFiles_MakesBothCandidates()
+    {
+        // The reference folder can hold one recording twice under its ISRC, a single and its album
+        // track, say: the copy's audio decides which of the two it joins.
+        var single = F(Rips, "Artist Name - Song Title.m4a");
+        var album = F(Rips, "01 Song Title.m4a");
+        var copy = F(Old, "Download 1.flac");
+        var found = ImposterSongs.Candidates(
+            [single, album, copy], Rips, Ids((single, null, IsrcA), (album, null, IsrcA), (copy, null, IsrcA)));
+
+        await Assert.That(Matched(found)).IsEqualTo(
+            "Old/Download 1.flac <- Rips/01 Song Title.m4a by Isrc, Rips/Artist Name - Song Title.m4a by Isrc");
+    }
+
+    [Test]
+    public async Task PairsToAlign_AlignsTheCandidatesAnIdFound()
+    {
+        // No name pairs the two and nothing is identical, so the candidate the ID found is aligned.
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "01 Track.flac");
+        var pairs = ImposterSongs.PairsToAlign(
+            ImposterSongs.Candidates([reference, copy], Rips, Ids((reference, SpotifyA, null), (copy, SpotifyA, null))), Similar());
+
+        await Assert.That(string.Join(" | ", pairs.Select(p => $"{Short(p.Reference.Path)} ~ {Short(p.Copy.Path)}")))
+            .IsEqualTo("Rips/Artist Name - Song Title.m4a ~ Old/01 Track.flac");
+    }
+
+    [Test]
+    public async Task Build_TheAudioDecidesBeforeTheId()
+    {
+        // The copy is named like one reference file and carries another's Spotify ID, but only the
+        // named one lines up: the better grade wins over the stronger match.
+        var named = F(Rips, "Artist Name - Song Title.m4a");
+        var tagged = F(Rips, "Another Band - Different Tune.m4a");
+        var copy = F(Old, "Artist Name - Song Title.flac");
+        var result = Build(
+            [named, tagged, copy], (reference, _) => Aligned(reference == named.Path ? 0.93 : 0.2),
+            ids: Ids((tagged, SpotifyB, null), (copy, SpotifyB, null)));
+
+        await Assert.That(Show(result)).IsEqualTo(
+            "Rips/Artist Name - Song Title.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
+        await Assert.That(result.Songs[0].Copies[0].MatchedBy).IsEqualTo(MatchKind.Name);
+    }
+
+    [Test]
+    public async Task Build_BetweenEqualGrades_TheStrongerMatchWins()
+    {
+        // Both reference files hold the copy's audio, by its fingerprint: the one that shares its
+        // Spotify ID wins, though the named one is more similar.
+        var named = F(Rips, "Artist Name - Song Title.m4a", 1);
+        var tagged = F(Rips, "Another Band - Different Tune.m4a", 1);
+        var copy = F(Old, "Artist Name - Song Title.flac", 1);
+        var ids = Ids((tagged, SpotifyB, null), (copy, SpotifyB, null));
+        var identical = Build([named, tagged, copy], NoAlignment, Similar((named, copy, 0.99), (tagged, copy, 0.95)), ids: ids);
+
+        await Assert.That(Show(identical)).IsEqualTo(
+            "Rips/Another Band - Different Tune.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
+        await Assert.That(identical.Songs[0].Copies[0].AlignConfidence).IsNull();
+
+        // Both line up as the same performance, at equal lengths and in no audio group: the one that
+        // shares the Spotify ID wins, though the named one lines up better.
+        var aligned = Build(
+            [F(Rips, "Artist Name - Song Title.m4a"), F(Rips, "Another Band - Different Tune.m4a"), F(Old, "Artist Name - Song Title.flac")],
+            (reference, _) => Aligned(reference == named.Path ? 0.95 : 0.9), ids: ids);
+
+        await Assert.That(Show(aligned)).IsEqualTo(
+            "Rips/Another Band - Different Tune.m4a (AllConfirmed): Old/Artist Name - Song Title.flac Confirmed");
+    }
+
+    [Test]
+    public async Task Build_ACopyWithItsReferenceFilesOwnId_IsGradedByItsAudio()
+    {
+        // The copy's tags say it is the reference file's track, but its opening does not line up: the
+        // ID chose the reference file, and the audio decides the grade.
+        var reference = F(Rips, "Artist Name - Song Title.m4a");
+        var copy = F(Old, "01 Track.flac");
+        var result = Build([reference, copy], (_, _) => Aligned(0.2), ids: Ids((reference, SpotifyA, null), (copy, SpotifyA, null)));
+
+        await Assert.That(Show(result)).IsEqualTo("Rips/Artist Name - Song Title.m4a (NoneConfirmed): Old/01 Track.flac DoesntLineUp");
+        await Assert.That(result.Songs[0].Copies[0].MatchedBy).IsEqualTo(MatchKind.SpotifyId);
+    }
+
+    [Test]
+    public async Task Build_WithoutIds_MatchesEveryCopyByName()
+    {
+        // One copy confirmed by its fingerprint and one graded from its alignment, and no file carries an ID.
+        var result = Build(
+        [
+            F(Rips, "Artist Name - Song Title.m4a", 1),
+            F(Old, "Artist Name - Song Title.flac", 1),
+            F(New, "Artist Name - Song Title.flac"),
+        ], (_, _) => Aligned(0.2));
+
+        await Assert.That(string.Join(", ", result.Songs.SelectMany(s => s.Copies).Select(c => $"{Short(c.File.Path)} {c.MatchedBy}")))
+            .IsEqualTo("Old/Artist Name - Song Title.flac Name, New/Artist Name - Song Title.flac Name");
     }
 }

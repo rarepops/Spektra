@@ -1,12 +1,13 @@
 namespace Spektra.Core;
 
 /// Imposter Buster's engine: the duplicate scan over the reference folder and the folders to check,
-/// then an alignment of each pair that no identical fingerprint settles (the only audio work beyond
-/// the scan), then ImposterSongs' rule over what both found.
+/// then the track IDs in every file's tags, then an alignment of each pair that no identical
+/// fingerprint settles (the only audio work beyond the scan), then ImposterSongs' rule over what
+/// they found.
 public static class ImposterScan
 {
-    /// Scans the reference folder and the folders to check, then grades every checked copy
-    /// against the reference files that carry its name. Report only: no file is touched.
+    /// Scans the reference folder and the folders to check, then grades every checked copy against
+    /// the reference files that carry its track IDs or its name. Report only: no file is touched.
     public static ImposterResult Run(
         FfmpegPaths ffmpeg, string reference, IReadOnlyList<string> roots, int jobs,
         AuditCache? cache = null, bool fresh = false,
@@ -24,7 +25,10 @@ public static class ImposterScan
             throw new ArgumentException($"{same} is the reference folder itself.", nameof(roots));
 
         var scan = DuplicateScan.Run(ffmpeg, [reference, .. roots], jobs, cache, fresh, progress, ct, minDurationSeconds);
-        var candidates = ImposterSongs.Candidates(scan.Files, reference);
+        // A fresh run reads every file's tags again, and with no cache to write it leaves the IDs
+        // cached before as they are.
+        var ids = TrackIdScan.Read(ffmpeg, scan.Files, jobs, fresh ? null : cache, progress, ct);
+        var candidates = ImposterSongs.Candidates(scan.Files, reference, ids);
         var pairs = ImposterSongs.PairsToAlign(candidates, scan.Similarity);
         var verdicts = SuspectLabeler.LabelAll(
             ffmpeg,

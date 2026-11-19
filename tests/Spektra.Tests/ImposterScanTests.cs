@@ -36,7 +36,7 @@ public sealed class ImposterScanTests
     {
         await Assert.That(string.Join(", ", _result.Songs.Select(s => Short(s.Reference.Path)))).IsEqualTo(
             "Rips/Artist Name - Song Five.wav, Rips/Artist Name - Song Four.wav, Rips/Artist Name - Song One.mp3, "
-            + "Rips/Artist Name - Song Three.wav, Rips/Artist Name - Song Two.wav");
+            + "Rips/Artist Name - Song Three.wav, Rips/Artist Name - Song Two.wav, Rips/Artist Name - Tagged Song.flac");
         var (five, four, one, three, two) = (_result.Songs[0], _result.Songs[1], _result.Songs[2], _result.Songs[3], _result.Songs[4]);
 
         // The reference file is a lossy encode of Old's copy: the scan groups the two and reads them
@@ -76,11 +76,25 @@ public sealed class ImposterScanTests
         await Assert.That(five.Copies[0].AlignConfidence).IsNull();
         await Assert.That(five.Copies[0].Similarity).IsGreaterThanOrEqualTo(ImposterSongs.IdenticalFrom);
         await Assert.That(five.Copies[0].SameAudioAs).IsNull();
+
+        // No name pairs the Tagged Song's copies with the reference file: Old's carries its ISRC and
+        // New's its Spotify track ID. All three hold the same audio, so both copies are confirmed by
+        // their fingerprints with no alignment.
+        var tagged = _result.Songs[5];
+        await Assert.That(Show(tagged)).IsEqualTo("AllConfirmed: Old/Track 06.flac Confirmed, New/Download 1234.flac Confirmed");
+        await Assert.That(string.Join(", ", tagged.Copies.Select(c => c.MatchedBy))).IsEqualTo("Isrc, SpotifyId");
+        await Assert.That(tagged.Copies[0].AlignConfidence).IsNull();
+        await Assert.That(tagged.Copies[1].AlignConfidence).IsNull();
+
+        // Every copy of the five other songs was paired by its name.
+        await Assert.That(string.Join(", ", _result.Songs.Take(5).SelectMany(s => s.Copies).Select(c => c.MatchedBy).Distinct()))
+            .IsEqualTo("Name");
     }
 
     [Test]
     public async Task Run_ListsWhatHasNoCounterpart()
     {
+        // Without their IDs, the Tagged Song's two copies would be listed here too: no name pairs them.
         await Assert.That(Names(_result.NoReference)).IsEqualTo("Old/Bonus Track.wav");
         await Assert.That(Names(_result.ReferenceOnly)).IsEqualTo("Rips/Rips Only.wav");
         await Assert.That(_result.ReferenceRoot).IsEqualTo(Path.GetFullPath(_lib.Rips));
@@ -96,10 +110,15 @@ public sealed class ImposterScanTests
         // The phases in the order they ran, each run of reports collapsed to one name: an Analyzing
         // report after the first Checking one, or any other report after the alignment, adds a name.
         var phases = reports.Where((r, i) => i == 0 || r.Phase != reports[i - 1].Phase).Select(r => r.Phase);
-        await Assert.That(string.Join(", ", phases)).IsEqualTo("Analyzing, Matching, Checking");
+        await Assert.That(string.Join(", ", phases)).IsEqualTo("Analyzing, Matching, Reading tags, Checking");
+        // The Tagged Song's copies are identical to their reference file, so nothing more is aligned.
         var checking = reports.Where(r => r.Phase == "Checking").ToArray();
         await Assert.That(string.Join(", ", checking.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("1/4, 2/4, 3/4, 4/4");
         await Assert.That(checking[^1].Fraction).IsEqualTo(1.0);
+
+        // The tags are read once a file, and of 17 files only the last one reports.
+        var reading = reports.Where(r => r.Phase == "Reading tags");
+        await Assert.That(string.Join(", ", reading.Select(r => $"{r.Done}/{r.Total}"))).IsEqualTo("17/17");
     }
 
     [Test]

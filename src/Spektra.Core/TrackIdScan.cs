@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 
 namespace Spektra.Core;
 
+/// The track IDs of the scanned files: each file's Spotify track ID and ISRC, read from its tags
+/// once per file and kept in the audit cache.
 public static class TrackIdScan
 {
     /// The IDs of every file, keyed by its path ignoring case: from the cache where it holds them
