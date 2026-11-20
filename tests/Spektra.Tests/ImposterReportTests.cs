@@ -36,11 +36,16 @@ public sealed class ImposterReportTests
     private static readonly ScannedFile BonusTrack = F(Old, "Bonus Track.flac", null);
     private static readonly ScannedFile RipsOnly = F(Rips, "Rips Only.m4a", Aac(200));
 
-    // No copy confirmed: the one copy holds the audio of another song of the reference folder, and
-    // the reference file, ranked alone, is the best copy.
+    // No copy confirmed: the one copy carries Song Three's own Spotify ID while it holds the audio
+    // of another song of the reference folder. The reference file, ranked alone, is the best copy.
     private static readonly ImposterSong SongThree = new(
         ThreeReference,
-        [new GradedCopy(F(Old, "Artist Name - Song Three.flac", Flac(192)), CopyGrade.DoesntLineUp, 0.04321, $"{Rips}/Artist Name - Other Song.m4a")],
+        [
+            new GradedCopy(F(Old, "Artist Name - Song Three.flac", Flac(192)), CopyGrade.DoesntLineUp, 0.04321, $"{Rips}/Artist Name - Other Song.m4a")
+            {
+                MatchedBy = MatchKind.SpotifyId,
+            },
+        ],
         SongVerdict.NoneConfirmed,
         new QualityRanking([ThreeReference.Path], "High", "identical copies, keep either", [ThreeReference.Path]));
 
@@ -88,25 +93,28 @@ public sealed class ImposterReportTests
         await Assert.That(string.Concat(rows.Select(r => r.Best ? '*' : '.'))).IsEqualTo("*..*..*.*.**..");
 
         // Every column of the rows that show each kind of value. Grade, ReferencePath,
-        // ReferenceSeconds, SameAudioAs and Similarity belong to copy rows, AlignConfidence and
-        // Similarity are rounded to 3 places, Similarity is null where the scan did not match the
-        // copy with its reference file, and Quality is null for a file the scan could not read.
+        // ReferenceSeconds, SameAudioAs, Similarity and MatchedBy belong to copy rows,
+        // AlignConfidence and Similarity are rounded to 3 places, Similarity is null where the scan
+        // did not match the copy with its reference file, and Quality is null for a file the scan
+        // could not read.
         await Assert.That(rows[0]).IsEqualTo(new ImposterRow(
             "reference", "Artist Name - Song Three", "NoneConfirmed", Rips, "/music/Rips/Artist Name - Song Three.m4a",
-            null, null, 221, null, null, true, "aac cut at 19.5 kHz", null, null));
+            null, null, 221, null, null, true, "aac cut at 19.5 kHz", null, null, null));
         await Assert.That(rows[1]).IsEqualTo(new ImposterRow(
             "copy", "Artist Name - Song Three", "NoneConfirmed", Old, "/music/Old/Artist Name - Song Three.flac",
             "DoesntLineUp", 0.043, 192, "/music/Rips/Artist Name - Song Three.m4a", 221, false, "full-band lossless (flac)",
-            "/music/Rips/Artist Name - Other Song.m4a", null));
+            "/music/Rips/Artist Name - Other Song.m4a", null, "SpotifyId"));
         await Assert.That(rows[3]).IsEqualTo(new ImposterRow(
             "copy", "Artist Name - Song One", "SomeConfirmed", Old, "/music/Old/Artist Name - Song One.flac",
-            "Confirmed", null, 221, "/music/Rips/Artist Name - Song One.m4a", 221, true, "full-band lossless (flac)", null, 0.988));
+            "Confirmed", null, 221, "/music/Rips/Artist Name - Song One.m4a", 221, true, "full-band lossless (flac)", null, 0.988,
+            "Name"));
         await Assert.That(rows[4].AlignConfidence).IsEqualTo(0.613);
         await Assert.That(rows[12]).IsEqualTo(new ImposterRow(
-            "no-reference", null, null, Old, "/music/Old/Bonus Track.flac", null, null, null, null, null, false, null, null, null));
+            "no-reference", null, null, Old, "/music/Old/Bonus Track.flac", null, null, null, null, null, false, null, null, null,
+            null));
         await Assert.That(rows[13]).IsEqualTo(new ImposterRow(
             "reference-only", null, null, Rips, "/music/Rips/Rips Only.m4a", null, null, 200, null, null, false, "aac cut at 19.5 kHz",
-            null, null));
+            null, null, null));
     }
 
     [Test]
@@ -115,7 +123,7 @@ public sealed class ImposterReportTests
         var csv = Reporting.ToCsv(ImposterReport.Rows(Documented));
 
         await Assert.That(csv[..csv.IndexOf('\n')]).IsEqualTo(
-            "Kind,Song,Verdict,Root,Path,Grade,AlignConfidence,Seconds,ReferencePath,ReferenceSeconds,Best,Quality,SameAudioAs,Similarity");
+            "Kind,Song,Verdict,Root,Path,Grade,AlignConfidence,Seconds,ReferencePath,ReferenceSeconds,Best,Quality,SameAudioAs,Similarity,MatchedBy");
     }
 
     [Test]
@@ -127,7 +135,7 @@ public sealed class ImposterReportTests
             "No copy is confirmed as the reference recording · 1",
             "  1. Artist Name - Song Three",
             "     reference: /music/Rips/Artist Name - Song Three.m4a · 3:41 · aac cut at 19.5 kHz",
-            "     Old: /music/Old/Artist Name - Song Three.flac · 3:12 · Doesn't line up: a cover, another song, or another master",
+            "     Old: /music/Old/Artist Name - Song Three.flac · 3:12 · Doesn't line up: a cover, another song, or another master · matched by Spotify ID",
             "          the same audio as Artist Name - Other Song.m4a in Rips",
             "     best copy: the reference file",
             "A copy is not confirmed as the reference recording · 1",
@@ -136,7 +144,7 @@ public sealed class ImposterReportTests
             "     Old: /music/Old/Artist Name - Song One.flac · 3:41 · The reference recording",
             "     New: /music/New/Artist Name - Song One.flac · 3:39 · Partly the same: another mix or edit",
             "     best copy: Old: Artist Name - Song One.flac · winner is full-band lossless (flac), runner-up is aac cut at 19.5 kHz",
-            "No reference by name · 1 file(s)",
+            "No reference by name or ID · 1 file(s)",
             "     /music/Old/Bonus Track.flac",
             "Not in the checked folders · 1 reference file(s)",
             "     /music/Rips/Rips Only.m4a"));
@@ -150,7 +158,7 @@ public sealed class ImposterReportTests
 
         await Assert.That(ImposterReport.Text(result)).IsEqualTo(Lines(
             "Imposter Buster · reference Rips · 0 song(s) · 0 with no copy confirmed · 0 with a copy that differs · 0 all clear · 2 file(s) with no reference · 1 reference file(s) not in the checked folders · 3 scanned",
-            "No reference by name · 2 file(s)",
+            "No reference by name or ID · 2 file(s)",
             "     /music/Old/Bonus Track.flac",
             "     /music/New/Another Track.flac",
             "Not in the checked folders · 1 reference file(s)",
@@ -203,5 +211,43 @@ public sealed class ImposterReportTests
         await Assert.That(string.Join(" ", Enum.GetValues<CopyGrade>().Select(g => $"{g}={ImposterReport.HasFindings(OneCopy(g))}")))
             .IsEqualTo("Confirmed=False SameByFingerprint=True OtherLength=True PartlySame=True DoesntLineUp=True CantCompare=True");
         await Assert.That(ImposterReport.HasFindings(lists with { Songs = [SongOne] })).IsTrue();
+    }
+
+    // Song One with a copy paired each way: a third copy in Old by its Spotify ID, Old's named copy
+    // by its name, as a copy is unless it says otherwise, and New's copy by its ISRC.
+    private static readonly ImposterSong SongOneByEveryMatch = SongOne with
+    {
+        Copies =
+        [
+            new GradedCopy(F(Old, "01 Track.flac", Flac(221)), CopyGrade.Confirmed, null, null) { MatchedBy = MatchKind.SpotifyId },
+            SongOne.Copies[0],
+            SongOne.Copies[1] with { MatchedBy = MatchKind.Isrc },
+        ],
+    };
+
+    [Test]
+    public async Task Rows_SayHowEachCopyWasMatched()
+    {
+        var rows = ImposterReport.Rows(new ImposterResult(Rips, Checked, [SongOneByEveryMatch], [BonusTrack], [RipsOnly], 5));
+
+        // Only a copy row says how it was matched.
+        await Assert.That(string.Join(" | ", rows.Select(r => $"{r.Kind} {r.MatchedBy ?? "null"}"))).IsEqualTo(
+            "reference null | copy SpotifyId | copy Name | copy Isrc | no-reference null | reference-only null");
+    }
+
+    [Test]
+    public async Task Text_SaysWhenACopyWasPairedByAnId()
+    {
+        // A copy its tags paired with the reference file says so after its grade, and the copy its
+        // name paired reads as it always has.
+        await Assert.That(ImposterReport.Text(new ImposterResult(Rips, Checked, [SongOneByEveryMatch], [], [], 4))).IsEqualTo(Lines(
+            "Imposter Buster · reference Rips · 1 song(s) · 0 with no copy confirmed · 1 with a copy that differs · 0 all clear · 0 file(s) with no reference · 0 reference file(s) not in the checked folders · 4 scanned",
+            "A copy is not confirmed as the reference recording · 1",
+            "  1. Artist Name - Song One",
+            "     reference: /music/Rips/Artist Name - Song One.m4a · 3:41 · aac cut at 19.5 kHz",
+            "     Old: /music/Old/01 Track.flac · 3:41 · The reference recording · matched by Spotify ID",
+            "     Old: /music/Old/Artist Name - Song One.flac · 3:41 · The reference recording",
+            "     New: /music/New/Artist Name - Song One.flac · 3:39 · Partly the same: another mix or edit · matched by ISRC",
+            "     best copy: Old: Artist Name - Song One.flac · winner is full-band lossless (flac), runner-up is aac cut at 19.5 kHz"));
     }
 }

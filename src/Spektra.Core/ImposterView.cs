@@ -12,6 +12,10 @@ public static class ImposterView
     public const string GradeLimit =
         "A grade describes evidence, never a verdict on the file. A copy is confirmed when its fingerprint is all but identical to the reference file's, or when their first 10 s line up and their lengths agree. A fingerprint that only matches says the same song and arrangement, which another master and a careful re-recording both give. Another intro or a larger offset also reads as doesn't line up.";
 
+    /// What a match can and cannot tell.
+    public const string MatchLimit =
+        "How the copy was paired with its reference file: the two carry the same Spotify track ID, the same ISRC, or neither and their names pair them. An ID only chooses which reference file a copy is compared with: the audio decides the grade.";
+
     /// A grade as a row shows it: the evidence, never a verdict. Every grade is named here and any
     /// other value throws, so a grade added later is worded on purpose.
     public static string GradeText(CopyGrade grade) => grade switch
@@ -23,6 +27,16 @@ public static class ImposterView
         CopyGrade.DoesntLineUp => "Doesn't line up: a cover, another song, or another master",
         CopyGrade.CantCompare => "Can't compare: a copy is broken or too short",
         _ => throw new ArgumentOutOfRangeException(nameof(grade), grade, null),
+    };
+
+    /// How a copy was paired with its reference file, as the grid's Match column says it. Every
+    /// kind is named here and any other value throws, so a kind added later is worded on purpose.
+    public static string MatchText(MatchKind kind) => kind switch
+    {
+        MatchKind.SpotifyId => "Spotify ID",
+        MatchKind.Isrc => "ISRC",
+        MatchKind.Name => "name",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
     /// A grade as the playlist titles abbreviate it.

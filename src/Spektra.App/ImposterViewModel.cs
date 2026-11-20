@@ -34,6 +34,8 @@ public sealed class ImposterRowItem : IFileItem
         GradeTip = Grade.Length == 0 ? ""
             : Note.Length == 0 ? $"{Grade}\n{ImposterView.GradeLimit}"
             : $"{Grade}\n{Note}\n{ImposterView.GradeLimit}";
+        Match = copy is null ? "" : ImposterView.MatchText(copy.MatchedBy);
+        MatchTip = Match.Length == 0 ? "" : ImposterView.MatchLimit;
         ReferencePath = copy is null ? null : song?.Reference.Path;
         IsConfirmed = song is not null && (copy is null || copy.Grade == CopyGrade.Confirmed);
         HasLengthGap = copy is not null && song is not null && ImposterView.HasLengthGap(copy, song);
@@ -65,6 +67,12 @@ public sealed class ImposterRowItem : IFileItem
     /// The Grade cell's tooltip: the grade, the note when there is one, then what a grade can and
     /// cannot tell. "" on a row with no grade, so its cell shows no tooltip.
     public string GradeTip { get; }
+    /// How a copy was paired with its reference file, as the grid's Match column shows it: by the
+    /// Spotify ID, the ISRC or the name. "" on the kinds that are not copies.
+    public string Match { get; }
+    /// The Match cell's tooltip: what a match can and cannot tell. "" on a row with no match, so
+    /// its cell shows no tooltip.
+    public string MatchTip { get; }
     /// A copy's reference file, null on every other kind.
     public string? ReferencePath { get; }
     public bool CanCompare => ReferencePath is not null;

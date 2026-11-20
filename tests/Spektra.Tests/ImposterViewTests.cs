@@ -303,4 +303,22 @@ public sealed class ImposterViewTests
         // With no song ranked there is no line at all, not even an empty one.
         await Assert.That(ImposterView.BestCopiesList(result with { Songs = [echo] })).IsEqualTo("");
     }
+
+    [Test]
+    public async Task MatchText_NamesEveryKind()
+    {
+        await Assert.That(
+                $"{ImposterView.MatchText(MatchKind.SpotifyId)}, {ImposterView.MatchText(MatchKind.Isrc)}, {ImposterView.MatchText(MatchKind.Name)}")
+            .IsEqualTo("Spotify ID, ISRC, name");
+
+        // A kind added later is worded on purpose, never shown unseen.
+        await Assert.That(() => ImposterView.MatchText((MatchKind)99)).ThrowsExactly<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public async Task MatchLimit_HoldsTheExactCopy()
+    {
+        await Assert.That(ImposterView.MatchLimit).IsEqualTo(
+            "How the copy was paired with its reference file: the two carry the same Spotify track ID, the same ISRC, or neither and their names pair them. An ID only chooses which reference file a copy is compared with: the audio decides the grade.");
+    }
 }

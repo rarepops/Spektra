@@ -6,9 +6,9 @@ internal static partial class Program
 {
     /// imposters: checks the folders against a reference folder the user trusts, song by song,
     /// writes the listening playlist when one was asked for, then prints what it found. Report
-    /// only: no audio file is touched. 1 when a checked copy is not the reference recording;
-    /// 2, with nothing on stdout, when a folder is missing or is the reference folder itself,
-    /// when the copies could not be checked, or when the playlist could not be written.
+    /// only: no audio file is touched. 1 when a checked copy is not confirmed as the reference
+    /// recording; 2, with nothing on stdout, when a folder is missing or is the reference folder
+    /// itself, when the copies could not be checked, or when the playlist could not be written.
     private static int Imposters(FfmpegPaths ffmpeg, string[] args, OutFormat fmt, int jobs)
     {
         var (reference, roots, fresh, playlist) = CliOptions.ParseImposters(args);
@@ -48,9 +48,9 @@ internal static partial class Program
         return ImposterReport.HasFindings(result) ? 1 : 0;
     }
 
-    /// Runs the check with a one-line progress readout on stderr (Analyzing, Matching, then
-    /// Checking), shown only when stderr is a terminal and cleared after. Each count is written as
-    /// it is reported, as LabelWithProgress writes its own.
+    /// Runs the check with a one-line progress readout on stderr (Analyzing, Matching, Reading
+    /// tags, then Checking), shown only when stderr is a terminal and cleared after. Each count is
+    /// written as it is reported, as LabelWithProgress writes its own.
     private static ImposterResult CheckWithProgress(
         FfmpegPaths ffmpeg, string reference, IReadOnlyList<string> roots, int jobs, AuditCache? cache, bool fresh)
     {

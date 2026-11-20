@@ -203,10 +203,10 @@ internal static partial class Program
             first, A then B. (The top-level --diff is the two-file diff command.)
 
             imposters checks the folders you list against a reference folder you trust:
-            for every song the reference names it says which copies are the reference
-            recording, how the others differ, and which copy has the best real quality.
-            --playlist out.m3u8 also writes each copy that differs, then its reference
-            file. It never changes a file.
+            for every song the reference names it says which copies are confirmed as the
+            reference recording, how the others differ, and which copy has the best real
+            quality. --playlist out.m3u8 also writes each copy that differs, then its
+            reference file. It never changes a file.
 
             manifest lists every file, audio or not, with a type chip per file;
             files the audit has seen before get their real codec and verdict

@@ -302,4 +302,30 @@ public sealed class ImposterViewModelTests
         // A row with no grade has no tip, so its cell shows none.
         await Assert.That(new ImposterRowItem(result, "no-reference", copyFile).GradeTip).IsEqualTo("");
     }
+
+    [Test]
+    public async Task Rows_ShowHowEachCopyWasMatched()
+    {
+        var vm = await ScanTheLibrary();
+
+        // New's copy of Song One was paired with its reference file by its name.
+        await Assert.That(RowOf(vm, _lib.New, "Artist Name - Song One.wav").Match).IsEqualTo("name");
+
+        // No name pairs the Tagged Song's copies with the reference file, only the IDs in their
+        // tags, and hovering either says what that can tell.
+        vm.ShowAllClear = true;
+        var byIsrc = RowOf(vm, _lib.Old, "Track 06.flac");
+        var bySpotifyId = RowOf(vm, _lib.New, "Download 1234.flac");
+        await Assert.That($"{byIsrc.Match}, {bySpotifyId.Match}").IsEqualTo("ISRC, Spotify ID");
+        await Assert.That($"{byIsrc.MatchTip} | {bySpotifyId.MatchTip}").IsEqualTo($"{ImposterView.MatchLimit} | {ImposterView.MatchLimit}");
+
+        // A row that is not a copy was paired with nothing: its cell is empty and has no tooltip.
+        List<ImposterRowItem> others = [RowOf(vm, _lib.Rips, "Artist Name - Tagged Song.flac")];
+        vm.ShowNoReference = true;
+        others.AddRange(vm.Rows);
+        vm.ShowReferenceOnly = true;
+        others.AddRange(vm.Rows);
+        await Assert.That(string.Join(" | ", others.Select(r => $"{r.Kind} '{r.Match}' '{r.MatchTip}'")))
+            .IsEqualTo("reference '' '' | no-reference '' '' | reference-only '' ''");
+    }
 }

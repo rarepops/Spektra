@@ -4,19 +4,20 @@ namespace Spektra.Core;
 
 /// One row of `spektra-cli imposters` as JSON or CSV. Kind is "reference" (a song's reference
 /// file), "copy" (a checked file graded against it), "no-reference" (a checked file no reference
-/// file names) or "reference-only" (a reference file no checked file names). Verdict and Grade
-/// hold enum names. Similarity is a copy's fingerprint similarity with its reference file, null
-/// where the scan did not match the two.
+/// file matches by ID or name) or "reference-only" (a reference file no checked file was paired
+/// with). Verdict and Grade hold enum names. Similarity is a copy's fingerprint similarity with its
+/// reference file, null where the scan did not match the two. MatchedBy is how a copy was paired
+/// with its reference file (SpotifyId, Isrc or Name).
 public sealed record ImposterRow(
     string Kind, string? Song, string? Verdict, string Root, string Path,
     string? Grade, double? AlignConfidence, double? Seconds,
     string? ReferencePath, double? ReferenceSeconds, bool Best, string? Quality, string? SameAudioAs,
-    double? Similarity);
+    double? Similarity, string? MatchedBy);
 
 /// What Imposter Buster found, as `spektra-cli imposters` prints it: the songs in the order
-/// ImposterView lists them, then the checked files no reference file names, then the reference
-/// files no copy chose. Every word about a grade, a verdict or a best copy is ImposterView's, so
-/// the CLI and the window cannot drift apart.
+/// ImposterView lists them, then the checked files no reference file matches by ID or name, then
+/// the reference files no copy chose. Every word about a grade, a verdict or a best copy is
+/// ImposterView's, so the CLI and the window cannot drift apart.
 public static class ImposterReport
 {
     /// Every song, the all-clear ones included, as its reference row followed by its copies' rows;
@@ -60,14 +61,17 @@ public static class ImposterReport
                 foreach (var copy in song.Copies)
                 {
                     text.Append($"     {ImposterView.FolderLabel(copy.File.Root, referenceRoot, roots)}: {copy.File.Path}")
-                        .Append($" · {ImposterView.Length(copy.File.Seconds)} · {ImposterView.GradeText(copy.Grade)}\n");
+                        .Append($" · {ImposterView.Length(copy.File.Seconds)} · {ImposterView.GradeText(copy.Grade)}")
+                        // A copy its name paired adds nothing, so a library without IDs prints what
+                        // it always has.
+                        .Append(copy.MatchedBy == MatchKind.Name ? "\n" : $" · matched by {ImposterView.MatchText(copy.MatchedBy)}\n");
                     if (ImposterView.SameAudioNote(copy, referenceRoot, roots) is { } note) text.Append($"          {note}\n");
                 }
                 text.Append($"     best copy: {ImposterView.BestText(song, referenceRoot, roots)}\n");
             }
         }
 
-        if (result.NoReference.Count > 0) text.Append($"No reference by name · {result.NoReference.Count} file(s)\n");
+        if (result.NoReference.Count > 0) text.Append($"No reference by name or ID · {result.NoReference.Count} file(s)\n");
         foreach (var file in result.NoReference) text.Append($"     {file.Path}\n");
         if (result.ReferenceOnly.Count > 0)
             text.Append($"Not in the checked folders · {result.ReferenceOnly.Count} reference file(s)\n");
@@ -95,5 +99,6 @@ public static class ImposterReport
         Best: song?.Best?.Winners.Contains(file.Path) == true,
         Quality: file.Row is null ? null : ImposterView.Quality(file.Row),
         SameAudioAs: copy?.SameAudioAs,
-        Similarity: copy is null || copy.Similarity == 0 ? null : Math.Round(copy.Similarity, 3));
+        Similarity: copy is null || copy.Similarity == 0 ? null : Math.Round(copy.Similarity, 3),
+        MatchedBy: copy?.MatchedBy.ToString());
 }

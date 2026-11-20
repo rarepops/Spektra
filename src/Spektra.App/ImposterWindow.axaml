@@ -153,10 +153,10 @@
                      ToolTip.Tip="Songs whose every copy is confirmed as the reference recording" />
         <RadioButton GroupName="imposterView" Content="{Binding NoReferenceLabel}"
                      IsChecked="{Binding ShowNoReference, Mode=TwoWay}"
-                     ToolTip.Tip="Files in the checked folders whose name no reference file shares" />
+                     ToolTip.Tip="Files in the checked folders that no reference file matches by ID or name" />
         <RadioButton GroupName="imposterView" Content="{Binding ReferenceOnlyLabel}"
                      IsChecked="{Binding ShowReferenceOnly, Mode=TwoWay}"
-                     ToolTip.Tip="Reference files whose name no file in the checked folders shares" />
+                     ToolTip.Tip="Reference files that no file in the checked folders was paired with" />
       </StackPanel>
       <TextBox MinHeight="26" Padding="6,3" VerticalContentAlignment="Center"
                Text="{Binding FilterText}"
@@ -215,6 +215,14 @@
             <DataTemplate>
               <TextBlock Classes="cell" Text="{Binding Grade}" ToolTip.Tip="{Binding GradeTip}"
                          ToolTip.ServiceEnabled="{Binding GradeTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Match" SortMemberPath="Match" Width="90">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="cell" Text="{Binding Match}" ToolTip.Tip="{Binding MatchTip}"
+                         ToolTip.ServiceEnabled="{Binding MatchTip, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
