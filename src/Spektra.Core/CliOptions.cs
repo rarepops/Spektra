@@ -27,6 +27,10 @@ public sealed record ImageArgs(
 /// Playlist (only with Diff) and Html (only without it) name a file to write.
 public sealed record DupesArgs(IReadOnlyList<string> Roots, bool Fresh, bool Diff, string? Html, string? Playlist);
 
+/// What `imposters` was asked for. Reference is always set: ParseImposters refuses a command
+/// line without --reference.
+public sealed record ImposterArgs(string Reference, IReadOnlyList<string> Roots, bool Fresh, string? Playlist);
+
 /// What a verb that takes "one folder or some files" was given. Folder is set
 /// (and Files empty) when the one argument is a folder to search; otherwise
 /// Folder is null and Files holds the paths as typed. Every path in it exists.
@@ -75,14 +79,15 @@ public static class CliOptions
     /// Pulls "--html &lt;path&gt;" out of a verb's argument list; null when absent.
     public static string? TakeHtml(ref string[] args) => TakePath("--html", ref args);
 
-    /// Pulls a flag and the file path after it out of a verb's argument list;
-    /// null when the flag is absent.
-    private static string? TakePath(string flag, ref string[] args)
+    /// Pulls a flag and the path after it out of a verb's argument list; null
+    /// when the flag is absent. What names the kind of path the flag takes, for
+    /// the message when it has none.
+    private static string? TakePath(string flag, ref string[] args, string what = "a file path")
     {
         var i = Array.IndexOf(args, flag);
         if (i < 0) return null;
         if (i + 1 >= args.Length || args[i + 1].StartsWith('-'))
-            throw new OptionException($"{flag} needs a file path.");
+            throw new OptionException($"{flag} needs {what}.");
         var path = args[i + 1];
         args = [.. args[..i], .. args[(i + 2)..]];
         return path;
@@ -156,6 +161,21 @@ public static class CliOptions
             throw new OptionException("--html cannot be combined with --diff; use --json, --csv or --playlist.");
         if (diff && roots.Length < 2) throw new OptionException("--diff needs two or more folders.");
         return new DupesArgs(roots, args.Contains("--fresh"), diff, html, playlist);
+    }
+
+    /// Reads `imposters`: --fresh wherever it sits, then --reference and
+    /// --playlist with their paths, then the folders to check. Whether the
+    /// folders exist is the verb's own check.
+    public static ImposterArgs ParseImposters(string[] args)
+    {
+        var roots = args.Where(a => a is not "--fresh").ToArray();
+        var reference = TakePath("--reference", ref roots, "a folder");
+        var playlist = TakePath("--playlist", ref roots);
+        RejectUnknownFlags(roots);
+
+        if (reference is null) throw new OptionException("imposters needs --reference <folder>.");
+        if (roots.Length == 0) throw new OptionException("imposters needs one or more folders to check.");
+        return new ImposterArgs(reference, roots, args.Contains("--fresh"), playlist);
     }
 
     public static DiffArgs ParseDiff(string[] args)

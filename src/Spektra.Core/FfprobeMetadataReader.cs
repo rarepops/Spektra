@@ -78,6 +78,9 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         var streamTags = audio.TryGetProperty("tags", out var st) ? st : default;
         string? Tag(string name) => TagIn(formatTags, name) ?? TagIn(streamTags, name);
 
+        // The track IDs read every tag, in the same two places as Tag, the format's first.
+        var ids = TrackIds.FromTags(TagsOf(formatTags).Concat(TagsOf(streamTags)));
+
         // "5/12" carries its own total; Vorbis comments keep it in a separate
         // TOTALTRACKS tag that ffprobe does not fold in. The slash form wins
         // when both exist, being the more specific statement.
@@ -108,7 +111,9 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
             HasEmbeddedArt: picture is not null,
             ArtFormat: picture is { } p ? Str(p, "codec_name") : null,
             ArtWidth: picture is { } pw ? IntProp(pw, "width") : null,
-            ArtHeight: picture is { } ph ? IntProp(ph, "height") : null);
+            ArtHeight: picture is { } ph ? IntProp(ph, "height") : null,
+            Isrc: ids.Isrc,
+            SpotifyId: ids.SpotifyId);
     }
 
     /// First stream matching a predicate, or null. JsonElement is a struct, so
@@ -159,9 +164,20 @@ public sealed class FfprobeMetadataReader(string ffprobePath)
         if (tags.ValueKind != JsonValueKind.Object) return null;
         foreach (var p in tags.EnumerateObject())
             if (string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
-                return p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() : p.Value.ToString();
+                return TagText(p.Value);
         return null;
     }
+
+    /// Every tag of one `tags` object, each value read as TagIn reads it.
+    private static IEnumerable<KeyValuePair<string, string>> TagsOf(JsonElement tags)
+    {
+        if (tags.ValueKind != JsonValueKind.Object) yield break;
+        foreach (var p in tags.EnumerateObject())
+            yield return new(p.Name, TagText(p.Value));
+    }
+
+    private static string TagText(JsonElement value) =>
+        value.ValueKind == JsonValueKind.String ? value.GetString()! : value.ToString();
 
     private static int? IntProp(JsonElement e, string name)
     {

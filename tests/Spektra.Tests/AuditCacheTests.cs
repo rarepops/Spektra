@@ -221,4 +221,126 @@ public sealed class AuditCacheTests : IDisposable
         using var cache = AuditCache.Open(DbPath);
         await Assert.That(cache.SynchronousMode()).IsEqualTo(1);
     }
+
+    private static readonly TrackIds SomeIds = new("0aBcDeFgHiJkLmNoPqRsTu", "USRC17607839");
+
+    [Test]
+    public async Task TrackIds_RoundTrip()
+    {
+        using var cache = AuditCache.Open(DbPath);
+        var both = new AuditTarget(@"C:\m\both.flac", 100, 200);
+        var spotifyOnly = new AuditTarget(@"C:\m\spotify.flac", 100, 200);
+        var isrcOnly = new AuditTarget(@"C:\m\isrc.flac", 100, 200);
+        var spotify = new TrackIds("1zYxWvUtSrQpOnMlKjIhGf", null);
+        var isrc = new TrackIds(null, "GBXYZ2400001");
+        cache.PutTrackIds(both, SomeIds);
+        cache.PutTrackIds(spotifyOnly, spotify);
+        cache.PutTrackIds(isrcOnly, isrc);
+
+        // Each column comes back in its own field, and a null stays null.
+        await Assert.That(cache.TryGetTrackIds(both)).IsEqualTo(SomeIds);
+        await Assert.That(cache.TryGetTrackIds(spotifyOnly)).IsEqualTo(spotify);
+        await Assert.That(cache.TryGetTrackIds(isrcOnly)).IsEqualTo(isrc);
+        await Assert.That(cache.TryGetTrackIds(new AuditTarget(@"C:\m\never put.flac", 100, 200))).IsNull();
+
+        // A second put for the same path replaces the row, identity and all.
+        var changed = both with { SizeBytes = 101, MtimeTicks = 201 };
+        cache.PutTrackIds(changed, isrc);
+        await Assert.That(cache.TryGetTrackIds(changed)).IsEqualTo(isrc);
+        await Assert.That(cache.TryGetTrackIds(both)).IsNull();
+    }
+
+    [Test]
+    public async Task TrackIds_NoneIsRemembered_AsNotNull()
+    {
+        using var cache = AuditCache.Open(DbPath);
+        cache.PutTrackIds(Target(), TrackIds.None);
+
+        var hit = cache.TryGetTrackIds(Target());
+
+        await Assert.That(hit).IsNotNull();
+        await Assert.That(hit).IsEqualTo(TrackIds.None);
+        await Assert.That(hit!.IsEmpty).IsTrue();
+    }
+
+    [Test]
+    [Arguments(9999L, 5678L)]  // size changed
+    [Arguments(1234L, 9999L)]  // mtime changed
+    public async Task TrackIds_AreStale_WhenIdentityChanges(long size, long mtime)
+    {
+        using var cache = AuditCache.Open(DbPath);
+        cache.PutTrackIds(Target(), SomeIds);
+
+        // The exact file hits, so the miss below is the identity's doing.
+        await Assert.That(cache.TryGetTrackIds(Target())).IsEqualTo(SomeIds);
+        await Assert.That(cache.TryGetTrackIds(Target(size: size, mtime: mtime))).IsNull();
+    }
+
+    [Test]
+    public async Task TrackIds_AreStale_OnVersionMismatch()
+    {
+        using (var cache = AuditCache.Open(DbPath))
+        {
+            cache.PutTrackIds(Target(), SomeIds);
+            await Assert.That(cache.TryGetTrackIds(Target())).IsEqualTo(SomeIds);
+        }
+
+        using (var db = new SqliteConnection($"Data Source={DbPath};Pooling=False"))
+        {
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "UPDATE track_ids SET ids_version = ids_version - 1";
+            cmd.ExecuteNonQuery();
+        }
+
+        using var reopened = AuditCache.Open(DbPath);
+        await Assert.That(reopened.TryGetTrackIds(Target())).IsNull();
+    }
+
+    [Test]
+    public async Task TrackIds_AnOlderCacheGainsTheTable()
+    {
+        // The cache an older Spektra made: the audit and fingerprint tables, with a row in each, and
+        // no table of IDs.
+        var target = new AuditTarget(@"C:\m\old.flac", 100, 200);
+        using (var older = AuditCache.Open(DbPath))
+        {
+            older.Put(target, Row("old.flac"), hasProblem: false);
+            older.PutFingerprint(target, new Fingerprint(8, [1u, 2u, 3u]), 12.5, "Artist", "Title");
+        }
+
+        using (var db = new SqliteConnection($"Data Source={DbPath};Pooling=False"))
+        {
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "DROP TABLE IF EXISTS track_ids";
+            cmd.ExecuteNonQuery();
+        }
+
+        using var cache = AuditCache.Open(DbPath);
+
+        // The table is there again and empty, and what the older cache held is still held.
+        await Assert.That(cache.TryGetTrackIds(target)).IsNull();
+        cache.PutTrackIds(target, SomeIds);
+        await Assert.That(cache.TryGetTrackIds(target)).IsEqualTo(SomeIds);
+        await Assert.That(cache.TryGet(target)).IsNotNull();
+        await Assert.That(cache.TryGetFingerprint(target)).IsNotNull();
+    }
+
+    [Test]
+    public async Task PruneFolder_AlsoPrunesTrackIds()
+    {
+        using var cache = AuditCache.Open(DbPath);
+        var dead = new AuditTarget(@"C:\m\dead.mp3", 1, 1);
+        var live = new AuditTarget(@"C:\m\live.mp3", 1, 1);
+        var outside = new AuditTarget(@"C:\other\keep.mp3", 1, 1);
+        foreach (var t in new[] { dead, live, outside })
+            cache.PutTrackIds(t, SomeIds);
+
+        cache.PruneFolder(@"C:\m", [live.Path]);
+
+        await Assert.That(cache.TryGetTrackIds(dead)).IsNull();
+        await Assert.That(cache.TryGetTrackIds(live)).IsNotNull();
+        await Assert.That(cache.TryGetTrackIds(outside)).IsNotNull();
+    }
 }

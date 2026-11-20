@@ -382,4 +382,138 @@ public sealed class DuplicateScanTests
         await Assert.That(seconds).IsNotNull();
         await Assert.That(seconds!.Value).IsBetween(2.9, 3.1);
     }
+
+    [Test]
+    public async Task Run_ListsEveryCollectedFile_WithItsGroupLengthRowAndSize()
+    {
+        var rootA = Directory.CreateTempSubdirectory("listed-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("listed-b").FullName;
+        try
+        {
+            // A grouped pair, a stranger and a file nothing can decode. Every
+            // collected file is listed whatever became of it, so a check built
+            // on the scan can still name the files it could not use.
+            var (tonesWav, chirp, tonesMp3, broken) = CopyListedLibrary(rootA, rootB);
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            string[] inPathOrder = [.. new[] { tonesWav, chirp, tonesMp3, broken }.Order(StringComparer.OrdinalIgnoreCase)];
+            await Assert.That(result.Files.Select(f => f.Path).SequenceEqual(inPathOrder)).IsTrue();
+            await Assert.That(result.FilesScanned).IsEqualTo(result.Files.Count);
+
+            var listed = result.Files.ToDictionary(f => f.Path);
+            foreach (var (path, root, analyzed, grouped) in new[]
+            {
+                (tonesWav, rootA, true, true),
+                (chirp, rootA, true, false),
+                (tonesMp3, rootB, true, true),
+                (broken, rootB, false, false),
+            })
+            {
+                var file = listed[path];
+                await Assert.That(file.Root).IsEqualTo(Path.GetFullPath(root));
+                await Assert.That(file.SizeBytes).IsEqualTo(new FileInfo(path).Length);
+                await Assert.That(file.Row is not null).IsEqualTo(analyzed);
+                await Assert.That(file.Seconds).IsEqualTo(file.Row?.DurationSeconds);
+                await Assert.That(file.Group is not null).IsEqualTo(grouped);
+            }
+            await Assert.That(listed[tonesMp3].Group).IsEqualTo(listed[tonesWav].Group);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_ASingleFolder_StillListsItsFiles()
+    {
+        var root = Directory.CreateTempSubdirectory("listed-one").FullName;
+        try
+        {
+            // One folder has no suspects to look for, and its file list must
+            // not hang on that walk: the list is built whatever the roots.
+            File.Copy(P("tones-a.wav"), Path.Combine(root, "tones-a.wav"));
+            File.Copy(P("chirp.wav"), Path.Combine(root, "chirp.wav"));
+
+            var result = DuplicateScan.Run(Ff, [root], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Files.Count).IsEqualTo(2);
+            await Assert.That(result.Suspects).IsEmpty();
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Test]
+    public async Task Run_Similarity_GivesAMatchedPairItsScore_AndStrangersZero()
+    {
+        var rootA = Directory.CreateTempSubdirectory("similar-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("similar-b").FullName;
+        try
+        {
+            var (tonesWav, chirp, tonesMp3, _) = CopyListedLibrary(rootA, rootB);
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            // The matcher's own score: a matched pair cleared the bar it was
+            // matched at, and the pair has one score whichever path comes first.
+            var score = result.Similarity(tonesWav, tonesMp3);
+            await Assert.That(score).IsGreaterThanOrEqualTo(FingerprintMatcher.MidThreshold);
+            await Assert.That(result.Similarity(tonesMp3, tonesWav)).IsEqualTo(score);
+            await Assert.That(result.Similarity(tonesWav, chirp)).IsEqualTo(0.0);
+            await Assert.That(result.Similarity(tonesWav, Path.Combine(rootA, "never scanned.wav"))).IsEqualTo(0.0);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task Run_ListsEachFilesModifiedTime()
+    {
+        var rootA = Directory.CreateTempSubdirectory("mtime-a").FullName;
+        var rootB = Directory.CreateTempSubdirectory("mtime-b").FullName;
+        try
+        {
+            var (tonesWav, chirp, tonesMp3, broken) = CopyListedLibrary(rootA, rootB);
+
+            // A time of its own for each file, so one read from another file cannot pass.
+            string[] paths = [tonesWav, chirp, tonesMp3, broken];
+            for (var i = 0; i < paths.Length; i++)
+                File.SetLastWriteTimeUtc(paths[i], new DateTime(2021, 3, 4, 5, 6, 7, DateTimeKind.Utc).AddMinutes(i * 37 + 1));
+
+            var result = DuplicateScan.Run(Ff, [rootA, rootB], jobs: 2, minDurationSeconds: 0);
+
+            await Assert.That(result.Files.Count).IsEqualTo(4);
+            await Assert.That(result.Files.Select(f => f.MtimeTicks).Distinct().Count()).IsEqualTo(4);
+            foreach (var file in result.Files)
+                await Assert.That(file.MtimeTicks).IsEqualTo(File.GetLastWriteTimeUtc(file.Path).Ticks);
+        }
+        finally
+        {
+            Directory.Delete(rootA, recursive: true);
+            Directory.Delete(rootB, recursive: true);
+        }
+    }
+
+    /// The library the listing and similarity tests share: one recording in
+    /// two formats under unrelated names, a stranger, and a file no ffmpeg
+    /// build decodes. corrupt.flac will not do for that last one: some builds
+    /// decode it in part, and then it has a row.
+    private static (string TonesWav, string Chirp, string TonesMp3, string Broken) CopyListedLibrary(
+        string rootA, string rootB)
+    {
+        var tonesWav = Path.Combine(rootA, "Tones Song.wav");
+        var chirp = Path.Combine(rootA, "chirp.wav");
+        var tonesMp3 = Path.Combine(rootB, "completely unrelated name.mp3");
+        var broken = Path.Combine(rootB, "broken.flac");
+        File.Copy(P("tones-a.wav"), tonesWav);
+        File.Copy(P("chirp.wav"), chirp);
+        File.Copy(P("tones-a-128.mp3"), tonesMp3);
+        File.Copy(P("notaudio.txt"), broken);
+        return (tonesWav, chirp, tonesMp3, broken);
+    }
 }

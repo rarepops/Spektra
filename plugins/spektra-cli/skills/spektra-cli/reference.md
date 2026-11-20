@@ -1,13 +1,13 @@
 # spektra-cli command reference
 
-Per-command detail for the `spektra-cli` skill, describing spektra-cli releases after 0.25.1, with `dupes --diff` from the release after 0.26.0 (SKILL.md says what an older one gets wrong). `spektra-cli --help` prints the tool's own summary. Placeholders: `<folder>`, `<file>`, `<file-a>`, `<file-b>`, `<folder-a>`, `<folder-b>`, and `<scratch>` (a folder outside the library). Quote paths that contain spaces.
+Per-command detail for the `spektra-cli` skill, describing spektra-cli releases after 0.25.1, with `dupes --diff` and `imposters` from the release after 0.26.0 (SKILL.md says what an older one gets wrong). `spektra-cli --help` prints the tool's own summary. Placeholders: `<folder>`, `<file>`, `<file-a>`, `<file-b>`, `<folder-a>`, `<folder-b>`, `<reference>` (the folder the user trusts to hold the recordings they mean), and `<scratch>` (a folder outside the library). Quote paths that contain spaces.
 
-Contents: common options and exit codes · audit · report and scan · check · dupes (and dupes --diff: what differs between two folders) · diff · loudness · manifest · inventory · image · output formats.
+Contents: common options and exit codes · audit · report and scan · check · dupes (and dupes --diff: what differs between two folders) · imposters: check copies against a trusted folder · diff · loudness · manifest · inventory · image · output formats.
 
 ## Common options and exit codes
 
 - `--json` or `--csv` on every command except `image`.
-- `-j N` or `--jobs N` caps the parallel workers (a whole number of 1 or more; default about 80% of the CPU cores). It matters for `audit`, `report`, `scan`, `check`, `loudness`, `dupes` and `inventory`.
+- `-j N` or `--jobs N` caps the parallel workers (a whole number of 1 or more; default about 80% of the CPU cores). It matters for `audit`, `report`, `scan`, `check`, `loudness`, `dupes`, `imposters` and `inventory`.
 - `spektra-cli --help` prints usage (exit 0); `spektra-cli --version` (or `-v`) prints `spektra-cli <version>`.
 - A mistyped option is an error, not ignored: `spektra-cli audit <folder> --jso` exits 2 with `unknown option '--jso'`.
 
@@ -18,11 +18,12 @@ Contents: common options and exit codes · audit · report and scan · check · 
 | `check` | at least one `Corrupt` or unreadable file (`Suspect` alone exits 0) |
 | `dupes` | at least one duplicate group |
 | `dupes --diff` | something differs: a suspect pair, a weak match, or a file only one folder holds (files that could not be analyzed do not count on their own) |
+| `imposters` | a checked copy is not confirmed as the reference recording (a file with no reference, or a reference file with no copy, does not count) |
 | `diff` | the files differ |
 | `loudness` | a file could not be measured |
 | `manifest`, `inventory`, `image` | never: they exit 0, or 2 on an error |
 
-Exit 2 always means the run itself failed: a bad option, a path that does not exist, a folder given together with other paths (for `audit`, `report`, `check` and `loudness`; both are caught before anything is analyzed), a missing folder for `scan`, `dupes`, `manifest` or `inventory`, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written. `dupes --diff` adds its own: fewer than two folders, `--html` given with it, a `--playlist` that cannot be written, or labels that could not be checked. `image` also exits 2 for an output it will not write (see image). A file that exists but cannot be read is a finding, not exit 2: `audit`, `report` and `loudness` return its row with `error` set and exit 1, and `check` gives it a `Corrupt` or `Error` status and exits 1.
+Exit 2 always means the run itself failed: a bad option, a path that does not exist, a folder given together with other paths (for `audit`, `report`, `check` and `loudness`; both are caught before anything is analyzed), a missing folder for `scan`, `dupes`, `imposters`, `manifest` or `inventory`, the wrong number of arguments, ffmpeg not found, or (for `image`, `diff` and `--html`) a file that could not be read or written. `dupes --diff` adds its own: fewer than two folders, `--html` given with it, a `--playlist` that cannot be written, or labels that could not be checked. So does `imposters`: no `--reference`, no folder to check, the reference folder also given as a folder to check, a `--playlist` that cannot be written, or copies that could not be checked. `image` also exits 2 for an output it will not write (see image). A file that exists but cannot be read is a finding, not exit 2: `audit`, `report` and `loudness` return its row with `error` set and exit 1, and `check` gives it a `Corrupt` or `Error` status and exits 1.
 
 ## audit
 
@@ -135,6 +136,31 @@ Without `--diff`, `dupes` prints matches, not differences, so derive the differe
 5. Before calling a candidate missing, look for it by name in b.json (the `title` tag, or the file name): a match there usually means B holds another master or encode that the audio did not pair, so report it as "probably in B under another version", not as missing.
 
 Swap A and B for the other direction.
+
+## imposters: check copies against a trusted folder
+
+    spektra-cli imposters --reference <reference> <folder> --json > <scratch>/imposters.json
+    spektra-cli imposters --reference <reference> <folder-a> <folder-b> --json --playlist <scratch>/listen.m3u8 > <scratch>/imposters.json
+
+Needs a release after 0.26.0 (an older one does not know the command: it prints the usage and exits 2). Checks one or more folders against a reference folder the user trusts to hold the recordings they mean: for every song the reference folder names, which checked copies are confirmed as the reference recording, how the others compare, and which copy has the best real quality. Options: `--reference <folder>` (required), `--json`, `--csv`, `--playlist <file>`, `--fresh`, `-j N`. Every folder must exist, and the reference folder may not also be a folder to check (exit 2 otherwise). It shares the audit cache with `audit` and `dupes`, but redoes its alignments (the opening seconds of each copy the scan cannot settle) on every run.
+
+Songs come from track IDs and names: a checked file's candidates are the reference files whose tags carry its Spotify track ID or ISRC (a `spotid` or `isrc` tag, or a Spotify track link in any tag, such as the comment), and the reference files with the same name (in any format), or with the same title where one name credits artists the other leaves out, however short the names (`Artist - Title` finds `Artist, Guest - Title`); a name a version word apart (Radio Edit against Extended Mix) never counts. A name with no artist in it (no ` - `) pairs with the same name, or, when its title has three or more words, with `Artist - <that title>`; a shorter one never does, so `Intro` is not a copy of every `Artist - Intro`. The checked file is graded against each candidate, keeps the best grade, and becomes a copy in that reference file's song. Between candidates with the same grade, one that shares the copy's Spotify ID comes first, then one that shares its ISRC, then one the name found, and an ID never confirms a copy: the audio decides the grade.
+
+JSON: one row per file. Fields: `kind`, `song`, `verdict`, `root`, `path`, `grade`, `alignConfidence`, `seconds`, `referencePath`, `referenceSeconds`, `best`, `quality`, `sameAudioAs`, `similarity`, `matchedBy`.
+
+- `kind` is `reference` (a song's reference file), `copy` (a checked file graded against it), `no-reference` (a checked file that no reference file matches by ID or name) or `reference-only` (a reference file no checked file chose). The rows come song by song, each `reference` row followed by its `copy` rows: first the songs with no copy confirmed, then the songs where a copy differs, then the all-clear songs (every song is listed); then the `no-reference` rows and the `reference-only` rows. Paths are absolute.
+- `song` (the reference file's name without its extension) and `verdict` (`NoneConfirmed`, `SomeConfirmed` or `AllConfirmed`) are set on `reference` and `copy` rows.
+- `grade`, `alignConfidence`, `referencePath`, `referenceSeconds`, `sameAudioAs` and `similarity` are set on `copy` rows only. `grade` is `Confirmed` (the reference recording: the copy's fingerprint is all but identical to the reference file's, or their first 10 seconds line up as the same performance and their lengths are less than 10 seconds apart), `SameByFingerprint` (the fingerprints match across the whole length but the openings do not line up: another master, an edit, or a re-recording), `OtherLength` (the openings line up but the lengths are 10 seconds or more apart: an edit, another cut, or a cut-off file), `PartlySame` (another mix or edit), `DoesntLineUp` (a cover, another song, or another master) or `CantCompare` (a file is broken or too short). Only `Confirmed` confirms a copy. `alignConfidence` is the score behind the grade, rounded to 3 places, and `null` when an all but identical fingerprint confirmed the copy or nothing could be compared.
+- `similarity` is the fingerprint similarity between the copy and its reference file, from 0 to 1 and rounded to 3 places, `null` where the scan did not match the two. From 0.93, when the copy and its reference file share an audio group, it confirms the copy on its own; below that, a match only says the same song and arrangement.
+- `matchedBy`, set on `copy` rows only, is how the copy was paired with its reference file, the strongest that holds: `SpotifyId` (both files' tags carry the same Spotify track ID), `Isrc` (the same ISRC) or `Name` (neither, and the names pair them). A `SpotifyId` or `Isrc` copy that is not `Confirmed` claims in its tags to be the reference file's track while its audio differs: a wrong download, or another master behind the same ID.
+- `sameAudioAs` names another file in the scan whose audio matches an unconfirmed copy, never the copy's own reference file, a reference file first (in the text form, the line under the copy). A copy whose audio is another song of the reference folder is the strongest evidence that it is another track under this song's name.
+- `best` is true on each song's best copy (a tie marks more than one), ranked on the `dupes` quality ladder among the reference file and the `Confirmed` copies only: with no copy confirmed, it is the reference file. `quality` describes each file (`aac cut at 19.5 kHz`), `null` for a file the scan could not analyze, and `seconds` is its length.
+
+The text form prints a summary line, the songs with no copy confirmed, the songs where a copy differs (each with its reference file, its copies' grades, `matched by Spotify ID` or `matched by ISRC` after a copy paired by an ID, and its best copy), then the files with no reference and the reference files not in the checked folders; the all-clear songs are counted in the summary line only.
+
+Grades are evidence, never a verdict: only the first 10 seconds are compared, within 2 seconds either way, so another master of the right recording, another intro, a larger offset, or a copy that opens with silence also reads `DoesntLineUp`. `SameByFingerprint` is not a confirmation either: a fingerprint that matches without being all but identical says the same song and arrangement, which another master and a careful re-recording both give, so count it with the unconfirmed copies. Present the songs and let the user decide by ear.
+
+`--playlist <file>` also writes an `.m3u8` playlist (UTF-8 without a byte-order mark): for each song with a copy that differs, its unconfirmed copies, then its reference file. It holds absolute paths, so write it to `<scratch>` unless the user names a place.
 
 ## diff
 

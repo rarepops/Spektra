@@ -213,4 +213,57 @@ public class LaunchArgsTests
         var r = LaunchArgs.Parse(["--dupes", "-oddly-named"], IsFile, p => p == "-oddly-named");
         await Assert.That(r.DupesRoot).IsEqualTo("-oddly-named");
     }
+
+    // --imposters names a reference folder and then any number of folders to check against it,
+    // so unlike --diff it takes every argument up to the next switch.
+    [Test]
+    public async Task Imposters_TakesTheReferenceThenTheFolders()
+    {
+        var r = Parse("--imposters", "D:\\Music\\Rips", "D:\\Music\\Old", "D:\\Music\\New");
+        await Assert.That(r.Imposters).IsNotNull();
+        await Assert.That(r.Imposters!.Reference).IsEqualTo("D:\\Music\\Rips");
+        await Assert.That(string.Join("|", r.Imposters!.Folders)).IsEqualTo("D:\\Music\\Old|D:\\Music\\New");
+        await Assert.That(r.Folders.Count).IsEqualTo(0); // all three consumed by the switch
+    }
+
+    [Test]
+    public async Task Imposters_WithFewerThanTwoFolders_IsDropped()
+    {
+        // A reference folder with nothing to check against it is no check. The folder named is
+        // still the switch's, so it does not open as a tab either.
+        var one = Parse("--imposters", "D:\\Music\\Rips");
+        await Assert.That(one.Imposters).IsNull();
+        await Assert.That(one.Folders.Count).IsEqualTo(0);
+        await Assert.That(Parse("--imposters", "D:\\Music\\Rips", "D:\\Nope").Imposters).IsNull();
+        await Assert.That(Parse("--imposters").Imposters).IsNull();
+        await Assert.That(Parse("--imposters").IsBare).IsTrue();
+    }
+
+    [Test]
+    public async Task Imposters_StopsAtTheNextSwitch()
+    {
+        var r = Parse("--imposters", "D:\\Music\\Rips", "D:\\Music\\Old", "--dupes", "D:\\Music\\New");
+        await Assert.That(r.Imposters).IsNotNull();
+        await Assert.That(r.Imposters!.Reference).IsEqualTo("D:\\Music\\Rips");
+        await Assert.That(string.Join("|", r.Imposters!.Folders)).IsEqualTo("D:\\Music\\Old");
+        await Assert.That(r.DupesRoot).IsEqualTo("D:\\Music\\New");
+    }
+
+    [Test]
+    public async Task Imposters_SkipsWhatIsNotAFolder()
+    {
+        // A vanished folder or a file among the switch's arguments is dropped, not opened as a
+        // tab, and the real folders around it still make the request.
+        var r = Parse("--imposters", "D:\\Nope", "D:\\Music\\Rips", "a.flac", "D:\\Music\\Old");
+        await Assert.That(r.Imposters).IsNotNull();
+        await Assert.That(r.Imposters!.Reference).IsEqualTo("D:\\Music\\Rips");
+        await Assert.That(string.Join("|", r.Imposters!.Folders)).IsEqualTo("D:\\Music\\Old");
+        await Assert.That(r.Files.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task IsBare_IsFalseWithImposters()
+    {
+        await Assert.That(Parse("--imposters", "D:\\Music\\Rips", "D:\\Music\\Old").IsBare).IsFalse();
+    }
 }

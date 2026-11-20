@@ -214,6 +214,26 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Test]
+    public async Task ApplyStartupPolicy_ForgetsTheImposterFolders_AndKeepsTheLayout()
+    {
+        var s = new AppSettings
+        {
+            ImposterReference = "/music/Rips",
+            ImposterRoots = ["/music/Old", "/music/New"],
+            ImposterWindow = new WindowPlacement(1, 2, 800, 600, false),
+            ImposterColumnWidths = new() { ["Song"] = 240 },
+        };
+        s.ApplyStartupPolicy();
+
+        // The folders the window held are forgotten...
+        await Assert.That(s.ImposterReference).IsNull();
+        await Assert.That(s.ImposterRoots).IsNull();
+        // ...how the window looks is not.
+        await Assert.That(s.ImposterWindow).IsEqualTo(new WindowPlacement(1, 2, 800, 600, false));
+        await Assert.That(s.ImposterColumnWidths?.GetValueOrDefault("Song")).IsEqualTo(240);
+    }
+
+    [Test]
     public async Task AutoIntegrityCheck_DefaultsTrue_AndRoundTripsOff()
     {
         // Absent from old settings files (and missing files) it must be ON.

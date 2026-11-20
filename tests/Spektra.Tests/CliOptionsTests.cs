@@ -498,6 +498,60 @@ public class CliOptionsTests
         await Assert.That(noPath.Message).IsEqualTo("--html needs a file path.");
     }
 
+    [Test]
+    public async Task ParseImposters_ReadsTheReferenceTheFoldersAndTheFlags()
+    {
+        // Each flag wherever it sits, and the folders to check in the order given.
+        var parsed = CliOptions.ParseImposters(["Old", "--fresh", "--reference", "Rips", "New", "--playlist", "p.m3u8"]);
+        await Assert.That(parsed.Reference).IsEqualTo("Rips");
+        await Assert.That(string.Join("|", parsed.Roots)).IsEqualTo("Old|New");
+        await Assert.That(parsed.Fresh).IsTrue();
+        await Assert.That(parsed.Playlist).IsEqualTo("p.m3u8");
+
+        var plain = CliOptions.ParseImposters(["Old", "--reference", "Rips"]);
+        await Assert.That(plain.Reference).IsEqualTo("Rips");
+        await Assert.That(string.Join("|", plain.Roots)).IsEqualTo("Old");
+        await Assert.That(plain.Fresh).IsFalse();
+        await Assert.That(plain.Playlist).IsNull();
+    }
+
+    [Test]
+    public async Task ParseImposters_WithoutAReference_Throws()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["Old", "New", "--fresh"]); });
+        await Assert.That(ex.Message).IsEqualTo("imposters needs --reference <folder>.");
+    }
+
+    [Test]
+    public async Task ParseImposters_WithoutAFolder_Throws()
+    {
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["--reference", "Rips", "--playlist", "p.m3u8"]); });
+        await Assert.That(ex.Message).IsEqualTo("imposters needs one or more folders to check.");
+    }
+
+    [Test]
+    public async Task ParseImposters_AnUnknownFlag_Throws()
+    {
+        // imposters writes no HTML page, so --html is as unknown here as a typo.
+        var ex = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["--reference", "Rips", "Old", "--html", "x.html"]); });
+        await Assert.That(ex.Message).IsEqualTo("unknown option '--html'.");
+    }
+
+    [Test]
+    public async Task ParseImposters_AReferenceWithNoValue_SaysItNeedsAFolder()
+    {
+        var atTheEnd = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["Old", "--reference"]); });
+        await Assert.That(atTheEnd.Message).IsEqualTo("--reference needs a folder.");
+
+        // The flag after it is not its value.
+        var beforeAFlag = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["--reference", "--playlist", "p.m3u8", "Old"]); });
+        await Assert.That(beforeAFlag.Message).IsEqualTo("--reference needs a folder.");
+
+        // A playlist still needs a file path.
+        var playlist = Assert.Throws<OptionException>(() => { CliOptions.ParseImposters(["--reference", "Rips", "Old", "--playlist"]); });
+        await Assert.That(playlist.Message).IsEqualTo("--playlist needs a file path.");
+    }
+
     // A throwaway folder for the tests that need paths that exist (or visibly
     // do not). Everything under it is removed on dispose.
     private sealed class Scratch : IDisposable

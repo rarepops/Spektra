@@ -21,7 +21,11 @@ public sealed record AudioMetadata(
     // size for an attached picture, and dimensions are the part worth acting
     // on anyway (a 100x100 stamp and a 1400x1400 cover both "have art").
     bool HasEmbeddedArt = false, string? ArtFormat = null,
-    int? ArtWidth = null, int? ArtHeight = null)
+    int? ArtWidth = null, int? ArtHeight = null,
+    // The track identifiers the tags carry (see TrackIds). Additive, as the fields above were.
+    // Nothing persists this record (the cache keeps the IDs in a table of their own), so growing
+    // it invalidates no cache and forces no re-analysis.
+    string? Isrc = null, string? SpotifyId = null)
 {
     public string ToDisplayLine(string fileName)
     {

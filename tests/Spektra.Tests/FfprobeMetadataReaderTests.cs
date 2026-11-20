@@ -327,4 +327,42 @@ public class FfprobeMetadataReaderTests
         var meta = FfprobeMetadataReader.Parse(json, "");
         await Assert.That(meta.TrackTotal).IsEqualTo(12);
     }
+
+    [Test]
+    public async Task Parse_ReadsTheTrackIds_FromFormatAndStreamTags()
+    {
+        // Tags that hold no ID give none.
+        const string neither = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2,
+                         "tags":{"comment":"a plain comment"}}],
+             "format":{"duration":"10.0","tags":{"artist":"Aurora","title":"Intro"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(neither, "");
+        await Assert.That(meta.Isrc).IsNull();
+        await Assert.That(meta.SpotifyId).IsNull();
+
+        // The ISRC sits in the container's tags and the Spotify link in the audio stream's comment.
+        const string split = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2,
+                         "tags":{"comment":"https://open.spotify.com/track/0aBcDeFgHiJkLmNoPqRsTu"}}],
+             "format":{"duration":"10.0","tags":{"ISRC":"US-RC1-76-07839"}}}
+            """;
+        meta = FfprobeMetadataReader.Parse(split, "");
+        await Assert.That(meta.Isrc).IsEqualTo("USRC17607839");
+        await Assert.That(meta.SpotifyId).IsEqualTo("0aBcDeFgHiJkLmNoPqRsTu");
+    }
+
+    // The container's tags are read before the stream's, as the other tags are.
+    [Test]
+    public async Task Parse_TrackIdsInTheFormatTags_BeatThoseInTheStreamTags()
+    {
+        const string both = """
+            {"streams":[{"codec_name":"flac","codec_type":"audio","sample_rate":"44100","channels":2,
+                         "tags":{"isrc":"GBXYZ2400001","spotid":"1zYxWvUtSrQpOnMlKjIhGf"}}],
+             "format":{"duration":"10.0","tags":{"isrc":"USRC17607839","spotid":"0aBcDeFgHiJkLmNoPqRsTu"}}}
+            """;
+        var meta = FfprobeMetadataReader.Parse(both, "");
+        await Assert.That(meta.Isrc).IsEqualTo("USRC17607839");
+        await Assert.That(meta.SpotifyId).IsEqualTo("0aBcDeFgHiJkLmNoPqRsTu");
+    }
 }

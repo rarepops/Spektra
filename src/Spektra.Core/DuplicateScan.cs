@@ -54,6 +54,15 @@ public sealed record DupesResult(
     /// or not, so it is not a view over Unpaired. Init-only with an empty
     /// default, like Unpaired.
     public IReadOnlyList<SuspectPair> Suspects { get; init; } = [];
+
+    /// Every collected file, grouped or not and analyzed or not, in the scan's
+    /// path order.
+    public IReadOnlyList<ScannedFile> Files { get; init; } = [];
+
+    /// The fingerprint similarity of two files the scan matched, by their
+    /// paths in either order; 0 for any pair it did not match. The number each
+    /// group's ranking reads to call a tie.
+    public Func<string, string, double> Similarity { get; init; } = static (_, _) => 0;
 }
 
 /// Flat, stable export row: one per group member, winners first. Lives in Core
@@ -122,9 +131,17 @@ public static class DuplicateScan
             .ToList();
         var groups = DuplicateGrouper.Group(identities, pairs);
 
-        var reports = BuildReports(groups, usable, pairs);
+        // Run owns the pair scores rather than BuildReports, so the result hands
+        // on the very numbers each group's ranking read to call a tie.
+        var simByPair = new Dictionary<(string, string), double>();
+        foreach (var (a, b, m) in pairs)
+            simByPair[PairKey(usable[a].Target.Path, usable[b].Target.Path)] = m.Similarity;
+        var similarity = (string x, string y) => simByPair.GetValueOrDefault(PairKey(x, y));
+
+        var reports = BuildReports(groups, usable, similarity);
         var unpaired = FindUnpaired(usable, groups, roots, files);
-        var suspects = FindSuspects(files, artifacts, groups, roots);
+        var scanned = ListFiles(files, artifacts, groups, roots);
+        var suspects = FindSuspects(scanned, roots);
 
         return new DupesResult(
             [.. reports.OrderByDescending(r => r.ReclaimableBytes)],
@@ -132,6 +149,8 @@ public static class DuplicateScan
         {
             Unpaired = [.. unpaired.OrderBy(u => u.Path, StringComparer.OrdinalIgnoreCase)],
             Suspects = suspects,
+            Files = scanned,
+            Similarity = similarity,
         };
     }
 
@@ -233,12 +252,8 @@ public static class DuplicateScan
 
     private static List<DupesGroupReport> BuildReports(
         IReadOnlyList<DuplicateGroup> groups, List<Usable> usable,
-        List<(int A, int B, FingerprintMatcher.MatchResult Match)> pairs)
+        Func<string, string, double> similarity)
     {
-        var simByPair = new Dictionary<(string, string), double>();
-        foreach (var (a, b, m) in pairs)
-            simByPair[PairKey(usable[a].Target.Path, usable[b].Target.Path)] = m.Similarity;
-
         var byPath = usable.ToDictionary(u => u.Target.Path, StringComparer.OrdinalIgnoreCase);
 
         var reports = new List<DupesGroupReport>();
@@ -250,7 +265,7 @@ public static class DuplicateScan
                 m => m.Path, m => byPath[m.Path].Target.SizeBytes, StringComparer.OrdinalIgnoreCase);
             var ranking = QualityRanker.Rank(
                 [.. g.Members.Select(m => (m.Path, rows[m.Path]))],
-                (x, y) => simByPair.GetValueOrDefault(PairKey(x, y)));
+                similarity);
             var winnerSize = ranking.Winners.Max(w => sizes[w]);
             var reclaimable = sizes.Values.Sum() - winnerSize;
             reports.Add(new DupesGroupReport(g, ranking, rows, sizes, reclaimable));
@@ -305,13 +320,20 @@ public static class DuplicateScan
     /// haystack FindUnpaired searches for twins, which is what puts every
     /// unpaired file that has a TwinPath into some pair here.
     private static IReadOnlyList<SuspectPair> FindSuspects(
-        AuditTarget[] files, Artifact[] artifacts,
-        IReadOnlyList<DuplicateGroup> groups, IReadOnlyList<string> roots)
+        IReadOnlyList<ScannedFile> files, IReadOnlyList<string> roots)
     {
         // A pair needs a file under each of two roots, so with fewer than two the
         // cross-root name walk can only come back empty: a single-folder scan skips it.
         if (roots.Count < 2) return [];
+        return SuspectPairs.Find(files, roots);
+    }
 
+    /// Every collected file with what the scan learned of it, whatever the
+    /// number of roots: the suspect walk reads it, and so does the result.
+    private static ScannedFile[] ListFiles(
+        AuditTarget[] files, Artifact[] artifacts,
+        IReadOnlyList<DuplicateGroup> groups, IReadOnlyList<string> roots)
+    {
         // One id space: DuplicateGrouper numbers every group, High and Medium,
         // from a single counter, so a group's Id names it across the whole
         // result. Any shared group clears a pair, whatever its tier.
@@ -326,11 +348,17 @@ public static class DuplicateScan
         for (var i = 0; i < files.Length; i++)
         {
             var path = files[i].Path;
+            var row = artifacts[i].Entry?.Row;
             scanned[i] = new ScannedFile(
                 path, RootOf(path, roots), groupOf.TryGetValue(path, out var id) ? id : null,
-                artifacts[i].Entry?.Row.DurationSeconds);
+                row?.DurationSeconds)
+            {
+                Row = row,
+                SizeBytes = files[i].SizeBytes,
+                MtimeTicks = files[i].MtimeTicks,
+            };
         }
-        return SuspectPairs.Find(scanned, roots);
+        return scanned;
     }
 
     /// The scan root a path sits under, ignoring case, or "" when it sits

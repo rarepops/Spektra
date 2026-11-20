@@ -59,22 +59,23 @@ public sealed class AppSettings
 
     // Launch content policy for every window. Start new (the default, false)
     // opens the app and its tool windows empty; keep last reopens the previous
-    // tabs, Duplicate Detective scan roots, and manifest folder. Launching
-    // with a file argument (double click, drag, CLI) skips tab restore either
-    // way, so a targeted open stays targeted. SessionTabs holds file and
-    // folder paths in tab order; comparison tabs are not saved.
-    // SessionSelectedIndex indexes THIS list, not the live tab strip, which
-    // also holds the unsaved comparison tabs.
+    // tabs, Duplicate Detective scan roots, manifest folder, and Imposter
+    // Buster folders. Launching with a file argument (double click, drag, CLI)
+    // skips tab restore either way, so a targeted open stays targeted.
+    // SessionTabs holds file and folder paths in tab order; comparison tabs
+    // are not saved. SessionSelectedIndex indexes THIS list, not the live tab
+    // strip, which also holds the unsaved comparison tabs.
     public bool KeepLastOnLaunch { get; set; }
     public List<string>? SessionTabs { get; set; }
     public int SessionSelectedIndex { get; set; }
 
     /// Applied once at app launch, before any window reads remembered content.
-    /// Start new forgets WHAT was open (tabs, scan roots, manifest folder);
-    /// HOW things look (layout, column widths, window placements, recents)
-    /// always survives. In-memory only: using the app repopulates these, so a
-    /// mid-session close and reopen of a tool window still restores, and the
-    /// next launch starts clean again. The CLI never applies this.
+    /// Start new forgets WHAT was open (tabs, scan roots, manifest folder,
+    /// Imposter Buster folders); HOW things look (layout, column widths, window
+    /// placements, recents) always survives. In-memory only: using the app
+    /// repopulates these, so a mid-session close and reopen of a tool window
+    /// still restores, and the next launch starts clean again. The CLI never
+    /// applies this.
     public void ApplyStartupPolicy()
     {
         if (KeepLastOnLaunch) return;
@@ -82,6 +83,8 @@ public sealed class AppSettings
         SessionSelectedIndex = 0;
         DuplicateRoots = null;
         FolderManifestFolder = null;
+        ImposterReference = null;
+        ImposterRoots = null;
     }
 
     // Duplicate Detective window state: scan roots and window placement persist
@@ -107,6 +110,16 @@ public sealed class AppSettings
     public string? FolderManifestFolder { get; set; }
     public WindowPlacement? FolderManifestWindow { get; set; }
     public Dictionary<string, double>? ManifestColumnWidths { get; set; }
+
+    // Imposter Buster window state. The reference folder and the folders to
+    // check are what the window holds, so ApplyStartupPolicy forgets them; the
+    // placement and the grid's column widths are how it looks, so they always
+    // survive. Column widths follow the FolderColumnWidths shape. Null = never
+    // used, or never customized.
+    public string? ImposterReference { get; set; }
+    public List<string>? ImposterRoots { get; set; }
+    public WindowPlacement? ImposterWindow { get; set; }
+    public Dictionary<string, double>? ImposterColumnWidths { get; set; }
 
     /// Reads one saved column width: honored only when finite and inside
     /// [min, max]; anything else (never saved, or hand-edited junk in the

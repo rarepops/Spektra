@@ -61,6 +61,7 @@ internal static partial class Program
                 "--check" or "check" => Check(ffmpeg, rest, fmt, jobs),
                 "--audit" or "audit" => Audit(ffmpeg, rest, fmt, jobs),
                 "--dupes" or "dupes" => Dupes(ffmpeg, rest, fmt, jobs),
+                "--imposters" or "imposters" => Imposters(ffmpeg, rest, fmt, jobs),
                 "--inventory" or "inventory" => Inventory(ffmpeg, rest, fmt, jobs),
                 "--loudness" or "loudness" => Loudness(ffmpeg, rest, fmt, jobs),
                 "--diff" or "diff" => Diff(ffmpeg, rest, fmt),
@@ -165,6 +166,7 @@ internal static partial class Program
               spektra-cli check <file|folder> ...    Integrity check (corruption / missing data).
               spektra-cli audit <file|folder> ...    Bandwidth + integrity together (cached).
               spektra-cli dupes <folder> ...         Find duplicate songs; mark the best copy (cached).
+              spektra-cli imposters --reference <folder> <folder> ...  Check copies against a trusted folder (cached).
               spektra-cli manifest <folder>          List EVERYTHING in a folder with type chips (no decoding).
               spektra-cli inventory <folder>         Tags + embedded art per file, machine-readable (no decoding).
               spektra-cli loudness <file|folder> ... Loudness (LUFS), true peak, and dynamics.
@@ -200,6 +202,12 @@ internal static partial class Program
             folder alone holds. --playlist out.m3u8 also writes the pairs to hear
             first, A then B. (The top-level --diff is the two-file diff command.)
 
+            imposters checks the folders you list against a reference folder you trust:
+            for every song the reference names it says which copies are confirmed as the
+            reference recording, how the others differ, and which copy has the best real
+            quality. --playlist out.m3u8 also writes each copy that differs, then its
+            reference file. It never changes a file.
+
             manifest lists every file, audio or not, with a type chip per file;
             files the audit has seen before get their real codec and verdict
             chips from the cache. It never decodes, works without ffmpeg, and
@@ -224,8 +232,9 @@ internal static partial class Program
             unreadable; check: corrupt files; audit: a transcode (including a lossy
             file under a lossless name such as .flac), an upsample, corruption, or an
             unreadable file - an honest lossy file is not a problem; dupes: one or more
-            duplicate groups found, or with --diff anything that differs; loudness: a
-            file could not be measured; diff: the files differ), 2 on setup errors (an
+            duplicate groups found, or with --diff anything that differs; imposters: a
+            checked copy is not confirmed as the reference recording; loudness: a file
+            could not be measured; diff: the files differ), 2 on setup errors (an
             unknown or malformed option, no file or folder given, a path that does not
             exist, a folder given together with other paths, or image: the default
             output file already exists).

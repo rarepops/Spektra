@@ -354,8 +354,9 @@ public partial class MainWindow
         }
     }
 
-    /// A Duplicate Detective suspect pair, side by side and aligned the way the --compare --auto
-    /// launch aligns: once both copies have loaded, never on a fixed delay.
+    /// Two copies a tool window asked to compare (a Duplicate Detective suspect pair, or a checked
+    /// copy and its reference file from Imposter Buster), side by side and aligned the way the
+    /// --compare --auto launch aligns: once both copies have loaded, never on a fixed delay.
     private async Task CompareAlignedAsync(string pathA, string pathB)
     {
         if (_vm.OpenComparison(pathA, pathB) is not { } cmp) return;
@@ -406,5 +407,39 @@ public partial class MainWindow
         _manifestWindow = new FolderManifestWindow(manifestVm, _vm.Settings);
         _manifestWindow.Closed += (_, _) => { _manifestWindow = null; _manifestVm = null; };
         _manifestWindow.Show(this);
+    }
+
+    private ImposterWindow? _imposterWindow;
+    private ImposterViewModel? _imposterVm;
+
+    private void OnImposterBusterClicked(object? sender, RoutedEventArgs e) => EnsureImposterWindow();
+
+    /// Opens or focuses the one Imposter Buster window. A seed (the --imposters launch switch)
+    /// becomes its reference folder and folders to check and starts the scan, on a window already
+    /// open too, as Duplicate Detective's seeds do; a null seed opens the remembered folders.
+    private void EnsureImposterWindow(ImposterFolders? seed = null)
+    {
+        if (_imposterWindow is not null) _imposterWindow.Activate();
+        else
+        {
+            if (_vm.Ffmpeg is not { } ffmpeg) return;
+            var vm = new ImposterViewModel(ffmpeg, _vm.Settings);
+            vm.OpenFileRequested += path =>
+            {
+                _vm.OpenFile(path);
+                Activate();
+            };
+            // The view model raises the reference first, so the reference is side A, as the row reads.
+            vm.OpenAlignedCompareRequested += (reference, copy) => _ = CompareAlignedAsync(reference, copy);
+            _imposterVm = vm;
+            _imposterWindow = new ImposterWindow(vm, _vm.Settings);
+            _imposterWindow.Closed += (_, _) => { _imposterWindow = null; _imposterVm = null; };
+            _imposterWindow.Show(this);
+        }
+        if (seed is not null && _imposterVm is { } seeded)
+        {
+            seeded.SetFolders(seed.Reference, seed.Folders);
+            _ = seeded.ScanAsync();
+        }
     }
 }
