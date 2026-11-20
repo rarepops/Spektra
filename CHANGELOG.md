@@ -4,6 +4,21 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-11-20
+
+### Added
+- A `Same name, different audio` section above the columns of Duplicate Detective's `Only differences` view. It lists every pair of files under different folders whose names say one track while the scan did not group their audio, which is the shape a cover sold under the original's name takes (another master or a remix can take it too, so nothing there calls a copy fake). Each pair is labelled by how the first 10 seconds of its two copies line up (`Doesn't line up`, `Can't compare`, `Partly the same`, `Same performance`), the pairs to hear first on top. Double-click a pair to open both copies side by side, and `Save listening playlist…` writes the pairs to hear first as an `.m3u8` playlist for your own player. `Hide name matches` never hides a row there.
+- `spektra-cli dupes --diff A B` prints the same view as text, `--json` or `--csv`: the same-name pairs, the weak matches, what each folder alone holds and what could not be analyzed, with every group the scan is confident is the same recording left out whatever its format or quality. It exits `1` when anything differs, and `--playlist out.m3u8` also writes the pairs to hear first.
+- A new window, `Imposter Buster…` in the Analyze menu (or `spektra --imposters <reference> <folder>...`, which also starts the scan), checks the copies in some folders against a reference folder you trust, such as a rip you made yourself, which a folder diff cannot (a wrong recording both folders hold passes it unseen). Each file is paired with a reference file by Spotify track ID, ISRC or name and graded by its audio into one of six grades; only `The reference recording` confirms a copy, and an ID never does, since a copy can carry its reference file's own ID and hold something else. Four views (`To hear`, `All clear`, `No reference`, `Not in the checked folders`) split the result, and a star marks each song's best real copy, ranked only among the reference file and the confirmed copies. Double-click a copy to open it beside its reference file; `Export` writes the rows as CSV or JSON and the best copies as a plain list, and `Save listening playlist…` the songs to hear as an `.m3u8` playlist. Grades describe evidence, never a verdict, and nothing is changed, moved or deleted.
+- `spektra-cli imposters --reference <reference> <folder>...` prints the same report as text, `--json` or `--csv`, writes the playlist with `--playlist`, and exits `0` when every checked copy is confirmed, `1` when one is not and `2` on a usage or environment error. Analysis, fingerprints and each file's track IDs are kept in the audit cache, so a file seen before is not analyzed or read again, while the grades are worked out afresh on every run; `--fresh` reads everything again. Like the window, it never changes a file.
+
+### Changed
+- The Claude Code plugin teaches Claude Code the new `dupes --diff` and `imposters`: the first for what one folder has that another lacks and for same-named copies that may be another recording, the second for which download is the recording you have and which copy is the best real one, each with its listening playlist. It presents their labels and grades as evidence to judge by ear, never as a verdict that a copy is fake, and still uses its by-hand recipe for the folder question on a `spektra-cli` older than 0.27.0, which rejects `--diff`.
+
+### Fixed
+- A file with a `Mixed` bandwidth verdict (fine overall, with a lossy wall in part of it) now ranks with the proven transcodes in Duplicate Detective and `dupes`, below an honest lossy file, and is described as having a lossy wall in part of the file. The ranking was written before that verdict existed: a lossless file with it ranked with the files whose bandwidth could not be judged, below even the proven transcodes, and was described as having unjudgeable bandwidth although it had been judged, while a lossy one ranked as an honest lossy copy.
+- Duplicate Detective's folder diff finds a folder however its path was typed. It matched each file to its folder by comparing path text, so a folder given relative to the current folder, with `..` in it or with forward slashes (typed into the path box or given on the command line) matched none of its own files: its column read `nothing only here` while it held files only it had, those files were missing from the view, and its name matches could be missed too. Every folder is now read as a full path before the scan starts.
+
 ## [0.26.0] - 2026-11-01
 
 ### Added
@@ -558,7 +573,8 @@ at all; `npm install -g spektra-cli` gives you 0.24.3 or later.
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/rarepops/Spektra/releases/tag/v0.27.0
 [0.26.0]: https://github.com/rarepops/Spektra/releases/tag/v0.26.0
 [0.25.1]: https://github.com/rarepops/Spektra/releases/tag/v0.25.1
 [0.25.0]: https://github.com/rarepops/Spektra/releases/tag/v0.25.0
