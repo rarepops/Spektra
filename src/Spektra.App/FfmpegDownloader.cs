@@ -13,8 +13,8 @@ public static class FfmpegDownloader
     // breaking. Re-pin on a convenient release: run tools/get-ffmpeg.ps1
     // -RecordHash and update the URL/hash here and $Url/$Sha256 in that script.
     private const string PinnedUrl =
-        "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.zip";
-    private const string PinnedSha256 = "db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec";
+        "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.1-essentials_build.zip";
+    private const string PinnedSha256 = "b9bbbb3acece000cbeec994f856649354e52c773807841e78908374b24d658fd";
     private const string LatestUrl =
         "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip";
 

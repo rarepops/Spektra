@@ -20,9 +20,9 @@
 param([switch]$RecordHash, [switch]$RequirePinned)
 
 $ErrorActionPreference = "Stop"
-$Url = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.zip"
+$Url = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.1-essentials_build.zip"
 $LatestUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
-$Sha256 = "db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec"
+$Sha256 = "b9bbbb3acece000cbeec994f856649354e52c773807841e78908374b24d658fd"
 
 $dest = Join-Path $env:LOCALAPPDATA "Spektra\ffmpeg"
 $zip  = Join-Path $env:TEMP "spektra-ffmpeg.zip"
