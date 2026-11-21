@@ -4,6 +4,11 @@ All notable changes to Spektra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.1] - 2026-11-21
+
+### Fixed
+- The `Download ffmpeg` button, offered when Spektra cannot find ffmpeg, checks its download against a checksum again. Spektra pins one ffmpeg build by its checksum, but gyan.dev, where the download comes from, stopped serving the pinned 8.1.2 build when it moved on to 9.1, so the download fell back to gyan.dev's latest build, which Spektra has no checksum for, and installed it unchecked. It now downloads ffmpeg 9.1 and checks it before installing it.
+
 ## [0.27.0] - 2026-11-20
 
 ### Added
@@ -573,7 +578,8 @@ at all; `npm install -g spektra-cli` gives you 0.24.3 or later.
 - Streaming spectrogram engine (Hann window, FFT power spectrum, peak-hold
   aggregation) with a magma colormap.
 
-[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/rarepops/Spektra/compare/v0.27.1...HEAD
+[0.27.1]: https://github.com/rarepops/Spektra/releases/tag/v0.27.1
 [0.27.0]: https://github.com/rarepops/Spektra/releases/tag/v0.27.0
 [0.26.0]: https://github.com/rarepops/Spektra/releases/tag/v0.26.0
 [0.25.1]: https://github.com/rarepops/Spektra/releases/tag/v0.25.1
